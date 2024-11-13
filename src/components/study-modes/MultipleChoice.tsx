@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Box, Button, Typography, Paper, Alert } from '@mui/material';
 import { getUserFlashcards } from '../../services/firestore';
 import type { Flashcard } from '../../types';
+import { capitalizeFirstWord } from '../../utils/helpers';
 
 interface Props {
   card: Flashcard;
   onAnswer: (correct: boolean) => void;
 }
 
-export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }) => {
+export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element => {
   const [selected, setSelected] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [options, setOptions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [canProceed, setCanProceed] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -27,17 +30,17 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }) => {
         if (similarCards.length < 3) {
           // Fallback options if not enough similar cards
           const fallbackOptions = [
-            `Not ${card.englishDefinition}`,
-            `Different from ${card.englishDefinition}`,
-            `Opposite of ${card.englishDefinition}`
+            `${capitalizeFirstWord(`not ${card.englishDefinition}`)}`,
+            `${capitalizeFirstWord(`different from ${card.englishDefinition}`)}`,
+            `${capitalizeFirstWord(`opposite of ${card.englishDefinition}`)}`
           ];
-          setOptions(shuffle([card.englishDefinition, ...fallbackOptions]));
+          setOptions(shuffle([capitalizeFirstWord(card.englishDefinition), ...fallbackOptions]));
         } else {
           // Normal case with similar cards
           const wrongOptions = shuffle(similarCards)
             .slice(0, 3)
-            .map(c => c.englishDefinition);
-          setOptions(shuffle([card.englishDefinition, ...wrongOptions]));
+            .map(c => capitalizeFirstWord(c.englishDefinition));
+          setOptions(shuffle([capitalizeFirstWord(card.englishDefinition), ...wrongOptions]));
         }
         setError(null);
       } catch (err) {
@@ -50,15 +53,34 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }) => {
   }, [card]);
 
   const handleSelect = (option: string) => {
-    if (showResult) return;
+    if (showResult || !option) return;
+    
     setSelected(option);
-    const isCorrect = option === card.englishDefinition;
     setShowResult(true);
-    setTimeout(() => {
-      onAnswer(isCorrect);
-      setSelected(null);
-      setShowResult(false);
-    }, 1500);
+    
+    const correct = capitalizeFirstWord(card.englishDefinition) === option;
+    setIsCorrect(correct);
+    
+    if (correct) {
+      // Move to next question automatically if correct
+      setTimeout(() => {
+        onAnswer(true);
+        setSelected(null);
+        setShowResult(false);
+        setOptions([]);
+      }, 1000);
+    } else {
+      // Show correct answer and wait for user to proceed
+      setCanProceed(true);
+    }
+  };
+
+  const handleProceed = () => {
+    onAnswer(false);
+    setSelected(null);
+    setShowResult(false);
+    setOptions([]);
+    setCanProceed(false);
   };
 
   return (
@@ -83,7 +105,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }) => {
                 onClick={() => handleSelect(option)}
                 color={
                   showResult
-                    ? option === card.englishDefinition
+                    ? option === capitalizeFirstWord(card.englishDefinition)
                       ? 'success'
                       : selected === option
                       ? 'error'
@@ -95,6 +117,17 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }) => {
                 {option}
               </Button>
             ))}
+            
+            {showResult && !isCorrect && canProceed && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleProceed}
+                sx={{ mt: 2 }}
+              >
+                Continue
+              </Button>
+            )}
           </Box>
         </>
       )}

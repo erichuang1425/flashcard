@@ -108,12 +108,27 @@ export const NavBar: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
         PaperProps={{
-          sx: { mt: 1 }
+          elevation: 3,
+          sx: {
+            mt: 1,
+            minWidth: 200,
+            '& .MuiMenuItem-root': {
+              px: 2,
+              py: 1
+            }
+          }
         }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <MenuItem onClick={handleProfileClick}>Profile</MenuItem>
-        <MenuItem onClick={handleSettingsClick}>Settings</MenuItem>
-        <MenuItem onClick={handleLogout}>Logout</MenuItem>
+        <MenuItem onClick={handleProfileClick}>
+          <ListItemIcon>
+            <Avatar sx={{ width: 24, height: 24 }}>
+              {user?.email?.[0]?.toUpperCase() || 'G'}
+            </Avatar>
+          </ListItemIcon>
+          Profile
+        </MenuItem>
         <MenuItem onClick={handleSettingsClick}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
@@ -121,7 +136,7 @@ export const NavBar: React.FC = () => {
           Settings
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => { handleMenuClose(); signOut(); }}>
+        <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>

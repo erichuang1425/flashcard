@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Typography, Box, Button, Tooltip } from '@mui/material';
+import { Card, CardContent, Typography, Box, Button, Tooltip, useMediaQuery, Theme } from '@mui/material';
 import { Flashcard } from '../types';
 import { capitalizeFirstWord } from '../utils/helpers';
 
@@ -11,17 +11,17 @@ interface FlashCardProps {
 
 export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer = false }) => {
   const ratingLabels: { [key: number]: string } = {
-    1: '😟 Again',
-    2: '😐 Hard',
-    3: '🙂 Good',
-    4: '😊 Easy',
-    5: '🎯 Perfect'
+    1: '😟',
+    2: '😐',
+    3: '🙂', 
+    4: '😊',
+    5: '🎯'
   };
 
   return (
     <Box sx={{
       width: '100%',
-      height: { xs: '400px', sm: '500px' }, // Reduced height on mobile
+      height: { xs: '400px', sm: '500px' }, 
       position: 'relative',
       perspective: '1500px'
     }}>
@@ -43,14 +43,14 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          p: { xs: 2, sm: 3 }, // Adjusted padding for mobile
+          p: { xs: 2, sm: 3 }, 
           position: 'relative',
         }}>
           {/* Word is always visible */}
           <Typography 
             variant="h3" 
             sx={{
-              fontSize: { xs: '2rem', sm: '3.5rem' }, // Smaller font on mobile
+              fontSize: { xs: '2rem', sm: '3.5rem' }, 
               fontWeight: 700,
               mb: 2,
               textAlign: 'center',
@@ -67,10 +67,11 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
             width: '100%',
             textAlign: 'center',
             opacity: showAnswer ? 1 : 0,
-            transform: showAnswer ? 'translateY(0)' : 'translateY(20px)',
-            transition: 'all 0.3s ease',
+            transition: 'opacity 0.3s ease',
             visibility: showAnswer ? 'visible' : 'hidden',
-            padding: { xs: '0 8px', sm: 0 }, // Add padding on mobile
+            padding: { xs: '0 8px', sm: 0 },
+            position: 'relative',
+            transform: 'none'
           }}>
             <Typography 
               variant="h6"
@@ -116,12 +117,12 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
             maxWidth: '600px',
             margin: '0 auto',
             '& .MuiButton-root': {
-              minHeight: { xs: '44px', sm: 'auto' }, // Smaller height on mobile
-              fontSize: { xs: '0.875rem', sm: '1rem' }, // Smaller font on mobile
+              minHeight: { xs: '44px', sm: 'auto' }, 
+              fontSize: { xs: '0.875rem', sm: '1rem' }, 
               whiteSpace: 'nowrap',
             },
             '& .MuiButton-root:nth-of-type(4), & .MuiButton-root:nth-of-type(5)': {
-              gridColumn: { xs: 'span 3/2', sm: 'auto' }, // Center last two buttons on mobile
+              gridColumn: { xs: 'span 3/2', sm: 'auto' },
             }
           }}>
             {[1, 2, 3, 4, 5].map((rating) => (
@@ -132,11 +133,20 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
                   color={rating >= 4 ? 'success' : rating >= 3 ? 'primary' : 'error'}
                   sx={{
                     py: { xs: 1.5, sm: 2 },
-                    fontSize: { xs: '1rem', sm: '1.1rem' },
+                    fontSize: { xs: '1.5rem', sm: '1.1rem' },
                     fontWeight: 600,
                   }}
                 >
-                  {ratingLabels[rating]}
+                  {useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'))
+                    ? ratingLabels[rating]
+                    : `${ratingLabels[rating]} ${
+                        rating === 1 ? 'Again' :
+                        rating === 2 ? 'Hard' :
+                        rating === 3 ? 'Good' :
+                        rating === 4 ? 'Easy' :
+                        'Perfect'
+                      }`
+                  }
                 </Button>
               </Tooltip>
             ))}
