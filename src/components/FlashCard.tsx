@@ -21,7 +21,7 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
   return (
     <Box sx={{
       width: '100%',
-      height: '500px',
+      height: { xs: '400px', sm: '500px' }, // Reduced height on mobile
       position: 'relative',
       perspective: '1500px'
     }}>
@@ -43,14 +43,14 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          p: 3,
+          p: { xs: 2, sm: 3 }, // Adjusted padding for mobile
           position: 'relative',
         }}>
           {/* Word is always visible */}
           <Typography 
             variant="h3" 
             sx={{
-              fontSize: { xs: '2.5rem', sm: '3.5rem' },
+              fontSize: { xs: '2rem', sm: '3.5rem' }, // Smaller font on mobile
               fontWeight: 700,
               mb: 2,
               textAlign: 'center',
@@ -70,6 +70,7 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
             transform: showAnswer ? 'translateY(0)' : 'translateY(20px)',
             transition: 'all 0.3s ease',
             visibility: showAnswer ? 'visible' : 'hidden',
+            padding: { xs: '0 8px', sm: 0 }, // Add padding on mobile
           }}>
             <Typography 
               variant="h6"
@@ -107,12 +108,21 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
         {onRating && showAnswer && (
           <Box sx={{ 
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: 1,
-            p: 2,
+            gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(5, 1fr)' }, // 3 columns on mobile
+            gridTemplateRows: { xs: 'auto auto', sm: 'auto' }, // 2 rows on mobile
+            gap: { xs: 1, sm: 1.5 },
+            p: { xs: 1.5, sm: 2 },
             width: '100%',
             maxWidth: '600px',
             margin: '0 auto',
+            '& .MuiButton-root': {
+              minHeight: { xs: '44px', sm: 'auto' }, // Smaller height on mobile
+              fontSize: { xs: '0.875rem', sm: '1rem' }, // Smaller font on mobile
+              whiteSpace: 'nowrap',
+            },
+            '& .MuiButton-root:nth-of-type(4), & .MuiButton-root:nth-of-type(5)': {
+              gridColumn: { xs: 'span 3/2', sm: 'auto' }, // Center last two buttons on mobile
+            }
           }}>
             {[1, 2, 3, 4, 5].map((rating) => (
               <Tooltip key={rating} title={ratingLabels[rating]} arrow>
