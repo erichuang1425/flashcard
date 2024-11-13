@@ -12,6 +12,7 @@ import type { StudyMode } from '../types';
 import { FillInBlanks } from '../components/study-modes/FillInBlanks';
 import { MatchingGame } from '../components/study-modes/MatchingGame';
 import { MultipleChoice } from '../components/study-modes/MultipleChoice';
+import { updateUserXP } from '../services/gamification';
 
 export const Study: React.FC = () => {
   const { user } = useAuth();
@@ -72,7 +73,10 @@ export const Study: React.FC = () => {
 
   const handleAnswer = async (isCorrect: boolean) => {
     if (!user || currentIndex >= cards.length) return;
-    // Convert boolean to rating: correct = 4, incorrect = 2
+    
+    const xpGained = isCorrect ? 8 : 3;
+    await updateUserXP(user.uid, xpGained);
+    
     await handleRating(isCorrect ? 4 : 2);
   };
 
@@ -84,6 +88,10 @@ export const Study: React.FC = () => {
     
     const { nextReview, newDifficulty } = calculateNextReview(rating, card.difficulty);
     await updateCardReview(user.uid, card.id, nextReview, newDifficulty);
+
+    // Add XP based on rating
+    const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
+    await updateUserXP(user.uid, xpGained);
 
     setProgress(prev => ({
       correct: prev.correct + (rating >= 3 ? 1 : 0),
@@ -100,7 +108,12 @@ export const Study: React.FC = () => {
     }
   };
 
-  const handleMatchingComplete = (correct: number) => {
+  const handleMatchingComplete = async (correct: number) => {
+    if (!user) return;
+    
+    const xpGained = correct * 5;
+    await updateUserXP(user.uid, xpGained);
+    
     setCurrentIndex(prev => prev + 6);
     setProgress(prev => ({
       ...prev,
