@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "photo-scanner1425"
+  },
+  "targets": {
+    "photo-scanner1425": {
+      "hosting": {
+        "vocabmaster1425": [
+          "vocabmaster1425"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
