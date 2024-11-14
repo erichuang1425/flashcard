@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Box, Typography, Button, Paper, CircularProgress, SpeedDial, SpeedDialAction, useMediaQuery, useTheme, alpha } from '@mui/material';
+import { Box, Typography, Button, Paper, CircularProgress, useMediaQuery, useTheme, alpha } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -28,41 +28,24 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
 
   const totalTime = pomodoro.isBreak ? 5 * 60 : 25 * 60;
 
-  const mobileActions = [
-    { icon: pomodoro.isActive ? <PauseIcon /> : <PlayArrowIcon />, name: pomodoro.isActive ? 'Pause' : 'Start', action: pomodoro.isActive ? pomodoro.pause : pomodoro.start },
-    { icon: <RestartAltIcon />, name: 'Reset', action: pomodoro.reset }
-  ];
-
-  const renderMobileControls = () => (
-    <SpeedDial
-      ariaLabel="Pomodoro Controls"
-      sx={{ position: 'fixed', bottom: 16, right: 16 }}
-      icon={<TimerIcon />}
-    >
-      {mobileActions.map((action) => (
-        <SpeedDialAction
-          key={action.name}
-          icon={action.icon}
-          tooltipTitle={action.name}
-          onClick={action.action}
-        />
-      ))}
-    </SpeedDial>
-  );
-
   return (
     <Paper sx={{ 
       p: compact ? 1 : { xs: 2, sm: 3 }, 
       textAlign: 'center',
       position: 'relative',
       overflow: 'hidden',
-      minHeight: compact ? 'auto' : { xs: '200px', sm: 'auto' },
+      minHeight: compact ? 'auto' : { xs: '180px', sm: 'auto' },
       backgroundColor: theme => pomodoro.isActive ? alpha(theme.palette.primary.main, 0.05) : 'background.paper',
       transition: 'all 0.3s ease',
-      borderRadius: 2
+      borderRadius: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 2
     }}>
       {!compact && (
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6">
           {pomodoro.isBreak ? 'Break Time' : 'Focus Time'}
         </Typography>
       )}
@@ -70,7 +53,8 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
       <Box sx={{ 
         position: 'relative', 
         display: 'inline-flex',
-        transform: compact ? 'scale(0.8)' : 'none'
+        transform: compact ? 'scale(0.8)' : 'none',
+        m: compact ? '-8px' : 0
       }}>
         <CircularProgress
           variant="determinate"
@@ -95,25 +79,31 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
         </Box>
       </Box>
 
-      {!isMobile && !compact ? (
-        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 1 }}>
-          <Button
-            variant="contained"
-            color={pomodoro.isBreak ? "success" : "primary"}
-            onClick={pomodoro.isActive ? pomodoro.pause : pomodoro.start}
-            startIcon={pomodoro.isActive ? <PauseIcon /> : <PlayArrowIcon />}
-          >
-            {pomodoro.isActive ? 'Pause' : 'Start'}
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={pomodoro.reset}
-            startIcon={<RestartAltIcon />}
-          >
-            Reset
-          </Button>
-        </Box>
-      ) : renderMobileControls()}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: 1,
+        width: '100%',
+        mt: compact ? 0 : 1
+      }}>
+        <Button
+          variant="contained"
+          color={pomodoro.isBreak ? "success" : "primary"}
+          onClick={pomodoro.isActive ? pomodoro.pause : pomodoro.start}
+          startIcon={pomodoro.isActive ? <PauseIcon /> : <PlayArrowIcon />}
+          size={compact ? "small" : "medium"}
+        >
+          {pomodoro.isActive ? 'Pause' : 'Start'}
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={pomodoro.reset}
+          startIcon={<RestartAltIcon />}
+          size={compact ? "small" : "medium"}
+        >
+          Reset
+        </Button>
+      </Box>
     </Paper>
   );
 };

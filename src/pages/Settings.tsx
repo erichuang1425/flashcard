@@ -34,6 +34,7 @@ interface UserPreferences {
   pomodoroSettings: {
     workDuration: number;
     breakDuration: number;
+    autoStartBreak: boolean;
   };
 }
 
@@ -49,7 +50,8 @@ export const Settings: React.FC = () => {
     language: 'en',
     pomodoroSettings: {
       workDuration: 25,
-      breakDuration: 5
+      breakDuration: 5,
+      autoStartBreak: false
     }
   });
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
@@ -201,37 +203,57 @@ export const Settings: React.FC = () => {
             <Typography variant="h6">Pomodoro Settings</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <FormControl fullWidth margin="normal">
-              <TextField
-                label="Work Duration (minutes)"
-                type="number"
-                value={preferences.pomodoroSettings.workDuration}
-                onChange={(e) => setPreferences(prev => ({
-                  ...prev,
-                  pomodoroSettings: {
-                    ...prev.pomodoroSettings,
-                    workDuration: parseInt(e.target.value)
-                  }
-                }))}
-                inputProps={{ min: 5, max: 60 }}
-              />
-            </FormControl>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+              <FormControl fullWidth margin="normal">
+                <TextField
+                  label="Work Duration (minutes)"
+                  type="number"
+                  value={preferences.pomodoroSettings.workDuration}
+                  onChange={(e) => setPreferences(prev => ({
+                    ...prev,
+                    pomodoroSettings: {
+                      ...prev.pomodoroSettings,
+                      workDuration: Math.min(Math.max(Number(e.target.value), 5), 60)
+                    }
+                  }))}
+                  inputProps={{ min: 5, max: 60 }}
+                  helperText="Time range: 5-60 minutes"
+                />
+              </FormControl>
 
-            <FormControl fullWidth margin="normal">
-              <TextField
-                label="Break Duration (minutes)"
-                type="number"
-                value={preferences.pomodoroSettings.breakDuration}
-                onChange={(e) => setPreferences(prev => ({
-                  ...prev,
-                  pomodoroSettings: {
-                    ...prev.pomodoroSettings,
-                    breakDuration: parseInt(e.target.value)
-                  }
-                }))}
-                inputProps={{ min: 1, max: 30 }}
+              <FormControl fullWidth margin="normal">
+                <TextField
+                  label="Break Duration (minutes)"
+                  type="number"
+                  value={preferences.pomodoroSettings.breakDuration}
+                  onChange={(e) => setPreferences(prev => ({
+                    ...prev,
+                    pomodoroSettings: {
+                      ...prev.pomodoroSettings,
+                      breakDuration: Math.min(Math.max(Number(e.target.value), 1), 30)
+                    }
+                  }))}
+                  inputProps={{ min: 1, max: 30 }}
+                  helperText="Time range: 1-30 minutes"
+                />
+              </FormControl>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={preferences.pomodoroSettings.autoStartBreak}
+                    onChange={(e) => setPreferences(prev => ({
+                      ...prev,
+                      pomodoroSettings: {
+                        ...prev.pomodoroSettings,
+                        autoStartBreak: e.target.checked
+                      }
+                    }))}
+                  />
+                }
+                label="Auto-start breaks"
               />
-            </FormControl>
+            </Paper>
           </AccordionDetails>
         </Accordion>
 

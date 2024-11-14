@@ -15,7 +15,6 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import TimerIcon from '@mui/icons-material/Timer';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -43,7 +42,6 @@ export const NavBar: React.FC = () => {
     { text: 'Study', icon: <SchoolIcon />, path: '/study' },
     { text: 'Worksheets', icon: <AssignmentIcon />, path: '/worksheets' },
     { text: 'Import', icon: <CloudUploadIcon />, path: '/import' },
-    { text: 'Study Timer', icon: <TimerIcon />, path: '/timer' },
   ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
