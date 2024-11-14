@@ -7,6 +7,7 @@ import { CategoryBrowser } from '../components/CategoryBrowser';
 import { WordGrid } from '../components/WordGrid';
 import { getCategories, getVocabularyWords } from '../services/firestore';
 import type { Category, VocabularyWord } from '../types';
+import { useI18n } from '../i18n/I18nContext';
 
 export const Library: React.FC = () => {
   const theme = useTheme();
@@ -17,6 +18,7 @@ export const Library: React.FC = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const ITEMS_PER_PAGE = 20;
+  const { t } = useI18n();
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -59,7 +61,7 @@ export const Library: React.FC = () => {
             mb: { xs: 1, sm: 2 }
           }}
         >
-          Library
+          {t('library.title')}
         </Typography>
         
         <Paper sx={{ 
@@ -73,8 +75,8 @@ export const Library: React.FC = () => {
             onChange={(_, newValue) => setView(newValue)}
             sx={{ borderBottom: 1, borderColor: 'divider' }}
           >
-            <Tab label="Grid View" value="grid" />
-            <Tab label="Categories" value="category" />
+            <Tab label={t('library.views.grid')} value="grid" />
+            <Tab label={t('library.views.categories')} value="category" />
           </Tabs>
         </Paper>
 

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Tabs, Tab } from '@mui/material';
+import { Box, Tabs, Tab, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import {
   School as SchoolIcon,
   CheckBox as CheckBoxIcon,
@@ -7,10 +7,12 @@ import {
   Compare as CompareIcon
 } from '@mui/icons-material';
 import type { StudyMode } from '../../types';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface StudyModeSelectorProps {
   mode: StudyMode;
   onModeChange: (mode: StudyMode) => void;
+  modes?: { value: StudyMode; label: string; icon?: JSX.Element }[];
 }
 
 const modes: { value: StudyMode; label: string; icon: JSX.Element }[] = [
@@ -20,72 +22,32 @@ const modes: { value: StudyMode; label: string; icon: JSX.Element }[] = [
   { value: 'matching', label: 'Matching', icon: <CompareIcon /> }
 ];
 
-export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({ mode, onModeChange }) => {
-  const currentIndex = useMemo(() => modes.findIndex(m => m.value === mode), [mode]);
+export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({ 
+  mode, 
+  onModeChange,
+  modes: customModes 
+}) => {
+  const { t } = useI18n();
+  const effectiveModes = customModes || modes;
+  const currentIndex = useMemo(() => effectiveModes.findIndex(m => m.value === mode), [mode, effectiveModes]);
   
   const handleChange = (_: React.SyntheticEvent, newValue: number) => {
-    onModeChange(modes[newValue].value);
+    onModeChange(effectiveModes[newValue].value);
   };
 
   return (
-    <Box sx={{ 
-      width: '100%',
-      '& .MuiTabs-root': {
-        minHeight: { xs: '72px', sm: '64px' }
-      },
-      '& .MuiTab-root': {
-        minHeight: { xs: '72px', sm: '64px' },
-        padding: { xs: '12px 8px', sm: '12px 16px' },
-        flexDirection: { xs: 'column', sm: 'row' },
-        gap: { xs: 1, sm: 2 },
-        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-        '& .MuiSvgIcon-root': {
-          fontSize: { xs: '1.5rem', sm: '1.25rem' },
-          mb: { xs: 0.5, sm: 0 }
-        },
-        '&.Mui-selected': {
-          backgroundColor: 'action.selected',
-          borderRadius: 1
-        },
-        transition: 'all 0.2s ease-in-out'
-      },
-      '& .MuiTabs-indicator': {
-        height: 3,
-        borderRadius: '3px 3px 0 0'
-      },
-      '& .MuiTabScrollButton-root': {
-        '&.Mui-disabled': { opacity: 0.3 },
-        width: { xs: 28, sm: 40 }
-      }
-    }}>
-      <Tabs
-        value={currentIndex === -1 ? 0 : currentIndex}
-        onChange={handleChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        allowScrollButtonsMobile
-        aria-label="study mode tabs"
-        sx={{
-          borderBottom: 1,
-          borderColor: 'divider',
-          pb: { xs: 0.5, sm: 0 }
-        }}
+    <FormControl fullWidth>
+      <InputLabel>{t('study.modes.title')}</InputLabel>
+      <Select
+        value={mode}
+        onChange={(e) => onModeChange(e.target.value as StudyMode)}
+        label={t('study.modes.title')}
       >
-        {modes.map((m, index) => (
-          <Tab
-            key={m.value}
-            icon={m.icon}
-            label={m.label}
-            value={index}
-            sx={{
-              '&:hover': {
-                backgroundColor: 'action.hover',
-                borderRadius: 1
-              }
-            }}
-          />
-        ))}
-      </Tabs>
-    </Box>
+        <MenuItem value="flashcard">{t('study.modes.flashcard')}</MenuItem>
+        <MenuItem value="multipleChoice">{t('study.modes.multipleChoice')}</MenuItem>
+        <MenuItem value="matching">{t('study.modes.matching')}</MenuItem>
+        <MenuItem value="fillBlanks">{t('study.modes.fillBlanks')}</MenuItem>
+      </Select>
+    </FormControl>
   );
 };

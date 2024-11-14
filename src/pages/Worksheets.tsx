@@ -25,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { initializePdfMake, generateWorksheetPDF } from '../services/pdfService';
 import { generateDOCX, downloadDOCX } from '../services/exportService';
+import { useI18n } from '../i18n/I18nContext';
 
 export const Worksheets: React.FC = () => {
   const { user } = useAuth();
@@ -38,13 +39,14 @@ export const Worksheets: React.FC = () => {
   } | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<number>(0);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   useEffect(() => {
     const loadWorksheets = async () => {
       if (user) {
         const userWorksheets = await getUserWorksheets(user.uid);
         // Convert Firestore Timestamps to JS Dates
-        const processedWorksheets = userWorksheets.map(worksheet => ({
+        const processedWorksheets = userWorksheets.map((worksheet: Worksheet) => ({
           ...worksheet,
           createdAt: worksheet.createdAt instanceof Date ? 
             worksheet.createdAt : 
@@ -160,6 +162,11 @@ export const Worksheets: React.FC = () => {
     }
   };
 
+  const formatLastAttempted = (worksheet: Worksheet) => {
+    if (!worksheet.stats?.lastAttempted) return 'Never';
+    return format(new Date(worksheet.stats.lastAttempted), 'PPp');
+  };
+
   return (
     <Container maxWidth="lg" sx={{ 
       minHeight: '100vh',
@@ -178,14 +185,14 @@ export const Worksheets: React.FC = () => {
           gap: { xs: 2, sm: 0 }
         }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            My Worksheets
+            {t('worksheets.title')}
           </Typography>
           <Button
             variant="contained"
             startIcon={<AssignmentIcon />}
             onClick={() => window.location.hash = '#create'}
           >
-            Create New
+            {t('worksheets.createNew')}
           </Button>
         </Box>
 
@@ -214,7 +221,17 @@ export const Worksheets: React.FC = () => {
                     </IconButton>
                   }
                   title={worksheet.title || `Worksheet ${worksheet.templateId}`}
-                  subheader={format(new Date(worksheet.createdAt), 'MMM d, yyyy')}
+                  subheader={
+                    <Typography variant="caption" color="text.secondary">
+                      {t('worksheets.labels.status', {
+                        values: {
+                          status: worksheet.stats?.completed ? 
+                            t('worksheets.labels.inProgress') : 
+                            t('worksheets.labels.notStarted')
+                        }
+                      })}
+                    </Typography>
+                  }
                 />
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box sx={{ mb: 2 }}>
@@ -227,14 +244,14 @@ export const Worksheets: React.FC = () => {
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
                     <Chip
                       size="small"
-                      label={`${worksheet.stats?.completed || 0}/${worksheet.stats?.total || worksheet.questions?.length || 0} Completed`}
+                      label={t('study.progress.progressCount', {
+                        values: {
+                          completed: worksheet.stats?.completed || 0,
+                          total: worksheet.stats?.total || worksheet.questions?.length || 0
+                        }
+                      })}
                       color="primary"
                       variant="outlined"
-                    />
-                    <Chip
-                      size="small"
-                      label={worksheet.difficulty}
-                      color={getDifficultyColor(worksheet.difficulty)}
                     />
                   </Box>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -247,6 +264,31 @@ export const Worksheets: React.FC = () => {
                         sx={{ fontSize: '0.75rem' }}
                       />
                     ))}
+                  </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {t('worksheets.labels.totalQuestions', {
+                        values: {
+                          count: worksheet.questions.length
+                        }
+                      })}
+                    </Typography>
+                    {formatLastAttempted(worksheet) && (
+                      <Typography variant="body2" color="text.secondary">
+                        {t('worksheets.labels.lastAttempted', {
+                          values: { 
+                            date: formatLastAttempted(worksheet) 
+                          }
+                        })}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      {t('worksheets.labels.timeEstimate', {
+                        values: {
+                          time: worksheet.timeLimit
+                        }
+                      })}
+                    </Typography>
                   </Box>
                 </CardContent>
                 <Divider />

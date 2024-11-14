@@ -109,20 +109,17 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
         {onRating && showAnswer && (
           <Box sx={{ 
             display: 'grid',
-            gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(5, 1fr)' }, // 3 columns on mobile
-            gridTemplateRows: { xs: 'auto auto', sm: 'auto' }, // 2 rows on mobile
+            gridTemplateColumns: 'repeat(5, 1fr)', // Always 5 columns
             gap: { xs: 1, sm: 1.5 },
             p: { xs: 1.5, sm: 2 },
             width: '100%',
-            maxWidth: '600px',
+            maxWidth: '800px', // Increased max-width to accommodate all buttons
             margin: '0 auto',
             '& .MuiButton-root': {
               minHeight: { xs: '44px', sm: 'auto' }, 
               fontSize: { xs: '0.875rem', sm: '1rem' }, 
               whiteSpace: 'nowrap',
-            },
-            '& .MuiButton-root:nth-of-type(4), & .MuiButton-root:nth-of-type(5)': {
-              gridColumn: { xs: 'span 3/2', sm: 'auto' },
+              padding: { xs: '6px 8px', sm: '6px 16px' }, // Reduced padding on mobile
             }
           }}>
             {[1, 2, 3, 4, 5].map((rating) => (

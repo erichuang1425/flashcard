@@ -6,12 +6,18 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import TimerIcon from '@mui/icons-material/Timer';
 import { useSettings } from '../context/SettingsContext';
 import { useUserPreferences } from '../hooks/useUserPreferences';
+import { useI18n } from '../i18n/I18nContext';
 
 interface PomodoroTimerProps {
   compact?: boolean;
+  miniature?: boolean; // Add new prop for miniature view
 }
 
-export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false }) => {
+export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ 
+  compact = false,
+  miniature = false 
+}) => {
+  const { t } = useI18n();
   const { pomodoro } = useSettings();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -29,32 +35,51 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
   const totalTime = pomodoro.isBreak ? 5 * 60 : 25 * 60;
 
   return (
-    <Paper sx={{ 
-      p: compact ? 1 : { xs: 2, sm: 3 }, 
-      textAlign: 'center',
-      position: 'relative',
-      overflow: 'hidden',
-      minHeight: compact ? 'auto' : { xs: '180px', sm: 'auto' },
-      backgroundColor: theme => pomodoro.isActive ? alpha(theme.palette.primary.main, 0.05) : 'background.paper',
-      transition: 'all 0.3s ease',
-      borderRadius: 2,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 2
-    }}>
-      {!compact && (
+    <Paper 
+      className="pomodoro-timer"
+      sx={{ 
+        p: miniature ? 1 : compact ? 1 : { xs: 2, sm: 3 }, 
+        textAlign: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        minHeight: miniature ? 'auto' : compact ? 'auto' : { xs: '180px', sm: 'auto' },
+        backgroundColor: theme => pomodoro.isActive 
+          ? alpha(theme.palette.primary.main, miniature ? 0.1 : 0.05) 
+          : 'background.paper',
+        transition: 'all 0.3s ease',
+        borderRadius: miniature ? 1 : 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: miniature ? 0.5 : 2,
+        cursor: miniature ? 'pointer' : 'default',
+        ...(miniature && {
+          '& .MuiTypography-root': {
+            fontSize: '0.75rem'
+          },
+          '& .MuiCircularProgress-root': {
+            width: '36px !important',
+            height: '36px !important'
+          },
+          '& .MuiButton-root': {
+            minWidth: 'unset',
+            padding: '4px 8px'
+          }
+        })
+      }}
+    >
+      {!compact && !miniature && (
         <Typography variant="h6">
-          {pomodoro.isBreak ? 'Break Time' : 'Focus Time'}
+          {pomodoro.isBreak ? t('study.pomodoro.break') : t('study.pomodoro.focus')}
         </Typography>
       )}
       
       <Box sx={{ 
         position: 'relative', 
         display: 'inline-flex',
-        transform: compact ? 'scale(0.8)' : 'none',
-        m: compact ? '-8px' : 0
+        transform: miniature ? 'scale(0.5)' : compact ? 'scale(0.8)' : 'none',
+        m: miniature ? '-12px' : compact ? '-8px' : 0
       }}>
         <CircularProgress
           variant="determinate"
@@ -79,31 +104,33 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
         </Box>
       </Box>
 
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        gap: 1,
-        width: '100%',
-        mt: compact ? 0 : 1
-      }}>
-        <Button
-          variant="contained"
-          color={pomodoro.isBreak ? "success" : "primary"}
-          onClick={pomodoro.isActive ? pomodoro.pause : pomodoro.start}
-          startIcon={pomodoro.isActive ? <PauseIcon /> : <PlayArrowIcon />}
-          size={compact ? "small" : "medium"}
-        >
-          {pomodoro.isActive ? 'Pause' : 'Start'}
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={pomodoro.reset}
-          startIcon={<RestartAltIcon />}
-          size={compact ? "small" : "medium"}
-        >
-          Reset
-        </Button>
-      </Box>
+      {!miniature && (
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: 1,
+          width: '100%',
+          mt: compact ? 0 : 1
+        }}>
+          <Button
+            variant="contained"
+            color={pomodoro.isBreak ? "success" : "primary"}
+            onClick={pomodoro.isActive ? pomodoro.pause : pomodoro.start}
+            startIcon={pomodoro.isActive ? <PauseIcon /> : <PlayArrowIcon />}
+            size={compact ? "small" : "medium"}
+          >
+            {pomodoro.isActive ? t('study.pomodoro.pause') : t('study.pomodoro.start')}
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={pomodoro.reset}
+            startIcon={<RestartAltIcon />}
+            size={compact ? "small" : "medium"}
+          >
+            {t('study.pomodoro.reset')}
+          </Button>
+        </Box>
+      )}
     </Paper>
   );
 };

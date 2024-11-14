@@ -16,6 +16,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { Flashcard } from '../types';
+import { useI18n } from '../i18n/I18nContext';
 
 interface StudyStats {
   total: number;
@@ -29,11 +30,13 @@ interface StudyStats {
   totalInDatabase: number;
   remainingToStudy: number;
   totalStudied: number;
+  error?: string;
 }
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useI18n();
   const [stats, setStats] = useState<StudyStats>({
     total: 0,
     dueToday: 0,
@@ -56,51 +59,32 @@ export const Home: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
+    
     const loadStats = async () => {
       if (!user) return;
+      setLoading(true);
       
       try {
-        setLoading(true);
-        const [cards, studyStats, totalStats, masteredCount] = await Promise.all([
-          getUserFlashcards(user.uid),
+        // Get all required data in parallel using new counter system
+        const [studyStats, cardsCount] = await Promise.all([
           getUserStudyStats(user.uid),
-          getTotalCardsCount(user.uid),
-          getMasteryCount(user.uid)
+          getTotalCardsCount(user.uid)
         ]);
 
         if (!mounted) return;
 
-        const now = new Date();
-        const dueToday = cards.filter(card => {
-          if (!card.nextReview) return true;
-          const nextReview = card.nextReview instanceof Date 
-            ? card.nextReview 
-            : new Date(card.nextReview);
-          return nextReview <= now;
-        }).length;
-
-        // Map Firestore data to component state
         setStats({
-          total: totalStats.totalCards,
-          dueToday,
-          streak: studyStats.streak,
-          mastered: masteredCount,
-          averageAccuracy: studyStats.averageAccuracy,
-          studyMinutes: studyStats.totalStudyMinutes || studyStats.studyMinutes || 0,
-          weeklyProgress: studyStats.weeklyProgress,
-          weeklyGoal: studyStats.weeklyStudyGoal,
-          totalInDatabase: totalStats.totalCards,
-          remainingToStudy: totalStats.remainingCards,
-          totalStudied: studyStats.totalStudySessions
-        });
-
-        // Debug info
-        console.debug('Raw Data:', {
-          cards: cards.length,
-          studyStats,
-          totalStats,
-          masteredCount,
-          dueToday
+          total: cardsCount.totalCards,
+          dueToday: cardsCount.remainingCards,
+          streak: studyStats?.streak || 0,
+          mastered: studyStats?.masteredCards || 0,
+          averageAccuracy: studyStats?.averageAccuracy || 0,
+          studyMinutes: studyStats?.totalStudyMinutes || 0,
+          weeklyProgress: studyStats?.weeklyStudyMinutes || 0,
+          weeklyGoal: studyStats?.weeklyStudyGoal || 60,
+          totalInDatabase: cardsCount.totalCards,
+          remainingToStudy: cardsCount.remainingCards,
+          totalStudied: studyStats?.totalStudySessions || 0
         });
 
       } catch (error) {
@@ -115,11 +99,11 @@ export const Home: React.FC = () => {
     };
 
     loadStats();
-    // Set up auto-refresh every 5 minutes
+    // Refresh every 5 minutes
     const refreshInterval = setInterval(loadStats, 5 * 60 * 1000);
     
-    return () => { 
-      mounted = false;
+    return () => {
+      mounted = false; 
       clearInterval(refreshInterval);
     };
   }, [user]);
@@ -162,10 +146,10 @@ export const Home: React.FC = () => {
         <Box sx={{ mb: { xs: 2, sm: 3 }, mt: 1 }}>
           <Box flex={1}>
             <Typography variant="h4" gutterBottom>
-              Welcome back, {user?.displayName || 'Student'}!
+              {t('home.welcome')}, {user?.displayName || 'Student'}!
             </Typography>
             <Typography variant="subtitle1" color="text.secondary">
-              Total cards: {stats.totalInDatabase} ({stats.remainingToStudy} remaining to study)
+              {t('home.stats.totalCards')}: {stats.totalInDatabase} ({stats.remainingToStudy} {t('home.stats.remainingToStudy')})
             </Typography>
           </Box>
         </Box>
@@ -189,7 +173,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Due Today
+                  {t('home.stats.dueToday')}
                 </Typography>
               </CardContent>
             </Card>
@@ -211,7 +195,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Mastered
+                  {t('home.stats.mastered')}
                 </Typography>
               </CardContent>
             </Card>
@@ -233,7 +217,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Total Studied
+                  {t('home.stats.totalStudied')}
                 </Typography>
               </CardContent>
             </Card>
@@ -255,7 +239,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Day Streak
+                  {t('home.stats.streak')}
                 </Typography>
               </CardContent>
             </Card>
@@ -285,7 +269,7 @@ export const Home: React.FC = () => {
               boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}20`
             }}
           >
-            Start Review ({stats.dueToday} cards)
+            {t('home.buttons.startReview')} ({stats.dueToday} {t('home.cards')})
           </Button>
           <Button
             variant="outlined"
@@ -298,7 +282,7 @@ export const Home: React.FC = () => {
               fontSize: '1.1rem'
             }}
           >
-            Add New Cards
+            {t('home.buttons.addNewCards')}
           </Button>
         </Box>
 
@@ -314,11 +298,11 @@ export const Home: React.FC = () => {
                   borderRadius: 3
                 }
               }}>
-                <Typography variant="h6" gutterBottom>Progress Overview</Typography>
+                <Typography variant="h6" gutterBottom>{t('home.progressOverview')}</Typography>
                 <Box sx={{ mb: 4 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Mastery Progress
+                      {t('home.masteryProgress')}
                     </Typography>
                     <Typography variant="body2" color="text.primary">
                       {calculatePercentage(stats.mastered, stats.total)}%
@@ -330,13 +314,13 @@ export const Home: React.FC = () => {
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                   <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                    {stats.mastered} of {stats.total} cards mastered
+                    {stats.mastered} {t('home.stats.of')} {stats.total} {t('home.stats.cardsMastered')}
                   </Typography>
                 </Box>
                 <Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Weekly Study Goal ({stats.weeklyGoal} minutes)
+                      {t('home.stats.weeklyGoal')} ({stats.weeklyGoal} {t('home.stats.minutesCompleted')})
                     </Typography>
                     <Typography variant="body2" color="text.primary">
                       {calculatePercentage(stats.weeklyProgress, stats.weeklyGoal)}%
@@ -349,7 +333,7 @@ export const Home: React.FC = () => {
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                   <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                    {stats.weeklyProgress} of {stats.weeklyGoal} minutes completed
+                    {stats.weeklyProgress} {t('home.stats.of')} {stats.weeklyGoal} {t('home.stats.minutesCompleted')}
                   </Typography>
                 </Box>
               </CardContent>
@@ -364,7 +348,7 @@ export const Home: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column'
               }}>
-                <Typography variant="h6" gutterBottom>Study Time</Typography>
+                <Typography variant="h6" gutterBottom>{t('home.studyTime')}</Typography>
                 <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <AnimatedCounter
@@ -374,7 +358,7 @@ export const Home: React.FC = () => {
                       gutterBottom
                     />
                     <Typography variant="subtitle2" color="text.secondary">
-                      Total Minutes
+                      {t('home.totalMinutes')}
                     </Typography>
                   </Box>
                 </Box>

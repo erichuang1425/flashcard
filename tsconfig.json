@@ -20,11 +20,14 @@
       "@/*": ["src/*"]
     },
     "allowSyntheticDefaultImports": true,
-    "typeRoots": ["./node_modules/@types"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ],
     "allowJs": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src", "src/.env.d.ts"],
+  "include": ["src", "src/.env.d.ts", "src/types/*.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

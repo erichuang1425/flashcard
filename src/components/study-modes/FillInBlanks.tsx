@@ -14,9 +14,12 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (showResult) return;
+    
     const correct = answer.toLowerCase().trim() === card.word.toLowerCase().trim();
     setIsCorrect(correct);
     setShowResult(true);
+    
     setTimeout(() => {
       onAnswer(correct);
       setAnswer('');

@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import { FocusMode } from './gamification/FocusMode';
 import { useFocusMode } from '../context/FocusModeContext';
+import {useI18n} from '../i18n/I18nContext';
 
 interface NavBarProps {
   focusMode: boolean;
@@ -38,12 +39,13 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { levelSystem } = useGamification();
   const { focusMode, toggleFocusMode } = useFocusMode();
-
+  const { t } = useI18n();
+  
   const menuItems = [
-    { text: 'Home', icon: <HomeIcon />, path: '/' },
-    { text: 'Study', icon: <SchoolIcon />, path: '/study' },
-    { text: 'Worksheets', icon: <AssignmentIcon />, path: '/worksheets' },
-    { text: 'Import', icon: <CloudUploadIcon />, path: '/import' },
+    { text: t('navigation.menu.home'), icon: <HomeIcon />, path: '/' },
+    { text: t('navigation.menu.study'), icon: <SchoolIcon />, path: '/study' },
+    { text: t('navigation.menu.worksheets'), icon: <AssignmentIcon />, path: '/worksheets' },
+    { text: t('navigation.menu.import'), icon: <CloudUploadIcon />, path: '/import' },
   ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -197,7 +199,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) 
             }}
             onClick={() => navigate('/')}
           >
-            FlashCards AI
+            {t('navigation.appName')}
           </Typography>
 
           {!isMobile && levelSystem && (
@@ -209,7 +211,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) 
             }}>
               <EmojiEventsIcon color="inherit" />
               <Typography variant="body1">
-                Level {levelSystem.currentLevel}
+                {t('navigation.level')} {levelSystem.currentLevel}
               </Typography>
             </Box>
           )}

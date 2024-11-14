@@ -11,8 +11,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useAuth } from '../context/AuthContext';
 import { templates, generateWorksheet } from '../utils/worksheet-templates';
 import { addWorksheet, getCategories, getUserFlashcards, getVocabularyWords, getWordsByCategory, searchVocabulary } from '../services/firestore';
-import { VocabularyWord } from '@/types';
+import { VocabularyWord, Flashcard } from '@/types';
 import type { Category, Worksheet, WorksheetQuestion } from '../types';  
+import { useI18n } from '../i18n/I18nContext';
 
 interface WorksheetData {
   userId: string;
@@ -55,6 +56,7 @@ export const WorksheetGenerator: React.FC = () => {
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const { t } = useI18n();
 
   useEffect(() => {
     loadVocabularyWords();
@@ -69,7 +71,7 @@ export const WorksheetGenerator: React.FC = () => {
       setError(null);
       // Get user's own flashcards and convert them to VocabularyWord type
       const flashcards = await getUserFlashcards(user.uid);
-      const vocabularyWords: VocabularyWord[] = flashcards.map(card => ({
+      const vocabularyWords: VocabularyWord[] = flashcards.cards.map((card: Flashcard) => ({
         id: card.id,
         word: card.word,
         englishDefinition: card.englishDefinition,
@@ -223,11 +225,13 @@ export const WorksheetGenerator: React.FC = () => {
     }
   };
 
+  const wordListTitle = `Vocabulary Worksheet - ${t(`worksheets.difficulty.${difficulty}`)} (${new Date().toLocaleDateString()})`;
+
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, maxWidth: 'lg', mx: 'auto' }}>
       <Box component="form" onSubmit={handleSubmit}>
         <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
-          Create New Worksheet
+          {t('worksheets.form.title')}
         </Typography>
 
         <Grid container spacing={3}>
@@ -245,8 +249,8 @@ export const WorksheetGenerator: React.FC = () => {
                 }
               }}
             >
-              <ToggleButton value="database">From Database</ToggleButton>
-              <ToggleButton value="manual">Manual Input</ToggleButton>
+              <ToggleButton value="database">{t('worksheets.form.inputMode.database')}</ToggleButton>
+              <ToggleButton value="manual">{t('worksheets.form.inputMode.manual')}</ToggleButton>
             </ToggleButtonGroup>
           </Grid>
 
@@ -254,14 +258,14 @@ export const WorksheetGenerator: React.FC = () => {
             <>
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
-                  <InputLabel>Filter by Category</InputLabel>
+                  <InputLabel>{t('worksheets.form.filterCategory')}</InputLabel>
                   <Select
                     value={selectedCategory}
-                    label="Filter by Category"
+                    label={t('worksheets.form.filterCategory')}
                     onChange={(e) => handleCategorySelect(e.target.value)}
                   >
                     <MenuItem value="">
-                      <em>All Words</em>
+                      <em>{t('worksheets.form.allWords')}</em>
                     </MenuItem>
                     {availableCategories.map((category) => (
                       <MenuItem key={category} value={category}>
@@ -281,7 +285,7 @@ export const WorksheetGenerator: React.FC = () => {
                     disabled={vocabularyList.length === 0}
                     startIcon={<SelectAllIcon />}
                   >
-                    Select All
+                    {t('worksheets.form.selectAll')}
                   </Button>
                   <Button
                     variant="outlined"
@@ -290,7 +294,7 @@ export const WorksheetGenerator: React.FC = () => {
                     disabled={selectedWords.length === 0}
                     startIcon={<ClearIcon />}
                   >
-                    Clear Selection
+                    {t('worksheets.form.clearSelection')}
                   </Button>
                 </Box>
 
@@ -304,8 +308,8 @@ export const WorksheetGenerator: React.FC = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Search and Select Words"
-                      placeholder={selectedWords.length === 0 ? "Type to search words..." : ""}
+                      label={t('worksheets.form.selectWords')}
+                      placeholder={selectedWords.length === 0 ? t('worksheets.form.searchPlaceholder') : ""}
                       onChange={(e) => handleSearch(e.target.value)}
                       InputProps={{
                         ...params.InputProps,
@@ -347,10 +351,10 @@ export const WorksheetGenerator: React.FC = () => {
                 fullWidth
                 multiline
                 rows={4}
-                label="Enter Words (one per line)"
+                label={t('worksheets.form.wordInput')}
                 value={words}
                 onChange={(e) => setWords(e.target.value)}
-                placeholder="Enter each word on a new line"
+                placeholder={t('worksheets.form.manualInputPlaceholder')}
               />
             </Grid>
           )}
@@ -358,16 +362,26 @@ export const WorksheetGenerator: React.FC = () => {
 
           <Grid item xs={12}>
             <FormControl fullWidth>
-              <InputLabel>Template</InputLabel>
+              <TextField
+                label={t('forms.worksheet.titleLabel')}
+                value={wordListTitle}
+                variant="outlined"
+              />
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel>{t('worksheets.form.template')}</InputLabel>
               <Select
                 value={templateId}
-                label="Template"
+                label={t('worksheets.form.template')}
                 onChange={(e) => setTemplateId(e.target.value)}
               >
                 {Object.entries(templates).map(([id, template]) => (
                   <MenuItem key={id} value={id}>
-                    {template.title}
-                  </MenuItem>
+                    {t(`worksheets.templates.${id}`) || template.title}
+                  </MenuItem>  
                 ))}
               </Select>
             </FormControl>
@@ -376,7 +390,7 @@ export const WorksheetGenerator: React.FC = () => {
           <Grid item xs={12} sm={6}>
             <TextField
               type="number"
-              label="Time Limit (minutes)"
+              label={t('worksheets.form.timeLimit')}
               value={timeLimit}
               onChange={(e) => setTimeLimit(parseInt(e.target.value))}
               fullWidth
@@ -384,15 +398,15 @@ export const WorksheetGenerator: React.FC = () => {
           </Grid>
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
-              <InputLabel>Difficulty</InputLabel>
+              <InputLabel>{t('worksheets.difficulty.difficulty')}</InputLabel>
               <Select
                 value={difficulty}
-                label="Difficulty"
+                label={t('worksheets.difficulty.difficulty')}
                 onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
               >
-                <MenuItem value="easy">Easy</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="hard">Hard</MenuItem>
+                <MenuItem value="easy">{t('worksheets.difficulty.easy')}</MenuItem>
+                <MenuItem value="medium">{t('worksheets.difficulty.medium')}</MenuItem>
+                <MenuItem value="hard">{t('worksheets.difficulty.hard')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -404,7 +418,7 @@ export const WorksheetGenerator: React.FC = () => {
           )}
           {success && (
             <Grid item xs={12}>
-              <Alert severity="success">Worksheet created successfully!</Alert>
+              <Alert severity="success">{t('common.success')}</Alert>
             </Grid>
           )}
 
@@ -415,7 +429,7 @@ export const WorksheetGenerator: React.FC = () => {
               fullWidth
               disabled={!user}
             >
-              Generate Worksheet
+              {t('forms.worksheet.submit')}
             </Button>
           </Grid>
         </Grid>

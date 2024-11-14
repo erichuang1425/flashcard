@@ -34,13 +34,17 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
     );
 
     if (card) {
-      setMatched(prev => new Set([...Array.from(prev), card.word, card.englishDefinition]));
+      const newMatched = new Set([...Array.from(matched), card.word, card.englishDefinition]);
+      setMatched(newMatched);
+      
+      // Check if all pairs are matched
+      if (newMatched.size === cards.length * 2) {
+        setTimeout(() => {
+          onComplete(cards.length);
+        }, 1000);
+      }
     }
     setSelected(null);
-
-    if (matched.size === (cards.length * 2) - 2) {
-      onComplete(matched.size / 2);
-    }
   };
 
   const isSelected = (item: string) => selected === item;
