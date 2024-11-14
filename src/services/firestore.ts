@@ -1,10 +1,11 @@
 import { auth, db } from './firebase';
 import { 
   collection, addDoc, getDocs, query, where, orderBy, 
-  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc 
+  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc, startAfter, getCountFromServer, serverTimestamp 
 }  from 'firebase/firestore';
-import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition } from '../types';
-
+import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, StudyProgress } from '../types';
+import { flashcardCache, categoryCache, worksheetCache, studyStatsCache, userWorksheetCache, analyticsCache } from '../utils/Cache';
+import type { FlashcardsResponse } from '../types/responses';
 
 interface FlashcardDocument {
   id: string;
@@ -14,6 +15,41 @@ interface FlashcardDocument {
   categories: string[];
   [key: string]: any; 
 }
+
+interface CollectionCounter {
+  count: number;
+  lastUpdated: Date;
+}
+
+const updateCollectionCounter = async (
+  userId: string, 
+  collectionName: string, 
+  increment: number
+) => {
+  const counterRef = doc(db, 'users', userId, 'counters', collectionName);
+  
+  try {
+    await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      if (!counterDoc.exists()) {
+        transaction.set(counterRef, {
+          count: Math.max(0, increment),
+          lastUpdated: new Date()
+        });
+      } else {
+        const newCount = Math.max(0, counterDoc.data().count + increment);
+        transaction.update(counterRef, {
+          count: newCount,
+          lastUpdated: new Date()
+        });
+      }
+    });
+  } catch (error) {
+    console.error(`Error updating ${collectionName} counter:`, error);
+    throw error;
+  }
+};
 
 export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
   const batch = writeBatch(db);
@@ -54,6 +90,10 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
     }
 
     await batch.commit();
+    await updateCollectionCounter(flashcard.userId, 'flashcards', 1);
+    // Invalidate relevant caches
+    flashcardCache.delete(`flashcards-${flashcard.userId}`);
+    categoryCache.clear();
     return flashcardRef.id;
   } catch (error) {
     console.error('Error adding flashcard:', error);
@@ -61,41 +101,89 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
   }
 };
 
-export const getUserFlashcards = async (userId: string): Promise<Flashcard[]> => {
-  try {
+export const batchGetFlashcards = async (userId: string, cardIds: string[]): Promise<Flashcard[]> => {
+  const cacheKey = `flashcards_batch_${userId}_${cardIds.sort().join('_')}`;
+  const cachedCards = flashcardCache.get(cacheKey);
+  if (cachedCards) return cachedCards;
+
+  // Process in chunks of 10 to avoid large queries
+  const cards: Flashcard[] = [];
+  for (let i = 0; i < cardIds.length; i += 10) {
+    const batch = cardIds.slice(i, i + 10);
     const q = query(
       collection(db, 'users', userId, 'flashcards'),
-      orderBy('nextReview', 'asc')
+      where('id', 'in', batch)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+      cards.push(...snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
+      nextReview: doc.data().nextReview?.toDate(),
+      lastReviewed: doc.data().lastReviewed?.toDate(),
+      created: doc.data().created?.toDate(),
+      userId: doc.data().userId,
+      word: doc.data().word,
+      partOfSpeech: doc.data().partOfSpeech,
+      englishDefinition: doc.data().englishDefinition,
+      difficulty: doc.data().difficulty,
+      categories: doc.data().categories || []
+    } as Flashcard)));
+  }
 
+  flashcardCache.set(cacheKey, cards);
+  return cards;
+};
+
+export const getUserFlashcards = async (
+  userId: string, 
+  pageLimit: number = 100,
+  lastDoc?: any
+): Promise<FlashcardsResponse> => {
+  const cacheKey = `flashcards_${userId}_${pageLimit}_${lastDoc?.id || 'initial'}`;
+  const cachedResult = flashcardCache.get(cacheKey);
+  if (cachedResult) return cachedResult;
+
+  let q = query(
+    collection(db, 'users', userId, 'flashcards'),
+    orderBy('nextReview', 'asc'),
+    limit(pageLimit)
+  );
+
+  if (lastDoc) {
+    q = query(q, startAfter(lastDoc));
+  }
+
+  const snapshot = await getDocs(q);
+  const result: FlashcardsResponse = {
+    cards: snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
       nextReview: doc.data().nextReview?.toDate(),
       lastReviewed: doc.data().lastReviewed?.toDate(),
       created: doc.data().created?.toDate()
-    })) as Flashcard[];
-  } catch (error) {
-    console.error('Error fetching flashcards:', error);
-    throw error;
-  }
+    })) as Flashcard[],
+    lastDoc: snapshot.docs[snapshot.docs.length - 1]
+  };
+
+  flashcardCache.set(cacheKey, result);
+  return result;
 };
 
 export const updateCardReview = async (
-  userId: string,  
-  cardId: string, 
-  nextReview: Date, 
-  difficulty: number
-) => {
-  const cardRef = doc(db, 'users', userId, 'flashcards', cardId); 
+  userId: string,
+  cardId: string,
+  nextReview: Date,
+  difficulty: number,
+  mastered: boolean
+): Promise<void> => {
+  const cardRef = doc(db, 'users', userId, 'flashcards', cardId);
   await updateDoc(cardRef, {
-    lastReviewed: new Date(),
     nextReview,
-    difficulty
+    difficulty,
+    mastered,
+    lastReviewed: serverTimestamp()
   });
 };
-
 
 export const addWorksheet = async (worksheetData: Omit<Worksheet, 'id'>) => {
   try {
@@ -116,6 +204,7 @@ export const addWorksheet = async (worksheetData: Omit<Worksheet, 'id'>) => {
       worksheet
     );
     
+    await updateCollectionCounter(auth.currentUser.uid, 'worksheets', 1);
     return worksheetRef.id;
   } catch (error) {
     console.error('Error adding worksheet:', error);
@@ -124,10 +213,17 @@ export const addWorksheet = async (worksheetData: Omit<Worksheet, 'id'>) => {
 };
 
 export const getUserWorksheets = async (userId: string) => {
+  // Check cache first
+  const cachedWorksheets = userWorksheetCache.get(`worksheets-${userId}`);
+  if (cachedWorksheets) return cachedWorksheets;
 
   const q = query(collection(db, 'users', userId, 'worksheets'));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Worksheet[]; 
+  const worksheets = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Worksheet[];
+
+  // Store in cache
+  userWorksheetCache.set(`worksheets-${userId}`, worksheets);
+  return worksheets;
 };
 
 export const getVocabularyWords = async (pageLimit?: number): Promise<VocabularyWord[]> => {
@@ -246,15 +342,17 @@ export const getVocabularyByInitial = async (initial: string) => {
 
 // Statistics helper
 export const getVocabularyStats = async () => {
-  const q = query(collection(db, 'vocabulary'));
-  const querySnapshot = await getDocs(q);
+  const vocabRef = collection(db, 'vocabulary');
+  const totalQuery = await getCountFromServer(vocabRef);
   
   const stats = {
-    total: querySnapshot.size,
+    total: totalQuery.data().count,
     byPartOfSpeech: {} as Record<string, number>
   };
 
-  querySnapshot.forEach(doc => {
+  // For part of speech breakdown, we still need to fetch the documents
+  const snapshot = await getDocs(vocabRef);
+  snapshot.forEach(doc => {
     const pos = doc.data().partOfSpeech;
     stats.byPartOfSpeech[pos] = (stats.byPartOfSpeech[pos] || 0) + 1;
   });
@@ -393,14 +491,22 @@ export const addCategory = async (name: string, userId: string): Promise<string>
 
 export const getCategories = async (): Promise<Category[]> => {
   try {
+    // Check cache first
+    const cachedCategories = categoryCache.get('categories');
+    if (cachedCategories) return cachedCategories;
+
     const snapshot = await getDocs(collection(db, 'categories'));
-    return snapshot.docs.map(doc => ({
+    const categories = snapshot.docs.map(doc => ({
       id: doc.id,
       name: doc.data().name,
       count: doc.data().count,
       createdAt: doc.data().createdAt?.toDate(),
       updatedAt: doc.data().updatedAt?.toDate()
     }));
+
+    // Store in cache
+    categoryCache.set('categories', categories);
+    return categories;
   } catch (error) {
     console.error('Error fetching categories:', error);
     throw error;
@@ -431,69 +537,114 @@ export interface UserStudyStats {
   totalStudyMinutes: number;
   weeklyStudyMinutes: number;
   weekStart: Date;
+  createdAt: Date;
 }
 
-export const getUserStudyStats = async (userId: string): Promise<UserStudyStats> => {
+const getUserStudyStats = async (userId: string): Promise<UserStudyStats> => {
+  const cacheKey = `stats-${userId}`;
+  const cachedStats = studyStatsCache.get(cacheKey);
+  
+  if (cachedStats && !studyStatsCache.isStale(cacheKey)) {
+    studyStatsCache.touch(cacheKey);
+    return cachedStats;
+  }
+
   const statsRef = doc(db, 'users', userId, 'stats', 'study');
   const statsDoc = await getDoc(statsRef);
 
   const weekStart = new Date();
   weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of current week
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+  // Ensure counters are initialized
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const counterDoc = await getDoc(counterRef);
+  
+  if (!counterDoc.exists()) {
+    await initializeCounters(userId);
+  }
+
+  // Get counts from counters
+  const [flashcardCount, masteredCount] = await Promise.all([
+    getTotalCardsCount(userId),
+    getMasteryCount(userId)
+  ]);
 
   const defaultStats: UserStudyStats = {
     lastStudied: new Date(),
     streak: 0,
-    totalCards: 0,
+    totalCards: flashcardCount.totalCards,
     masteredCards: 0,
     averageAccuracy: 0,
     totalStudyMinutes: 0,
     weeklyStudyMinutes: 0,
-    weeklyStudyGoal: 60,
+    weeklyStudyGoal: 60, // Default to 60 minutes
     totalStudySessions: 0,
     todayStudyMinutes: 0,
     studyMinutes: 0,
     lastStudyDate: new Date().toISOString().split('T')[0],
     weeklyProgress: 0,
-    weekStart: weekStart
+    weekStart: weekStart,
+    createdAt: new Date()
   };
 
   if (!statsDoc.exists()) {
     const totalStats = await getTotalCardsCount(userId);
+    const masteredCount = await getMasteryCount(userId);
+    
     await setDoc(statsRef, {
       ...defaultStats,
+      totalCards: totalStats.totalCards,
+      masteredCards: masteredCount,
       createdAt: new Date(),
-      weekStart: weekStart,
-      totalCards: totalStats.totalCards || 0,
+      weekStart: weekStart
     });
+    
     return defaultStats;
   }
 
   const data = statsDoc.data();
   
-  // Convert any Timestamps to Dates
+  // Ensure data consistency and type safety
   const stats: UserStudyStats = {
     ...defaultStats,
     lastStudied: data.lastStudied?.toDate() || new Date(),
     streak: Number(data.streak || 0),
-    totalCards: Number(data.totalCards || 0),
-    masteredCards: Number(data.masteredCards || 0),
+    totalCards: flashcardCount.totalCards,
+    masteredCards: masteredCount,
     averageAccuracy: Number(data.averageAccuracy || 0),
-    studyMinutes: Number(data.studyMinutes || 0),
-    totalStudySessions: Number(data.totalStudySessions || 0),
-    todayStudyMinutes: Number(data.todayStudyMinutes || 0),
-    weeklyStudyGoal: Number(data.weeklyStudyGoal || 60),
-    weeklyProgress: Number(data.weeklyProgress || 0),
     totalStudyMinutes: Number(data.totalStudyMinutes || 0),
     weeklyStudyMinutes: Number(data.weeklyStudyMinutes || 0),
+    weeklyStudyGoal: Number(data.weeklyStudyGoal || 60),
+    totalStudySessions: Number(data.totalStudySessions || 0),
+    todayStudyMinutes: Number(data.todayStudyMinutes || 0),
+    studyMinutes: Number(data.studyMinutes || 0),
     lastStudyDate: data.lastStudyDate || new Date().toISOString().split('T')[0],
-    weekStart: data.weekStart?.toDate() || weekStart
+    weekStart: data.weekStart?.toDate() || weekStart,
+    createdAt: data.createdAt?.toDate() || new Date()
   };
 
+  // Check if we need to reset weekly progress
+  const currentWeekStart = new Date();
+  currentWeekStart.setHours(0, 0, 0, 0);
+  currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+
+  if (stats.weekStart < currentWeekStart) {
+    // Reset weekly progress if we're in a new week
+    await updateDoc(statsRef, {
+      weeklyStudyMinutes: 0,
+      weekStart: currentWeekStart
+    });
+    stats.weeklyStudyMinutes = 0;
+    stats.weekStart = currentWeekStart;
+  }
+
+  // Store in cache with shorter TTL for frequently changing data
+  studyStatsCache.set(cacheKey, stats, false);
   return stats;
 };
 
-export const updateDailyStreak = async (userId: string) => {
+const updateDailyStreak = async (userId: string) => {
   const statsRef = doc(db, 'users', userId, 'stats', 'study');
   
   return runTransaction(db, async (transaction) => {
@@ -542,22 +693,29 @@ export const updateUserStudyStats = async (
   const today = new Date().toISOString().split('T')[0];
 
   try {
-    const statsDoc = await getDoc(statsRef);
+    const [statsDoc, totalCards] = await Promise.all([
+      getDoc(statsRef),
+      getTotalCardsCount(userId)
+    ]);
+
     const currentTime = new Date();
+    const studyMinutes = Math.round(sessionData.duration / 60);
 
     if (!statsDoc.exists()) {
       await setDoc(statsRef, {
         lastStudied: currentTime,
         streak: 1,
-        totalCards: sessionData.cardsStudied,
+        totalCards: totalCards.totalCards,
         masteredCards: sessionData.masteredCards,
         averageAccuracy: sessionData.accuracy,
-        studyMinutes: Math.round(sessionData.duration / 60),
+        totalStudyMinutes: studyMinutes,
         lastStudyDate: today,
         totalStudySessions: 1,
-        todayStudyMinutes: Math.round(sessionData.duration / 60),
-        weeklyStudyGoal: 30, // Default 30 minutes weekly goal
-        weeklyProgress: Math.round(sessionData.duration / 60),
+        todayStudyMinutes: studyMinutes,
+        weeklyStudyGoal: 60,
+        weeklyStudyMinutes: studyMinutes,
+        weekStart: getWeekStart(),
+        createdAt: currentTime
       });
       return;
     }
@@ -565,31 +723,50 @@ export const updateUserStudyStats = async (
     const existingStats = statsDoc.data();
     const isNewDay = existingStats.lastStudyDate !== today;
 
+    // Update stats with proper calculations
     await updateDoc(statsRef, {
       lastStudied: currentTime,
       totalCards: increment(sessionData.cardsStudied),
       masteredCards: increment(sessionData.masteredCards),
-      studyMinutes: increment(Math.round(sessionData.duration / 60)),
-      averageAccuracy: (
-        (existingStats.averageAccuracy * existingStats.totalStudySessions + sessionData.accuracy) /
-        (existingStats.totalStudySessions + 1)
+      totalStudyMinutes: increment(studyMinutes),
+      weeklyStudyMinutes: increment(studyMinutes),
+      averageAccuracy: calculateNewAverage(
+        existingStats.averageAccuracy,
+        existingStats.totalStudySessions,
+        sessionData.accuracy
       ),
       lastStudyDate: today,
       totalStudySessions: increment(1),
-      todayStudyMinutes: isNewDay 
-        ? Math.round(sessionData.duration / 60)
-        : increment(Math.round(sessionData.duration / 60)),
-      weeklyProgress: increment(Math.round(sessionData.duration / 60))
+      todayStudyMinutes: isNewDay ? studyMinutes : increment(studyMinutes)
     });
+
+    // Clear all related caches to ensure consistency
+    studyStatsCache.delete(`stats-${userId}`);
+    flashcardCache.clear(); // Clear flashcard cache as mastery might have changed
+    analyticsCache.delete(`analytics-${userId}`); // Clear analytics cache if exists
+
   } catch (error) {
     console.error('Error updating study stats:', error);
     throw error;
   }
 };
 
+// Helper function to calculate new average
+const calculateNewAverage = (currentAvg: number, totalSessions: number, newValue: number): number => {
+  return ((currentAvg * totalSessions) + newValue) / (totalSessions + 1);
+};
+
+// Helper function to get week start date
+const getWeekStart = (): Date => {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - date.getDay());
+  return date;
+};
+
 export const updateWeeklyStudyGoal = async (userId: string) => {
   try {
-    const cards = await getUserFlashcards(userId);
+    const { cards } = await getUserFlashcards(userId);
     const totalCards = cards.length;
     
     // Calculate recommended weekly study time
@@ -608,23 +785,21 @@ export const updateWeeklyStudyGoal = async (userId: string) => {
   }
 };
 
-export const getTotalCardsCount = async (userId: string) => {
-  const q = query(
-    collection(db, 'users', userId, 'flashcards')
+const getTotalCardsCount = async (userId: string) => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const studiedQuery = query(
+    collection(db, 'users', userId, 'flashcards'),
+    where('lastReviewed', '!=', null)
   );
-  const snapshot = await getDocs(q);
-  
-  let studiedCards = 0;
-  let totalCards = 0;
-  
-  snapshot.docs.forEach(doc => {
-    const data = doc.data();
-    totalCards++;
-    if (data.lastReviewed) {
-      studiedCards++;
-    }
-  });
-  
+
+  const [counterDoc, studiedDocs] = await Promise.all([
+    getDoc(counterRef),
+    getCountFromServer(studiedQuery)
+  ]);
+
+  const totalCards = counterDoc.exists() ? counterDoc.data().count : 0;
+  const studiedCards = studiedDocs.data().count;
+
   return {
     totalCards,
     remainingCards: totalCards - studiedCards,
@@ -632,25 +807,17 @@ export const getTotalCardsCount = async (userId: string) => {
   };
 };
 
-export const getMasteryCount = async (userId: string): Promise<number> => {
-  const q = query(
-    collection(db, 'users', userId, 'flashcards'),  // Updated path
-    where('difficulty', '<=', 2), 
-    where('lastReviewed', '!=', null)
+const getMasteryCount = async (userId: string): Promise<number> => {
+  const flashcardsRef = collection(db, 'users', userId, 'flashcards');
+  const masteredQuery = await getCountFromServer(
+    query(
+      flashcardsRef,
+      where('difficulty', '<=', 2),
+      where('lastReviewed', '!=', null)
+    )
   );
-  const snapshot = await getDocs(q);
   
-  // Count cards that have been successfully reviewed multiple times
-  return snapshot.docs.filter(doc => {
-    const data = doc.data();
-    // Consider mastered if:
-    // 1. Low difficulty (<=2)
-    // 2. Has been reviewed
-    // 3. High accuracy (>80%) in last reviews
-    return data.lastReviewed && 
-           data.difficulty <= 2 && 
-           (data.successCount / (data.totalReviews || 1) >= 0.8);
-  }).length;
+  return masteredQuery.data().count;
 };
 
 export const getWordsByCategory = async (userId: string, category: string): Promise<VocabularyWord[]> => {
@@ -677,6 +844,9 @@ export const deleteWorksheet = async (userId: string, worksheetId: string) => {
   try {
     const worksheetRef = doc(db, 'users', userId, 'worksheets', worksheetId);
     await deleteDoc(worksheetRef);
+    await updateCollectionCounter(userId, 'worksheets', -1);
+    worksheetCache.delete(`worksheet-${userId}-${worksheetId}`);
+    userWorksheetCache.delete(`worksheets-${userId}`);
   } catch (error) {
     console.error('Error deleting worksheet:', error);
     throw error;
@@ -693,6 +863,10 @@ const shuffleArray = <T>(array: T[]): T[] => {
 };
 
 export const getWorksheet = async (userId: string, worksheetId: string): Promise<Worksheet | null> => {
+  // Check cache first
+  const cachedWorksheet = worksheetCache.get(`worksheet-${userId}-${worksheetId}`);
+  if (cachedWorksheet) return cachedWorksheet;
+
   try {
     const docRef = doc(db, 'users', userId, 'worksheets', worksheetId);
     const docSnap = await getDoc(docRef);
@@ -700,8 +874,7 @@ export const getWorksheet = async (userId: string, worksheetId: string): Promise
     if (!docSnap.exists()) return null;
     
     const data = docSnap.data();
-    
-    return {
+    const worksheet = {
       id: docSnap.id,
       title: data.title || 'Untitled Worksheet',
       description: data.description || '',
@@ -721,6 +894,10 @@ export const getWorksheet = async (userId: string, worksheetId: string): Promise
         lastAttempt: null
       }
     } as Worksheet;
+
+    // Store in cache
+    worksheetCache.set(`worksheet-${userId}-${worksheetId}`, worksheet);
+    return worksheet;
   } catch (error) {
     console.error('Error getting worksheet:', error);
     throw error;
@@ -738,6 +915,9 @@ export const updateWorksheetContent = async (
       ...content,
       updatedAt: new Date()
     });
+    // Invalidate caches
+    worksheetCache.delete(`worksheet-${userId}-${worksheetId}`);
+    userWorksheetCache.delete(`worksheets-${userId}`);
   } catch (error) {
     console.error('Error updating worksheet content:', error);
     throw error;
@@ -752,8 +932,99 @@ export const updateWorksheetProgress = async (
   try {
     const worksheetRef = doc(db, 'users', userId, 'worksheets', worksheetId);
     await updateDoc(worksheetRef, { stats });
+    // Invalidate caches
+    worksheetCache.delete(`worksheet-${userId}-${worksheetId}`);
+    userWorksheetCache.delete(`worksheets-${userId}`);
   } catch (error) {
     console.error('Error updating worksheet progress:', error);
     throw error;
   }
+};
+
+export const deleteFlashcard = async (userId: string, cardId: string) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'flashcards', cardId));
+    await updateCollectionCounter(userId, 'flashcards', -1);
+    
+    // Invalidate caches
+    flashcardCache.delete(`flashcards-${userId}`);
+    studyStatsCache.delete(`stats-${userId}`);
+  } catch (error) {
+    console.error('Error deleting flashcard:', error);
+    throw error;
+  }
+};
+
+export const initializeCounters = async (userId: string) => {
+  const collections = ['flashcards', 'worksheets', 'vocabulary', 'categories']; 
+  
+  for (const collectionName of collections) {
+    const query = collection(db, 'users', userId, collectionName);
+    const count = await getCountFromServer(query);
+    
+    await setDoc(doc(db, 'users', userId, 'counters', collectionName), {
+      count: count.data().count,
+      lastUpdated: new Date()
+    });
+  }
+};
+
+// Add helper function to get collection count
+const getCollectionCount = async (userId: string, collectionName: string): Promise<number> => {
+  const counterRef = doc(db, 'users', userId, 'counters', collectionName);
+  const counterDoc = await getDoc(counterRef);
+  return counterDoc.exists() ? counterDoc.data().count : 0;
+};
+
+export const saveStudyProgress = async (userId: string, progress: StudyProgress) => {
+  try {
+    await setDoc(doc(db, 'users', userId, 'studyProgress', 'current'), {
+      ...progress,
+      savedAt: new Date()
+    });
+  } catch (error) {
+    console.error('Error saving study progress:', error);
+    throw error;
+  }
+};
+
+export const loadStudyProgress = async (userId: string): Promise<StudyProgress | null> => {
+  try {
+    const progressDoc = await getDoc(doc(db, 'users', userId, 'studyProgress', 'current'));
+    if (progressDoc.exists()) {
+      const data = progressDoc.data();
+      // Convert timestamps back to Date objects
+      return {
+        correct: data.correct || 0,
+        incorrect: data.incorrect || 0,
+        streak: data.streak || 0,
+        cardsReviewed: data.cardsReviewed || [],
+        sessionStart: data.sessionStart.toDate(),
+        savedAt: data.savedAt.toDate(),
+        currentIndex: data.currentIndex || 0,
+        stats: data.stats || {},
+        cards: data.cards || []
+      } as StudyProgress;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error loading study progress:', error);
+    throw error;
+  }
+};
+
+export const clearStudyProgress = async (userId: string) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'studyProgress', 'current'));
+  } catch (error) {
+    console.error('Error clearing study progress:', error);
+    throw error;
+  }
+};
+
+export { 
+  getUserStudyStats,
+  updateDailyStreak, 
+  getTotalCardsCount,
+  getMasteryCount
 };

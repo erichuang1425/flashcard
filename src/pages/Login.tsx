@@ -3,6 +3,7 @@ import { Box, Button, TextField, Typography, Alert, Paper, Divider } from '@mui/
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GoogleIcon from '@mui/icons-material/Google';
+import { useI18n } from '../i18n/I18nContext';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const { signIn, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,15 +43,15 @@ export const Login: React.FC = () => {
     }}>
       <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
         <Typography variant="h5" component="h1" gutterBottom>
-          Login
+          {t('auth.login')}
         </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{t('auth.errors.failed')}</Alert>}
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
           <TextField
             margin="normal"
             required
             fullWidth
-            label="Email Address"
+            label={t('auth.email')}
             autoComplete="email"
             autoFocus
             value={email}
@@ -59,7 +61,7 @@ export const Login: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            label="Password"
+            label={t('auth.password')}
             type="password"
             autoComplete="current-password"
             value={password}
@@ -71,7 +73,7 @@ export const Login: React.FC = () => {
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
           >
-            Sign In
+            {t('auth.signIn')}
           </Button>
           
           <Divider sx={{ my: 2 }}>or</Divider>
@@ -83,7 +85,7 @@ export const Login: React.FC = () => {
             onClick={handleGoogleSignIn}
             sx={{ mb: 2 }}
           >
-            Sign in with Google
+            {t('auth.googleSignIn')}
           </Button>
 
           <Typography variant="body2" align="center">

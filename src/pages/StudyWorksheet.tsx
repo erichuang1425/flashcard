@@ -8,11 +8,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { getWorksheet, updateWorksheetProgress } from '../services/firestore';
 import type { Worksheet, WorksheetQuestion } from '../types';
+import { useI18n } from '../i18n/I18nContext';
 
 export const StudyWorksheet = () => {
   const { worksheetId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState('');
@@ -89,14 +91,14 @@ export const StudyWorksheet = () => {
     return (
       <Box p={3}>
         <Typography color="error">
-          {error || 'No worksheet questions available'}
+          {error || t('worksheets.errors.noQuestions')}
         </Typography>
         <Button
           variant="contained"
           onClick={() => navigate('/worksheets')}
           sx={{ mt: 2 }}
         >
-          Back to Worksheets
+          {t('worksheets.actions.back')}
         </Button>
       </Box>
     );
@@ -132,7 +134,12 @@ export const StudyWorksheet = () => {
 
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Question {currentQuestionIndex + 1} of {worksheet.questions.length}
+            {t('worksheets.question', {
+              values: {
+                current: currentQuestionIndex + 1,
+                total: worksheet.questions.length
+              }
+            })}
           </Typography>
           
           <Typography sx={{ mb: 3 }}>{currentQuestion.question}</Typography>
@@ -166,14 +173,14 @@ export const StudyWorksheet = () => {
               onClick={() => navigate('/worksheets')}
               variant="outlined"
             >
-              Exit
+              {t('common.exit')}
             </Button>
             <Button
               onClick={handleSubmitAnswer}
               variant="contained"
               disabled={!answer}
             >
-              {currentQuestionIndex + 1 === worksheet.questions.length ? 'Finish' : 'Next'}
+              {currentQuestionIndex + 1 === worksheet.questions.length ? t('common.finish') : t('common.next')}
             </Button>
           </Box>
         </Paper>

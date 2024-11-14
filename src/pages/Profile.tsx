@@ -22,12 +22,13 @@ import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import type { UserAchievement } from '../types/gamification';
-import { PomodoroTimer } from '../components/PomodoroTimer';
 import { getUserAnalytics } from '../services/analytics';
 import { AnalyticsOverview } from '../components/analytics/AnalyticsOverview';
 import { StudyPatterns } from '../components/analytics/StudyPatterns';
 import { CategoryProgress } from '../components/analytics/CategoryProgress';
 import type { StudyAnalytics } from '../types/analytics';
+import { useI18n } from '../i18n/I18nContext';
+import { useTheme } from '@mui/material';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -35,12 +36,15 @@ export const Profile: React.FC = () => {
   const [analytics, setAnalytics] = useState<StudyAnalytics | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
+  const { t } = useI18n();
+  const theme = useTheme();
 
   useEffect(() => {
     const loadAnalytics = async () => {
       if (!user) return;
       try {
         const data = await getUserAnalytics(user.uid);
+        console.log('Category data:', data.categoryBreakdown); // Debug log
         setAnalytics(data);
       } catch (error) {
         console.error('Error loading analytics:', error);
@@ -56,11 +60,27 @@ export const Profile: React.FC = () => {
   const userAchievements = achievements as UserAchievement[];
   const progress = (levelSystem.currentXP / levelSystem.requiredXP) * 100;
 
+  // Transform category data to match expected format with proper calculations
+  const transformedCategories = analytics?.categoryBreakdown
+    ?.filter(cat => cat.category) // Just filter for valid categories
+    .map(cat => ({
+      name: cat.category,
+      count: cat.count || 0,
+      mastered: cat.mastered || 0
+    }));
+
+  console.log('Transformed Categories:', transformedCategories); // Add debug log
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Grid container spacing={3}>
+      <Grid container spacing={3} justifyContent="center">
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <Paper sx={{ 
+            p: 3, 
+            textAlign: 'center',
+            maxWidth: { sm: '400px' },
+            mx: 'auto'
+          }}>
             <Avatar
               sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
               src={user.photoURL || undefined}
@@ -72,21 +92,19 @@ export const Profile: React.FC = () => {
               {user.email}
             </Typography>
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6">Level {levelSystem.currentLevel}</Typography>
+              <Typography variant="h6">
+                {t('profile.level')} {levelSystem.currentLevel}
+              </Typography>
               <LinearProgress 
                 variant="determinate" 
                 value={progress} 
                 sx={{ height: 10, borderRadius: 5, mt: 1 }}
               />
               <Typography variant="body2" sx={{ mt: 1 }}>
-                {levelSystem.currentXP} / {levelSystem.requiredXP} XP
+                {levelSystem.currentXP} / {levelSystem.requiredXP} {t('profile.xp')}
               </Typography>
             </Box>
           </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <PomodoroTimer />
         </Grid>
 
         <Grid item xs={12}>
@@ -96,10 +114,10 @@ export const Profile: React.FC = () => {
               onChange={(_, newValue) => setActiveTab(newValue)}
               sx={{ mb: 2 }}
             >
-              <Tab label="Overview" />
-              <Tab label="Study Patterns" />
-              <Tab label="Categories" />
-              <Tab label="Achievements" />
+              <Tab label={t('profile.overview')} />
+              <Tab label={t('profile.patterns')} />
+              <Tab label={t('profile.categories')} />
+              <Tab label={t('profile.achievements.achievements')} />
             </Tabs>
 
             {loading ? (
@@ -115,39 +133,71 @@ export const Profile: React.FC = () => {
                   <StudyPatterns patterns={analytics.studyPatterns} />
                 )}
                 {activeTab === 2 && analytics && (
-                  <CategoryProgress categories={analytics.categoryBreakdown} />
+                  <Box sx={{ height: 400 }}>
+                    {(transformedCategories ?? []).length > 0 ? (
+                      <CategoryProgress 
+                        categories={transformedCategories ?? []}
+                      />
+                    ) : (
+                      <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
+                        {t('settings.categories.noData')}
+                      </Typography>
+                    )}
+                  </Box>
                 )}
                 {activeTab === 3 && (
-                  <List>
+                  <Grid container spacing={2}>
                     {userAchievements.map(achievement => (
-                      <ListItem key={achievement.id}>
-                        <ListItemIcon>
-                          <EmojiEventsIcon 
-                            color={achievement.achieved ? 'primary' : 'disabled'} 
-                          />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={achievement.title}
-                          secondary={
-                            <>
-                              {achievement.description}
-                              <Typography variant="caption" display="block" color="text.secondary">
-                                Progress: {achievement.progress} / {achievement.requirement}
+                      <Grid item xs={12} sm={6} md={4} key={achievement.id}>
+                        <Paper sx={{ 
+                          p: 2,
+                          opacity: achievement.achieved ? 1 : 0.6,
+                          transition: 'all 0.2s',
+                          background: achievement.achieved ? 
+                            `linear-gradient(135deg, ${theme.palette.background.paper}, ${theme.palette.primary.dark})`
+                            : undefined
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <EmojiEventsIcon 
+                              color={achievement.achieved ? 'primary' : 'disabled'}
+                              sx={{ fontSize: 40 }}
+                            />
+                            <Box>
+                              <Typography variant="h6">{achievement.title}</Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {achievement.description}
                               </Typography>
-                            </>
-                          }
-                        />
-                        {achievement.achieved && (
-                          <Chip 
-                            label={`+${achievement.points} XP`}
-                            color="primary"
-                            size="small"
-                            sx={{ ml: 1 }}
-                          />
-                        )}
-                      </ListItem>
+                              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={(achievement.progress / achievement.requirement) * 100}
+                                  sx={{ flexGrow: 1, height: 8, borderRadius: 1 }}
+                                />
+                                <Typography variant="caption" color="text.secondary">
+                                  {t('profile.achievements.progress', {
+                                    values: {
+                                      current: achievement.progress,
+                                      required: achievement.requirement
+                                    }
+                                  })}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                          {achievement.achieved && (
+                            <Chip
+                              label={t('profile.achievements.xpReward', {
+                                values: { points: achievement.points }
+                              })}
+                              color="primary"
+                              size="small"
+                              sx={{ mt: 1 }}
+                            />
+                          )}
+                        </Paper>
+                      </Grid>
                     ))}
-                  </List>
+                  </Grid>
                 )}
               </>
             )}

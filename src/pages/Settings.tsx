@@ -18,7 +18,10 @@ import {
   AccordionSummary,
   AccordionDetails,
   FormHelperText,
-  CircularProgress
+  CircularProgress,
+  Badge,
+  Avatar,
+  Grid
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../context/AuthContext';
@@ -26,13 +29,21 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useUserPreferences, UserPreferences } from '../context/UserPreferencesContext';
 import { useThemeMode, ThemeMode } from '../context/ThemeModeContext';
+import { useI18n } from '../i18n/I18nContext';
+import { useGamification } from '../context/GamificationContext';
+import { CategoryProgress } from '../components/analytics/CategoryProgress';
+import { getUserAnalytics } from '../services/analytics';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import { UserAchievement } from '../types/gamification';
 
 const defaultPreferences: UserPreferences = {
   theme: 'system',
   dailyGoal: 30,
   studySessionLength: 25,
+  studyVocabLimit: 20,  // Add default value
   notifications: true,
   audioEnabled: true,
+  language: 'en',
   pomodoroSettings: {
     workDuration: 25,
     breakDuration: 5,
@@ -40,12 +51,17 @@ const defaultPreferences: UserPreferences = {
   }
 };
 
+type Language = 'en' | 'zh-TW';
+
 export const Settings: React.FC = () => {
   const { user } = useAuth();
   const { preferences, setPreferences } = useUserPreferences();
   const { mode, setMode } = useThemeMode();
+  const { t, language, setLanguage } = useI18n();
+  const { achievements } = useGamification();
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [categoryStats, setCategoryStats] = useState<any>(null);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -67,6 +83,25 @@ export const Settings: React.FC = () => {
     };
     loadPreferences();
   }, [user, setPreferences]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!user) return;
+      try {
+        const analytics = await getUserAnalytics(user.uid);
+        const transformedCategories = analytics?.categoryBreakdown.map(cat => ({
+          name: cat.category,
+          count: cat.count || 0,
+          mastered: cat.mastered || 0,
+          progress: cat.count ? Math.round((cat.mastered / cat.count) * 100) : 0
+        })).filter(cat => cat.count > 0) || [];
+        setCategoryStats(transformedCategories);
+      } catch (error) {
+        console.error('Error loading category stats:', error);
+      }
+    };
+    loadStats();
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -103,7 +138,7 @@ export const Settings: React.FC = () => {
             mb: { xs: 1, sm: 2 }
           }}
         >
-          Settings
+          {t('settings.title')}
         </Typography>
         
         {saveStatus && (
@@ -114,7 +149,7 @@ export const Settings: React.FC = () => {
 
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Appearance</Typography>
+            <Typography variant="h6">{t('settings.appearance')}</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Paper sx={{ 
@@ -127,19 +162,31 @@ export const Settings: React.FC = () => {
               }
             }}>
               <FormControl fullWidth>
-                <InputLabel>Theme Mode</InputLabel>
+                <InputLabel>{t('settings.language')}</InputLabel>
                 <Select
-                  value={mode}
-                  label="Theme Mode"
-                  onChange={(e) => setMode(e.target.value as ThemeMode)}
+                  value={language}
+                  label={t('settings.language')}
+                  onChange={(e) => setLanguage(e.target.value as Language)}
                 >
-                  <MenuItem value="light">Light</MenuItem>
-                  <MenuItem value="dark">Dark</MenuItem>
-                  <MenuItem value="system">System</MenuItem>
+                  <MenuItem value="en">English</MenuItem>
+                  <MenuItem value="zh-TW">繁體中文</MenuItem>
                 </Select>
                 <FormHelperText>
-                  Choose your preferred theme mode
+                  {t('settings.languageHelp')}
                 </FormHelperText>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel>{t('settings.theme')}</InputLabel>
+                <Select
+                  value={mode}
+                  label={t('settings.theme')}
+                  onChange={(e) => setMode(e.target.value as ThemeMode)}
+                >
+                  <MenuItem value="light">{t('settings.themes.light')}</MenuItem>
+                  <MenuItem value="dark">{t('settings.themes.dark')}</MenuItem>
+                  <MenuItem value="system">{t('settings.themes.system')}</MenuItem>
+                </Select>
               </FormControl>
             </Paper>
           </AccordionDetails>
@@ -147,7 +194,7 @@ export const Settings: React.FC = () => {
 
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Study Settings</Typography>
+            <Typography variant="h6">{t('settings.study')}</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Paper sx={{ 
@@ -162,27 +209,11 @@ export const Settings: React.FC = () => {
               <Typography variant="h6" gutterBottom>App Preferences</Typography>
               
               <FormControl fullWidth margin="normal">
-                <InputLabel>Theme</InputLabel>
-                <Select
-                  value={preferences.theme}
-                  label="Theme"
-                  onChange={(e) => setPreferences(prev => ({
-                    ...prev,
-                    theme: e.target.value as 'light' | 'dark' | 'system'
-                  }))}
-                >
-                  <MenuItem value="light">Light</MenuItem>
-                  <MenuItem value="dark">Dark</MenuItem>
-                  <MenuItem value="system">System Default</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Daily Study Goal (minutes)"
+                  label={t('settings.studyGoal')}
                   type="number"
                   value={preferences.dailyGoal}
-                  onChange={(e) => setPreferences(prev => ({
+                  onChange={(e) => setPreferences((prev: UserPreferences) => ({
                     ...prev,
                     dailyGoal: parseInt(e.target.value)
                   }))}
@@ -192,14 +223,28 @@ export const Settings: React.FC = () => {
 
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Study Session Length (minutes)"
+                  label={t('settings.sessionLength')}
                   type="number"
                   value={preferences.studySessionLength}
-                  onChange={(e) => setPreferences(prev => ({
+                  onChange={(e) => setPreferences((prev: UserPreferences) => ({
                     ...prev,
                     studySessionLength: parseInt(e.target.value)
                   }))}
                   inputProps={{ min: 5, max: 60 }}
+                />
+              </FormControl>
+
+              <FormControl fullWidth margin="normal">
+                <TextField
+                  label={t('settings.vocabLimit')}
+                  type="number"
+                  value={preferences.studyVocabLimit}
+                  onChange={(e) => setPreferences(prev => ({
+                    ...prev,
+                    studyVocabLimit: Math.min(Math.max(parseInt(e.target.value), 5), 100)
+                  }))}
+                  inputProps={{ min: 5, max: 100 }}
+                  helperText={t('settings.vocabLimitHelp')}
                 />
               </FormControl>
 
@@ -208,13 +253,13 @@ export const Settings: React.FC = () => {
                   control={
                     <Switch
                       checked={preferences.notifications}
-                      onChange={(e) => setPreferences(prev => ({
+                      onChange={(e) => setPreferences((prev: UserPreferences) => ({
                         ...prev,
                         notifications: e.target.checked
                       }))}
                     />
                   }
-                  label="Enable Notifications"
+                  label={t('settings.notifications')}
                 />
               </Box>
 
@@ -223,13 +268,13 @@ export const Settings: React.FC = () => {
                   control={
                     <Switch
                       checked={preferences.audioEnabled}
-                      onChange={(e) => setPreferences(prev => ({
+                      onChange={(e) => setPreferences((prev: UserPreferences) => ({
                         ...prev,
                         audioEnabled: e.target.checked
                       }))}
                     />
                   }
-                  label="Enable Audio"
+                  label={t('settings.audio')}
                 />
               </Box>
             </Paper>
@@ -238,16 +283,16 @@ export const Settings: React.FC = () => {
 
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Pomodoro Settings</Typography>
+            <Typography variant="h6">{t('settings.pomodoro')}</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Paper sx={{ p: { xs: 2, sm: 3 } }}>
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Work Duration (minutes)"
+                  label={t('settings.workDuration')}
                   type="number"
                   value={preferences.pomodoroSettings.workDuration}
-                  onChange={(e) => setPreferences(prev => ({
+                  onChange={(e) => setPreferences((prev: UserPreferences) => ({
                     ...prev,
                     pomodoroSettings: {
                       ...prev.pomodoroSettings,
@@ -261,10 +306,10 @@ export const Settings: React.FC = () => {
 
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Break Duration (minutes)"
+                  label={t('settings.breakDuration')}
                   type="number"
                   value={preferences.pomodoroSettings.breakDuration}
-                  onChange={(e) => setPreferences(prev => ({
+                  onChange={(e) => setPreferences((prev: UserPreferences) => ({
                     ...prev,
                     pomodoroSettings: {
                       ...prev.pomodoroSettings,
@@ -280,7 +325,7 @@ export const Settings: React.FC = () => {
                 control={
                   <Switch
                     checked={preferences.pomodoroSettings.autoStartBreak}
-                    onChange={(e) => setPreferences(prev => ({
+                    onChange={(e) => setPreferences((prev: UserPreferences) => ({
                       ...prev,
                       pomodoroSettings: {
                         ...prev.pomodoroSettings,
@@ -289,7 +334,7 @@ export const Settings: React.FC = () => {
                     }))}
                   />
                 }
-                label="Auto-start breaks"
+                label={t('settings.autoStartBreak')}
               />
             </Paper>
           </AccordionDetails>
@@ -299,8 +344,9 @@ export const Settings: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleSave}
+            disabled={!user || !preferences}
           >
-            Save Settings
+            {t('common.save')}
           </Button>
         </Box>
       </Box>

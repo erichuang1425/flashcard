@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Button, ButtonGroup, Typography, Fade } from '@mui/material';
+import { useI18n } from '../i18n/I18nContext';
 
 interface StudyFeedbackProps {
   onRating: (rating: 1 | 2 | 3 | 4 | 5) => void;
@@ -15,11 +16,13 @@ export const StudyFeedback: React.FC<StudyFeedbackProps> = ({ onRating, disabled
     { value: 5, label: 'Perfect', color: 'success' }
   ] as const;
 
+  const { t } = useI18n();
+
   return (
     <Fade in={!disabled}>
       <Box sx={{ mt: 2 }}>
         <Typography variant="subtitle2" gutterBottom align="center">
-          How well did you know this?
+          {t('study.feedback.prompt')}
         </Typography>
         <ButtonGroup variant="contained" fullWidth>
           {ratings.map(({ value, label, color }) => (

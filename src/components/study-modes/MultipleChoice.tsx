@@ -3,6 +3,7 @@ import { Box, Button, Typography, Paper, Alert } from '@mui/material';
 import { getUserFlashcards } from '../../services/firestore';
 import type { Flashcard } from '../../types';
 import { capitalizeFirstWord } from '../../utils/helpers';
+import { useI18n } from '../../i18n/I18nContext';
 
 interface Props {
   card: Flashcard;
@@ -16,13 +17,14 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
   const [error, setError] = useState<string | null>(null);
   const [canProceed, setCanProceed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     const loadOptions = async () => {
       try {
         // Get similar cards based on part of speech or difficulty
-        const allCards = await getUserFlashcards(card.userId);
-        const similarCards = allCards.filter(c => 
+        const response = await getUserFlashcards(card.userId);
+        const similarCards = response.cards.filter((c: Flashcard) => 
           c.id !== card.id && 
           (c.partOfSpeech === card.partOfSpeech || c.difficulty === card.difficulty)
         );
@@ -39,7 +41,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
           // Normal case with similar cards
           const wrongOptions = shuffle(similarCards)
             .slice(0, 3)
-            .map(c => capitalizeFirstWord(c.englishDefinition));
+            .map((c: Flashcard) => capitalizeFirstWord(c.englishDefinition));
           setOptions(shuffle([capitalizeFirstWord(card.englishDefinition), ...wrongOptions]));
         }
         setError(null);
@@ -61,33 +63,20 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
     const correct = capitalizeFirstWord(card.englishDefinition) === option;
     setIsCorrect(correct);
     
-    if (correct) {
-      // Move to next question automatically if correct
-      setTimeout(() => {
-        onAnswer(true);
-        setSelected(null);
-        setShowResult(false);
-        setOptions([]);
-      }, 1000);
-    } else {
-      // Show correct answer and wait for user to proceed
-      setCanProceed(true);
-    }
-  };
-
-  const handleProceed = () => {
-    onAnswer(false);
-    setSelected(null);
-    setShowResult(false);
-    setOptions([]);
-    setCanProceed(false);
+    setTimeout(() => {
+      onAnswer(correct); // Call onAnswer first
+      setSelected(null);
+      setShowResult(false);
+      setOptions([]);
+      setCanProceed(false);
+    }, 1500);
   };
 
   return (
     <Paper sx={{ p: 3, width: '100%', maxWidth: 600 }}>
       {error ? (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {t('study.errors.loadingOptions')}
         </Alert>
       ) : (
         <>
@@ -118,15 +107,15 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
               </Button>
             ))}
             
-            {showResult && !isCorrect && canProceed && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleProceed}
-                sx={{ mt: 2 }}
+            {showResult && (
+              <Alert 
+                severity={isCorrect ? "success" : "error"}
+                sx={{ mb: 2 }}
               >
-                Continue
-              </Button>
+                {isCorrect 
+                  ? t('study.feedback.correct') 
+                  : `${t('study.feedback.incorrect')} The correct answer is: "${capitalizeFirstWord(card.englishDefinition)}"`}
+              </Alert>
             )}
           </Box>
         </>

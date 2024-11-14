@@ -6,6 +6,7 @@ interface ImportMetaEnv {
     readonly REACT_APP_FIREBASE_STORAGE_BUCKET: string;
     readonly REACT_APP_FIREBASE_MESSAGING_SENDER_ID: string;
     readonly REACT_APP_FIREBASE_APP_ID: string;
+    readonly REACT_APP_GOOGLE_TRANSLATE_API_KEY: string;
   }
   
   interface ImportMeta {

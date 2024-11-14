@@ -24,6 +24,7 @@ export interface UserStudyStats {
   lastStudied: Date;
   streak: number;
   totalCards: number;
+  totalWorksheets: number; // Added property
   masteredCards: number;
   averageAccuracy: number;
   totalStudyMinutes: number;
@@ -91,10 +92,16 @@ export interface StudySession {
 }
 
 export interface StudyProgress {
-  correct: number;
-  incorrect: number;
-  streak: number;
-  cardsReviewed: number;
+  currentIndex: number;
+  stats: {
+    correct: number;  
+    incorrect: number;
+    streak: number;
+    cardsReviewed: number;
+  };
+  cards: Flashcard[];
+  sessionStart: Date;
+  savedAt?: Date;
 }
 
 export interface StudyStats {

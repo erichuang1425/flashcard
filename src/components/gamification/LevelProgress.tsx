@@ -2,8 +2,14 @@ import React from 'react';
 import { Box, Typography, LinearProgress, Paper, Tooltip, Zoom } from '@mui/material';
 import { useGamification } from '../../context/GamificationContext';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import { useI18n } from '../../i18n/I18nContext';
 
-export const LevelProgress: React.FC = () => {
+interface LevelProgressProps {
+  compact?: boolean;
+}
+
+export const LevelProgress: React.FC<LevelProgressProps> = ({ compact = false }) => {
+  const { t } = useI18n();
   const { levelSystem } = useGamification();
   
   if (!levelSystem) return null;
@@ -14,7 +20,7 @@ export const LevelProgress: React.FC = () => {
   return (
     <Zoom in>
       <Paper sx={{ 
-        p: 2,
+        p: compact ? 1 : 2,
         backdropFilter: 'blur(10px)',
         background: theme => 
           theme.palette.mode === 'dark' 
@@ -40,11 +46,13 @@ export const LevelProgress: React.FC = () => {
               }
             }} 
           />
-          <Typography variant="h6">Level {levelSystem.currentLevel}</Typography>
+          <Typography variant="h6">
+            {t('profile.level')} {levelSystem.currentLevel}
+          </Typography>
         </Box>
         
         <Tooltip 
-          title={`${levelSystem.requiredXP - levelSystem.currentXP} XP until Level ${nextLevel}`}
+          title={t(`profile.xpUntilNextLevel ${levelSystem.requiredXP - levelSystem.currentXP} ${nextLevel}`)}
           arrow
           placement="top"
         >

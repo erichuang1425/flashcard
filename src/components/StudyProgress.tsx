@@ -1,103 +1,65 @@
 import React from 'react';
-import { Box, LinearProgress, Typography, Paper, CircularProgress, Grid } from '@mui/material';
-import type { StudyProgress } from '../types';
+import { Box, Typography, LinearProgress, Button } from '@mui/material';
+import SaveIcon from '@mui/icons-material/Save';
+import { useI18n } from '../i18n/I18nContext';
+import type { StudyProgress as StudyProgressType } from '../types';
 
 interface StudyProgressProps {
-  progress: StudyProgress;
+  progress: StudyProgressType;
   total: number;
+  onSaveExit?: () => void;
 }
 
-const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
-  const completion = (progress.cardsReviewed / total) * 100;
-  const accuracy = progress.cardsReviewed > 0 
-    ? (progress.correct / progress.cardsReviewed) * 100 
-    : 0;
+export const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total, onSaveExit }) => {
+  const { t } = useI18n();
+
+  const calculateProgress = () => {
+    if (!total) return 0;
+    return Math.floor((progress.stats.cardsReviewed / total) * 100);
+  };
+
+  const accuracy = progress.stats.cardsReviewed ? 
+    Math.round((progress.stats.correct / progress.stats.cardsReviewed) * 100) : 0;
 
   return (
-    <Paper sx={{ p: 2, mb: 2 }}>
-      {/* Progress section */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle2" gutterBottom>Overall Progress</Typography>
+    <Box>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          {t('study.progress.overall')}
+        </Typography>
         <LinearProgress 
           variant="determinate" 
-          value={completion} 
-          sx={{ 
-            height: 10, 
-            borderRadius: 5,
-            backgroundColor: 'action.hover',
-            '& .MuiLinearProgress-bar': {
-              borderRadius: 5
-            }
-          }} 
+          value={calculateProgress()} 
+          sx={{ height: 8, borderRadius: 1, mb: 1 }}
         />
-        <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-          {progress.cardsReviewed} of {total} cards reviewed
+        <Typography variant="body2" color="text.secondary">
+          {progress.stats.cardsReviewed} / {total} {t('study.progress.cardsCompleted')}
         </Typography>
       </Box>
 
-      {/* Stats grid */}
-      <Grid container spacing={2}>
-        {/* Streak stat */}
-        <Grid item xs={6}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                color: theme => progress.streak >= 5 ? theme.palette.success.main : 'text.primary'
-              }}
-            >
-              {progress.streak}
-            </Typography>
-            <Typography variant="body2">Current Streak</Typography>
-          </Box>
-        </Grid>
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          {t('study.progress.accuracy')}: {accuracy}%
+        </Typography>
+        <Typography variant="body2">
+          {t('study.progress.correct')}: {progress.stats.correct}
+        </Typography>
+        <Typography variant="body2">
+          {t('study.progress.incorrect')}: {progress.stats.incorrect}
+        </Typography>
+      </Box>
 
-        {/* Accuracy stat */}
-        <Grid item xs={6}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-              <CircularProgress
-                variant="determinate"
-                value={accuracy}
-                size={60}
-                thickness={4}
-                sx={{ color: theme => accuracy >= 70 ? theme.palette.success.main : theme.palette.warning.main }}
-              />
-              <Box
-                sx={{
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  right: 0,
-                  position: 'absolute',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-                  {accuracy.toFixed(0)}%
-                </Typography>
-              </Box>
-            </Box>
-            <Typography variant="body2" sx={{ mt: 1 }}>Accuracy</Typography>
-          </Box>
-        </Grid>
-
-        {/* Additional stats */}
-        <Grid item xs={6}>
-          <Typography variant="body2" color="text.secondary">
-            Correct: {progress.correct}
-          </Typography>
-        </Grid>
-        <Grid item xs={6}>
-          <Typography variant="body2" color="text.secondary">
-            Incorrect: {progress.incorrect}
-          </Typography>
-        </Grid>
-      </Grid>
-    </Paper>
+      {onSaveExit && (
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<SaveIcon />}
+          onClick={onSaveExit}
+          sx={{ mt: 2 }}
+        >
+          {t('study.controls.saveExit')}
+        </Button>
+      )}
+    </Box>
   );
 };
-
-export { StudyProgress };
