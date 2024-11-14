@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -12,7 +12,10 @@ import {
   ListItemIcon,
   ListItemText,
   LinearProgress,
-  Chip
+  Chip,
+  Tab,
+  Tabs,
+  CircularProgress
 } from '@mui/material';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { useAuth } from '../context/AuthContext';
@@ -20,10 +23,33 @@ import { useGamification } from '../context/GamificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import type { UserAchievement } from '../types/gamification';
 import { PomodoroTimer } from '../components/PomodoroTimer';
+import { getUserAnalytics } from '../services/analytics';
+import { AnalyticsOverview } from '../components/analytics/AnalyticsOverview';
+import { StudyPatterns } from '../components/analytics/StudyPatterns';
+import { CategoryProgress } from '../components/analytics/CategoryProgress';
+import type { StudyAnalytics } from '../types/analytics';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
   const { levelSystem, achievements } = useGamification();
+  const [analytics, setAnalytics] = useState<StudyAnalytics | null>(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      if (!user) return;
+      try {
+        const data = await getUserAnalytics(user.uid);
+        setAnalytics(data);
+      } catch (error) {
+        console.error('Error loading analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAnalytics();
+  }, [user]);
 
   if (!user || !levelSystem) return null;
 
@@ -63,42 +89,68 @@ export const Profile: React.FC = () => {
           <PomodoroTimer />
         </Grid>
 
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Achievements
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <List>
-              {userAchievements.map(achievement => (
-                <ListItem key={achievement.id}>
-                  <ListItemIcon>
-                    <EmojiEventsIcon 
-                      color={achievement.achieved ? 'primary' : 'disabled'} 
-                    />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={achievement.title}
-                    secondary={
-                      <>
-                        {achievement.description}
-                        <Typography variant="caption" display="block" color="text.secondary">
-                          Progress: {achievement.progress} / {achievement.requirement}
-                        </Typography>
-                      </>
-                    }
-                  />
-                  {achievement.achieved && (
-                    <Chip 
-                      label={`+${achievement.points} XP`}
-                      color="primary"
-                      size="small"
-                      sx={{ ml: 1 }}
-                    />
-                  )}
-                </ListItem>
-              ))}
-            </List>
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2 }}>
+            <Tabs
+              value={activeTab}
+              onChange={(_, newValue) => setActiveTab(newValue)}
+              sx={{ mb: 2 }}
+            >
+              <Tab label="Overview" />
+              <Tab label="Study Patterns" />
+              <Tab label="Categories" />
+              <Tab label="Achievements" />
+            </Tabs>
+
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <>
+                {activeTab === 0 && analytics && (
+                  <AnalyticsOverview analytics={analytics} />
+                )}
+                {activeTab === 1 && analytics && (
+                  <StudyPatterns patterns={analytics.studyPatterns} />
+                )}
+                {activeTab === 2 && analytics && (
+                  <CategoryProgress categories={analytics.categoryBreakdown} />
+                )}
+                {activeTab === 3 && (
+                  <List>
+                    {userAchievements.map(achievement => (
+                      <ListItem key={achievement.id}>
+                        <ListItemIcon>
+                          <EmojiEventsIcon 
+                            color={achievement.achieved ? 'primary' : 'disabled'} 
+                          />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={achievement.title}
+                          secondary={
+                            <>
+                              {achievement.description}
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                Progress: {achievement.progress} / {achievement.requirement}
+                              </Typography>
+                            </>
+                          }
+                        />
+                        {achievement.achieved && (
+                          <Chip 
+                            label={`+${achievement.points} XP`}
+                            color="primary"
+                            size="small"
+                            sx={{ ml: 1 }}
+                          />
+                        )}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </>
+            )}
           </Paper>
         </Grid>
       </Grid>

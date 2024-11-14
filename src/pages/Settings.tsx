@@ -16,60 +16,65 @@ import {
   TextField,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  FormHelperText,
+  CircularProgress
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { useUserPreferences, UserPreferences } from '../context/UserPreferencesContext';
+import { useThemeMode, ThemeMode } from '../context/ThemeModeContext';
 
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  studySessionLength: number;
-  dailyGoal: number;
-  notifications: boolean;
-  audioEnabled: boolean;
-  autoPlayAudio: boolean;
-  language: 'en' | 'zh';
+const defaultPreferences: UserPreferences = {
+  theme: 'system',
+  dailyGoal: 30,
+  studySessionLength: 25,
+  notifications: true,
+  audioEnabled: true,
   pomodoroSettings: {
-    workDuration: number;
-    breakDuration: number;
-    autoStartBreak: boolean;
-  };
-}
+    workDuration: 25,
+    breakDuration: 5,
+    autoStartBreak: false
+  }
+};
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
-  const [preferences, setPreferences] = useState<UserPreferences>({
-    theme: 'system',
-    studySessionLength: 20,
-    dailyGoal: 30,
-    notifications: true,
-    audioEnabled: true,
-    autoPlayAudio: false,
-    language: 'en',
-    pomodoroSettings: {
-      workDuration: 25,
-      breakDuration: 5,
-      autoStartBreak: false
-    }
-  });
+  const { preferences, setPreferences } = useUserPreferences();
+  const { mode, setMode } = useThemeMode();
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadPreferences = async () => {
       if (!user) return;
       try {
+        setIsLoading(true);
         const prefsDoc = await getDoc(doc(db, 'users', user.uid, 'preferences', 'study'));
         if (prefsDoc.exists()) {
-          setPreferences(prefsDoc.data() as UserPreferences);
+          setPreferences({
+            ...defaultPreferences, // Spread default values first
+            ...prefsDoc.data() as UserPreferences // Override with stored values
+          });
         }
       } catch (error) {
         console.error('Error loading preferences:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadPreferences();
-  }, [user]);
+  }, [user, setPreferences]);
+
+  if (isLoading) {
+    return (
+      <Container maxWidth="md" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
 
   const handleSave = async () => {
     if (!user) return;
@@ -106,6 +111,39 @@ export const Settings: React.FC = () => {
             {saveStatus.message}
           </Alert>
         )}
+
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Appearance</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Paper sx={{ 
+              p: { xs: 2, sm: 3 },
+              '& .MuiFormControl-root': {
+                mb: { xs: 2, sm: 3 }
+              },
+              '& .MuiSwitch-root': {
+                my: { xs: 1, sm: 2 }
+              }
+            }}>
+              <FormControl fullWidth>
+                <InputLabel>Theme Mode</InputLabel>
+                <Select
+                  value={mode}
+                  label="Theme Mode"
+                  onChange={(e) => setMode(e.target.value as ThemeMode)}
+                >
+                  <MenuItem value="light">Light</MenuItem>
+                  <MenuItem value="dark">Dark</MenuItem>
+                  <MenuItem value="system">System</MenuItem>
+                </Select>
+                <FormHelperText>
+                  Choose your preferred theme mode
+                </FormHelperText>
+              </FormControl>
+            </Paper>
+          </AccordionDetails>
+        </Accordion>
 
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
