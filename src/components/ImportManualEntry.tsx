@@ -7,6 +7,7 @@ import {
 import TranslateIcon from '@mui/icons-material/Translate';
 import { useI18n } from '../i18n/I18nContext';
 import { translateToTraditionalChinese } from '../services/translationService';
+import { TranslationError } from '../types/translationTypes';
 
 interface ManualEntryProps {
   onSubmit: (data: {
@@ -32,6 +33,15 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [translationSuccess, setTranslationSuccess] = useState(false);
   const wordInputRef = useRef<HTMLInputElement>(null);
+  const [translationResult, setTranslationResult] = useState<{
+    success: boolean;
+    message: string | null;
+    status: 'idle' | 'loading' | 'success' | 'error';
+  }>({
+    success: false,
+    message: null,
+    status: 'idle'
+  });
 
   useEffect(() => {
     // Auto focus word input on mount
@@ -65,18 +75,48 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
   };
 
   const handleTranslationTest = async () => {
-    if (!manualEntry.englishDefinition) return;
+    if (!manualEntry.englishDefinition) {
+      setTranslationResult({
+        success: false,
+        message: t('import.errors.noContent'),
+        status: 'error'
+      });
+      return;
+    }
     
+    setTranslationResult({ ...translationResult, status: 'loading' });
     setTranslating(true);
     setTranslationError(null);
     setTranslationSuccess(false);
 
     try {
       const translation = await translateToTraditionalChinese(manualEntry.englishDefinition);
+      
+      if (!translation || translation.trim() === '') {
+        throw new Error('Empty translation result');
+      }
+
       setManualEntry(prev => ({ ...prev, chineseTranslation: translation }));
+      setTranslationResult({
+        success: true,
+        message: t('import.manual.translationSuccess'),
+        status: 'success'
+      });
       setTranslationSuccess(true);
     } catch (err) {
-      setTranslationError(t('import.errors.translationFailed'));
+      console.error('Translation error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      
+      setTranslationResult({
+        success: false,
+        message: t(
+          err instanceof TranslationError ? 
+            'import.errors.translationFailed' : 
+            'import.errors.translationError'
+        ) + `: ${errorMessage}`,
+        status: 'error'
+      });
+      setTranslationError(errorMessage);
     } finally {
       setTranslating(false);
     }
@@ -127,25 +167,36 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
           helperText={t('import.manual.help.definition')}
           InputProps={{
             endAdornment: (
-              <Tooltip title={t('import.manual.testTranslation')}>
-                <IconButton 
-                  onClick={handleTranslationTest}
-                  disabled={!manualEntry.englishDefinition || translating}
-                >
-                  {translating ? <CircularProgress size={24} /> : <TranslateIcon />}
-                </IconButton>
-              </Tooltip>
+              <span>
+                <Tooltip title={
+                  translationResult.status === 'loading' ? 
+                    t('import.manual.translating') : 
+                    t('import.manual.testTranslation')
+                }>
+                  <span>
+                    <IconButton 
+                      onClick={handleTranslationTest}
+                      disabled={!manualEntry.englishDefinition || translating}
+                      color={translationResult.status === 'success' ? 'success' : 'default'}
+                    >
+                      {translating ? 
+                        <CircularProgress size={24} /> : 
+                        <TranslateIcon />
+                      }
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </span>
             )
           }}
         />
-        {translationSuccess && (
-          <Alert severity="success" sx={{ mt: 1 }}>
-            {t('import.manual.translationSuccess')}
-          </Alert>
-        )}
-        {translationError && (
-          <Alert severity="error" sx={{ mt: 1 }}>
-            {translationError}
+        {translationResult.status !== 'idle' && (
+          <Alert 
+            severity={translationResult.status === 'success' ? 'success' : 'error'} 
+            sx={{ mt: 1 }}
+            onClose={() => setTranslationResult({ ...translationResult, status: 'idle' })}
+          >
+            {translationResult.message}
           </Alert>
         )}
       </Grid>

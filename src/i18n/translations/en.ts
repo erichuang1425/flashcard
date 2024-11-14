@@ -220,7 +220,8 @@ export const en = {
         wordTooShort: 'Word must be at least 2 characters'
       },
       testTranslation: 'Test Translation',
-      translationSuccess: 'Translation test successful'
+      translationSuccess: 'Translation test successful',
+      translating: 'Translating...'
     },
     actions: {
       upload: 'Upload CSV File',
@@ -234,6 +235,8 @@ export const en = {
       importFailed: 'Import failed',
       fileReadError: 'Failed to read file',
       translationFailed: 'Auto-translation failed. Please enter translation manually.',
+      noContent: 'Please enter English definition first',
+      translationError: 'Translation failed: {{error}}'
     },
     instructions: 'Upload a CSV file with two columns: front and back of the cards.',
     dropzone: {

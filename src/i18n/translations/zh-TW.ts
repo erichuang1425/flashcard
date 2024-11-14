@@ -220,7 +220,8 @@ export const zhTW = {
         wordTooShort: '單字至少需要2個字元'
       },
       testTranslation: '測試翻譯',
-      translationSuccess: '翻譯測試成功'
+      translationSuccess: '翻譯測試成功',
+      translating: '翻譯中...'
     },
     fileImport: {
       title: '檔案匯入',
@@ -244,7 +245,9 @@ export const zhTW = {
     errors: {
       importFailed: '匯入失敗',
       fileReadError: '無法讀取檔案',
-      translationFailed: '自動翻譯失敗。請手動輸入翻譯。'
+      translationFailed: '自動翻譯失敗。請手動輸入翻譯。',
+      noContent: '請先輸入英文定義',
+      translationError: '翻譯失敗：{{error}}'
     },
     instructions: '上傳包含正面和背面兩欄的 CSV 檔案。',
     dropzone: {
