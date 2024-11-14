@@ -14,11 +14,17 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { levelSystem } = useGamification();
-  const { focusMode } = useFocusMode();
+  const { focusMode, toggleFocusMode } = useFocusMode();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 900);
+  const [showGamePanel, setShowGamePanel] = useState(true);
+
+  const toggleGamePanel = () => {
+    setShowGamePanel(!showGamePanel);
+    setIsPanelCollapsed(false);
+  };
   
   // Auto collapse panel on small screens
   useEffect(() => {
@@ -41,7 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
       transition: 'all 0.3s ease'
     }}>
-      <NavBar />
+      <NavBar onTogglePanel={toggleGamePanel} showGamePanel={showGamePanel} focusMode={focusMode} onFocusChange={toggleFocusMode} />
       <Toolbar />
       
       <Box sx={{ 
@@ -49,111 +55,48 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         flex: 1,
         position: 'relative',
         overflow: 'hidden',
-        pb: { xs: isPanelCollapsed ? 6 : 40, md: 0 }, // Add bottom padding on mobile for panel
-        pr: { xs: 0, md: !focusMode && !isPanelCollapsed ? '324px' : '64px' }, // Add padding for panel
-        transition: 'all 0.3s ease'
+        justifyContent: 'center', // Center the content
+        pb: { 
+          xs: showGamePanel ? '0' : 0, // Remove conditional padding
+          md: 0 
+        },
+        pr: { 
+          xs: 0, 
+          md: !focusMode && showGamePanel ? (isPanelCollapsed ? '48px' : '324px') : 0 
+        },
+        transition: 'padding 0.3s ease'
       }}>
-        {/* Main Content */}
-        <Container
-          maxWidth="lg"
-          sx={{
-            flex: 1,
-            py: { xs: 2, sm: 3 },
-            px: { xs: 2, sm: 3, md: 4 },
-            mx: 'auto',
-            width: {
-              xs: '100%',
-              md: `calc(100% - ${!focusMode && !isPanelCollapsed ? '324px' : '64px'})` // Add extra spacing
-            },
-            transition: 'all 0.3s ease',
-            height: 'calc(100vh - 64px)',
-            overflowY: 'auto',
-            opacity: focusMode ? 0.97 : 1,
-            filter: focusMode ? 'grayscale(0.2)' : 'none',
-            scrollbarWidth: 'none', // Hide scrollbar
-            msOverflowStyle: 'none', // Hide scrollbar IE/Edge
-            '&::-webkit-scrollbar': {
-              display: 'none', // Hide scrollbar Chrome/Safari/Opera
-            },
-            '&:hover': {
-              '&::-webkit-scrollbar': {
-                display: 'block',
-                width: '6px',
-              },
-              '&::-webkit-scrollbar-track': {
-                background: 'transparent',
-                mx: 2
-              },
-              '&::-webkit-scrollbar-thumb': {
-                background: theme.palette.primary.main,
-                borderRadius: '3px',
-                '&:hover': {
-                  background: theme.palette.primary.dark,
-                }
-              }
-            }
-          }}
-        >
+        <Container maxWidth="lg" sx={{ flex: { xs: 1, md: 'none' } /* Remove flex:1 on desktop */ }}>
           {children}
         </Container>
 
-        {/* Collapsible Side Panel */}
-        {!focusMode && (
-          <Paper
-            elevation={2}
-            sx={{
-              position: 'fixed',
-              top: { xs: 'auto', md: 76 },
-              bottom: { xs: 0, md: 'auto' },
-              right: { xs: 0, md: 12 }, // Add right margin on desktop
-              height: { 
-                xs: isPanelCollapsed ? '48px' : '300px',
-                md: 'calc(100vh - 88px)' // Adjust height to account for margins
-              },
-              width: { 
-                xs: '100%',
-                md: isPanelCollapsed ? '48px' : '300px'
-              },
-              maxWidth: { xs: '100%', md: '324px' },
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              flexDirection: { xs: 'column', md: 'row' },
-              borderRadius: { 
-                xs: isPanelCollapsed ? 0 : '12px 12px 0 0',
-                md: '12px' 
-              },
-              borderTop: { xs: 1, md: 0 },
-              borderColor: 'divider',
-              zIndex: 1200,
-              overflow: 'hidden',
-              boxShadow: theme => isSmallScreen 
-                ? 'none'
-                : `0 4px 20px ${theme.palette.mode === 'dark' 
-                    ? 'rgba(0,0,0,0.4)' 
-                    : 'rgba(0,0,0,0.15)'}`,
-              background: theme => theme.palette.mode === 'dark'
-                ? 'rgba(30,30,30,0.95)'
-                : 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(10px)',
-              transform: { xs: 'none', md: isPanelCollapsed ? 'translateX(calc(100% - 48px))' : 'none' }
-            }}
-          >
+        {!focusMode && showGamePanel && (
+          <>
             <IconButton
               onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+              size="small"
               sx={{
-                position: 'absolute',
-                [isSmallScreen ? 'top' : 'left']: isSmallScreen ? 0 : '-20px',
-                [isSmallScreen ? 'left' : 'top']: '50%',
+                position: 'fixed',
+                top: isSmallScreen ? 'auto' : '50%',
+                bottom: isSmallScreen ? '16px' : 'auto',
+                right: isSmallScreen ? '50%' : '324px',
                 transform: isSmallScreen 
-                  ? 'translateX(-50%) translateY(-50%)'
-                  : 'translateY(-50%) translateX(-50%)',
-                backgroundColor: 'background.paper',
-                border: 1,
+                  ? 'translateX(50%)' 
+                  : 'translate(50%, -50%)',
+                zIndex: 1201,
+                backgroundColor: theme => theme.palette.mode === 'dark' ? 'grey.800' : 'background.paper',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                border: '1px solid',
                 borderColor: 'divider',
+                width: '32px',
+                height: '32px',
+                transition: 'all 0.3s ease',
+                ...(isPanelCollapsed && {
+                  right: isSmallScreen ? '50%' : '24px',
+                }),
                 '&:hover': {
-                  backgroundColor: 'action.hover',
+                  backgroundColor: theme => theme.palette.mode === 'dark' ? 'grey.700' : 'grey.100',
                 },
-                zIndex: 2
               }}
             >
               {isSmallScreen 
@@ -162,39 +105,77 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               }
             </IconButton>
 
-            <Collapse
-              in={!isPanelCollapsed}
-              orientation={isSmallScreen ? 'vertical' : 'horizontal'}
-              sx={{ 
-                width: '100%',
-                height: '100%',
-                overflow: 'hidden', // Hide scrollbars by default
-                '&:hover': {
-                  overflowY: 'auto', // Show on hover
+            <Paper
+              elevation={2}
+              sx={{
+                position: 'fixed',
+                visibility: isPanelCollapsed ? 'hidden' : 'visible',
+                top: { xs: 'auto', md: 76 },
+                bottom: 0,
+                right: 0,
+                height: { 
+                  xs: isPanelCollapsed ? '48px' : '300px', // Keep minimum height when collapsed
+                  md: isPanelCollapsed ? 0 : 'calc(100vh - 88px)'
                 },
-                scrollbarWidth: 'thin',
-                scrollbarColor: `${theme.palette.primary.main} transparent`,
-                '&::-webkit-scrollbar': {
-                  width: '4px',
+                width: { 
+                  xs: '100%',
+                  md: isPanelCollapsed ? 0 : '300px'
                 },
-                '&::-webkit-scrollbar-thumb': {
-                  background: theme.palette.primary.main,
-                  borderRadius: '2px',
-                }
+                maxWidth: { xs: '100%', md: '324px' },
+                transform: {
+                  xs: `translateY(${isPanelCollapsed ? 'calc(100% - 48px)' : '0'})`, // Keep handle visible
+                  md: `translateX(${isPanelCollapsed ? '100%' : '0'})`
+                },
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                flexDirection: { xs: 'column', md: 'row' },
+                borderRadius: { 
+                  xs: '12px 12px 0 0', // Always show border radius on mobile
+                  md: '12px' 
+                },
+                borderTop: { xs: 1, md: 0 },
+                borderColor: 'divider',
+                zIndex: 1200,
+                overflow: 'hidden',
+                boxShadow: theme => isSmallScreen 
+                  ? 'none'
+                  : `0 4px 20px ${theme.palette.mode === 'dark' 
+                      ? 'rgba(0,0,0,0.4)' 
+                      : 'rgba(0,0,0,0.15)'}`,
+                background: theme => theme.palette.mode === 'dark'
+                  ? 'rgba(30,30,30,0.95)'
+                  : 'rgba(255,255,255,0.95)',
+                backdropFilter: 'blur(10px)'
               }}
             >
-              <Box sx={{ 
-                p: 2, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: 2,
-                height: '100%'
-              }}>
-                {levelSystem && <LevelProgress />}
-                <PomodoroTimer compact={isPanelCollapsed} />
+              <Box 
+                sx={{ 
+                  display: { xs: 'flex', md: 'none' },
+                  height: '48px',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+              >
+                {isPanelCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
               </Box>
-            </Collapse>
-          </Paper>
+              
+              <Collapse 
+                in={!isPanelCollapsed}
+                sx={{
+                  height: { xs: 'calc(100% - 48px)', md: '100%' } // Account for handle height
+                }}
+              >
+                <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+                  {levelSystem && <LevelProgress />}
+                  <PomodoroTimer compact={isPanelCollapsed} />
+                </Box>
+              </Collapse>
+            </Paper>
+          </>
         )}
       </Box>
     </Box>

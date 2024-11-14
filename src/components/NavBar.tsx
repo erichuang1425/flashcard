@@ -24,9 +24,11 @@ import { useFocusMode } from '../context/FocusModeContext';
 interface NavBarProps {
   focusMode: boolean;
   onFocusChange: (active: boolean) => void;
+  onTogglePanel: () => void;
+  showGamePanel: boolean;
 }
 
-export const NavBar: React.FC = () => {
+export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
