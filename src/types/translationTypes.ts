@@ -9,6 +9,16 @@ export interface TranslationError {
   code: string;
 }
 
+export class TranslationError extends Error {
+  code: string;
+
+  constructor(message: string, code: string = 'TRANSLATION_ERROR') {
+    super(message);
+    this.name = 'TranslationError';
+    this.code = code;
+  }
+}
+
 export interface ConversionResponse {
   text: string;
   success: boolean;

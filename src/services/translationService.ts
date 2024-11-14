@@ -1,8 +1,7 @@
 import axios from 'axios';
 import { convertToTraditional } from '../utils/chineseConverter';
-import { config } from '../config';
 
-const GOOGLE_TRANSLATE_API_KEY = config.GOOGLE_TRANSLATE_API_KEY;
+const GOOGLE_TRANSLATE_API_KEY = import.meta.env.REACT_APP_GOOGLE_TRANSLATE_API_KEY;
 const GOOGLE_TRANSLATE_API_URL = 'https://translation.googleapis.com/language/translate/v2';
 
 export interface TranslationResponse {
