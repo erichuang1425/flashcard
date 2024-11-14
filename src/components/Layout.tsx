@@ -48,7 +48,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         display: 'flex', 
         flex: 1,
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        pb: { xs: isPanelCollapsed ? 6 : 40, md: 0 }, // Add bottom padding on mobile for panel
+        pr: { xs: 0, md: !focusMode && !isPanelCollapsed ? '324px' : '64px' }, // Add padding for panel
+        transition: 'all 0.3s ease'
       }}>
         {/* Main Content */}
         <Container
@@ -56,29 +59,38 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           sx={{
             flex: 1,
             py: { xs: 2, sm: 3 },
-            px: { xs: 1, sm: 2, md: 3 },
-            mx: 'auto', // Center content
+            px: { xs: 2, sm: 3, md: 4 },
+            mx: 'auto',
             width: {
               xs: '100%',
-              sm: `calc(100% - ${isPanelCollapsed ? '48px' : '0px'})`,
-              md: `calc(100% - ${!focusMode && !isPanelCollapsed ? '300px' : '48px'})`
+              md: `calc(100% - ${!focusMode && !isPanelCollapsed ? '324px' : '64px'})` // Add extra spacing
             },
             transition: 'all 0.3s ease',
             height: 'calc(100vh - 64px)',
             overflowY: 'auto',
             opacity: focusMode ? 0.97 : 1,
             filter: focusMode ? 'grayscale(0.2)' : 'none',
-            scrollbarWidth: 'thin',
-            scrollbarColor: `${theme.palette.primary.main} transparent`,
+            scrollbarWidth: 'none', // Hide scrollbar
+            msOverflowStyle: 'none', // Hide scrollbar IE/Edge
             '&::-webkit-scrollbar': {
-              width: '6px',
+              display: 'none', // Hide scrollbar Chrome/Safari/Opera
             },
-            '&::-webkit-scrollbar-track': {
-              background: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: theme.palette.primary.main,
-              borderRadius: '3px',
+            '&:hover': {
+              '&::-webkit-scrollbar': {
+                display: 'block',
+                width: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+                mx: 2
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: theme.palette.primary.main,
+                borderRadius: '3px',
+                '&:hover': {
+                  background: theme.palette.primary.dark,
+                }
+              }
             }
           }}
         >
@@ -93,34 +105,44 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               position: 'fixed',
               top: { xs: 'auto', md: 76 },
               bottom: { xs: 0, md: 'auto' },
-              right: 0,
+              right: { xs: 0, md: 12 }, // Add right margin on desktop
               height: { 
                 xs: isPanelCollapsed ? '48px' : '300px',
-                md: 'calc(100vh - 76px)' 
+                md: 'calc(100vh - 88px)' // Adjust height to account for margins
               },
               width: { 
                 xs: '100%',
                 md: isPanelCollapsed ? '48px' : '300px'
               },
+              maxWidth: { xs: '100%', md: '324px' },
               transition: 'all 0.3s ease',
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
               borderRadius: { 
                 xs: isPanelCollapsed ? 0 : '12px 12px 0 0',
-                md: 0 
+                md: '12px' 
               },
               borderTop: { xs: 1, md: 0 },
-              borderLeft: { xs: 0, md: 1 },
               borderColor: 'divider',
               zIndex: 1200,
-              overflow: 'hidden'
+              overflow: 'hidden',
+              boxShadow: theme => isSmallScreen 
+                ? 'none'
+                : `0 4px 20px ${theme.palette.mode === 'dark' 
+                    ? 'rgba(0,0,0,0.4)' 
+                    : 'rgba(0,0,0,0.15)'}`,
+              background: theme => theme.palette.mode === 'dark'
+                ? 'rgba(30,30,30,0.95)'
+                : 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(10px)',
+              transform: { xs: 'none', md: isPanelCollapsed ? 'translateX(calc(100% - 48px))' : 'none' }
             }}
           >
             <IconButton
               onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
               sx={{
                 position: 'absolute',
-                [isSmallScreen ? 'top' : 'left']: 0,
+                [isSmallScreen ? 'top' : 'left']: isSmallScreen ? 0 : '-20px',
                 [isSmallScreen ? 'left' : 'top']: '50%',
                 transform: isSmallScreen 
                   ? 'translateX(-50%) translateY(-50%)'
@@ -131,7 +153,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 '&:hover': {
                   backgroundColor: 'action.hover',
                 },
-                zIndex: 1
+                zIndex: 2
               }}
             >
               {isSmallScreen 
@@ -146,8 +168,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               sx={{ 
                 width: '100%',
                 height: '100%',
-                overflowY: 'auto',
-                overflowX: 'hidden',
+                overflow: 'hidden', // Hide scrollbars by default
+                '&:hover': {
+                  overflowY: 'auto', // Show on hover
+                },
                 scrollbarWidth: 'thin',
                 scrollbarColor: `${theme.palette.primary.main} transparent`,
                 '&::-webkit-scrollbar': {
