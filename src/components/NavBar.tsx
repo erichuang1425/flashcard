@@ -14,8 +14,18 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import TimerIcon from '@mui/icons-material/Timer';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useGamification } from '../context/GamificationContext';
+import { FocusMode } from './gamification/FocusMode';
+import { useFocusMode } from '../context/FocusModeContext';
+
+interface NavBarProps {
+  focusMode: boolean;
+  onFocusChange: (active: boolean) => void;
+}
 
 export const NavBar: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,12 +35,15 @@ export const NavBar: React.FC = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { levelSystem } = useGamification();
+  const { focusMode, toggleFocusMode } = useFocusMode();
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
     { text: 'Study', icon: <SchoolIcon />, path: '/study' },
     { text: 'Worksheets', icon: <AssignmentIcon />, path: '/worksheets' },
     { text: 'Import', icon: <CloudUploadIcon />, path: '/import' },
+    { text: 'Study Timer', icon: <TimerIcon />, path: '/timer' },
   ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -56,14 +69,21 @@ export const NavBar: React.FC = () => {
     signOut();
   };
 
-  const renderMobileMenu = (
+  const renderMobileNav = () => (
     <Drawer
       variant="temporary"
       anchor="left"
       open={mobileOpen}
       onClose={() => setMobileOpen(false)}
       ModalProps={{ keepMounted: true }}
-      sx={{ '& .MuiDrawer-paper': { width: 240 } }}
+      sx={{
+        '& .MuiDrawer-paper': {
+          width: { xs: '100%', sm: 280 },
+          boxSizing: 'border-box',
+          height: '100%',
+          paddingBottom: 'env(safe-area-inset-bottom)'
+        }
+      }}
     >
       <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
         <Avatar sx={{ bgcolor: 'primary.main' }}>
@@ -148,7 +168,14 @@ export const NavBar: React.FC = () => {
 
   return (
     <>
-      <AppBar position="fixed" elevation={1}>
+      <AppBar 
+        position="fixed" 
+        elevation={1}
+        sx={{
+          transition: 'background-color 0.3s ease',
+          bgcolor: focusMode ? 'background.paper' : 'primary.main'
+        }}
+      >
         <Toolbar>
           {isMobile && (
             <IconButton
@@ -173,8 +200,26 @@ export const NavBar: React.FC = () => {
             FlashCards AI
           </Typography>
 
+          {!isMobile && levelSystem && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mr: 2,
+              gap: 1 
+            }}>
+              <EmojiEventsIcon color="inherit" />
+              <Typography variant="body1">
+                Level {levelSystem.currentLevel}
+              </Typography>
+            </Box>
+          )}
+
           {!isMobile && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <FocusMode 
+                active={focusMode} 
+                onChange={toggleFocusMode} 
+              />
               {menuItems.map((item) => (
                 <Button 
                   key={item.text}
@@ -217,7 +262,7 @@ export const NavBar: React.FC = () => {
         </Toolbar>
       </AppBar>
       {renderDesktopMenu}
-      {renderMobileMenu}
+      {renderMobileNav()}
       <Toolbar /> 
     </>
   );

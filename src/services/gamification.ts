@@ -68,4 +68,99 @@ export const updateUserXP = async (userId: string, xpGained: number): Promise<Le
   }
 };
 
+// Add achievement types and helpers
+type AchievementStats = {
+  studySessions: number;
+  cardsMastered: number;
+  studyTime: number;
+  averageAccuracy: number;
+  perfectSessions: number;
+};
+
+const calculateAchievementProgress = (
+  achievement: Achievement, 
+  stats: AchievementStats
+): number => {
+  switch (achievement.type) {
+    case 'streak':
+      return stats.studySessions;
+    case 'cards_mastered':
+      return stats.cardsMastered;
+    case 'study_time':
+      return stats.studyTime;
+    case 'accuracy':
+      return stats.averageAccuracy;
+    case 'perfect_sessions':
+      return stats.perfectSessions;
+    default:
+      return 0;
+  }
+};
+
+export const loadUserAchievements = async (userId: string): Promise<UserAchievement[]> => {
+  const achievementsRef = collection(db, 'users', userId, 'achievements');
+  const snapshot = await getDocs(achievementsRef);
+  return snapshot.docs.map(doc => doc.data() as UserAchievement);
+};
+
+// Add more complete achievement templates
+const ACHIEVEMENT_TEMPLATES: Achievement[] = [
+  {
+    id: 'first-study',
+    title: 'First Steps',
+    description: 'Complete your first study session',
+    icon: '🎯',
+    requirement: 1,
+    type: 'study_time',
+    tier: 'bronze',
+    points: 50
+  },
+  {
+    id: 'mastery-beginner',
+    title: 'Beginner Master',
+    description: 'Master 10 cards',
+    icon: '🌟',
+    requirement: 10,
+    type: 'cards_mastered',
+    tier: 'bronze',
+    points: 100
+  },
+  {
+    id: 'perfect-streak',
+    title: 'Perfect Streak',
+    description: 'Get 5 perfect study sessions in a row',
+    icon: '🔥',
+    requirement: 5,
+    type: 'perfect_sessions',
+    tier: 'silver',
+    points: 200
+  }
+];
+
+// Replace existing checkAndUpdateAchievements function
+export const checkAndUpdateAchievements = async (userId: string, stats: AchievementStats) => {
+  const userAchievementsRef = collection(db, 'users', userId, 'achievements');
+  
+  for (const template of ACHIEVEMENT_TEMPLATES) {
+    const achievementRef = doc(userAchievementsRef, template.id);
+    const achievementDoc = await getDoc(achievementRef);
+    
+    if (!achievementDoc.exists() || !achievementDoc.data().achieved) {
+      const progress = calculateAchievementProgress(template, stats);
+      
+      await setDoc(achievementRef, {
+        ...template,
+        progress,
+        achieved: progress >= template.requirement,
+        achievedDate: progress >= template.requirement ? new Date() : null
+      }, { merge: true });
+
+      // If newly achieved, add XP reward
+      if (progress >= template.requirement && !achievementDoc.exists()) {
+        await updateUserXP(userId, template.points);
+      }
+    }
+  }
+};
+
 // Add more functions for achievements, leaderboard, etc.
