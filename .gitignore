@@ -45,3 +45,5 @@ node_modules/
 .dataconnect
 
 Project-goal.txt
+
+/functions/.env

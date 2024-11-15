@@ -21,6 +21,33 @@ interface CategoryProgressProps {
   }>;
 }
 
+const chartOptions = {
+  plugins: {
+    legend: {
+      position: 'bottom' as const,
+      align: 'center' as const
+    },
+    doughnut: {
+      cutout: '70%',
+    }
+  },
+  layout: {
+    padding: 20
+  },
+  maintainAspectRatio: true
+};
+
+// Center text styles
+const centerTextStyles = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  textAlign: 'center',
+  pointerEvents: 'none',
+  width: '100%'
+};
+
 export const CategoryProgress: React.FC<CategoryProgressProps> = ({ categories }) => {
   const theme = useTheme();
   const { t } = useI18n();
@@ -122,19 +149,7 @@ export const CategoryProgress: React.FC<CategoryProgressProps> = ({ categories }
           <Box sx={{ height: '100%', display: 'flex', position: 'relative' }}>
             <Box sx={{ flex: 1, minHeight: '100%', position: 'relative' }}>
               <Doughnut data={chartData} options={options} />
-              <Box sx={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                textAlign: 'center',
-                width: '100%',
-                pointerEvents: 'none',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
+              <Box sx={centerTextStyles}>
                 <Typography variant="h3" color="primary" sx={{ mb: 0.5 }}>
                   {overallPercentage}%
                 </Typography>
