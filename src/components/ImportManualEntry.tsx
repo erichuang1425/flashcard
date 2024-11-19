@@ -44,7 +44,6 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
   });
 
   useEffect(() => {
-    // Auto focus word input on mount
     wordInputRef.current?.focus();
   }, []);
 
@@ -63,6 +62,16 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
   };
 
   const handleSubmit = () => {
+
+    if (!manualEntry.word || !manualEntry.englishDefinition) {
+      setTranslationResult({
+        success: false,
+        message: t('import.errors.missingFields'),
+        status: 'error'
+      });
+      return;
+    }
+
     onSubmit(manualEntry);
     // Reset form after submission
     setManualEntry({
@@ -71,6 +80,12 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
       englishDefinition: '',
       chineseTranslation: '',
       categories: []
+    });
+ 
+    setTranslationResult({
+      success: false,
+      message: null,
+      status: 'idle'
     });
   };
 

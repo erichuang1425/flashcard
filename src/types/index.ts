@@ -24,7 +24,7 @@ export interface UserStudyStats {
   lastStudied: Date;
   streak: number;
   totalCards: number;
-  totalWorksheets: number; // Added property
+  totalWorksheets: number;
   masteredCards: number;
   averageAccuracy: number;
   totalStudyMinutes: number;
@@ -37,6 +37,7 @@ export interface UserStudyStats {
   weeklyProgress: number;
   createdAt: Date;
   weekStart: Date;
+  totalStudyDays: number;
 }
 
 export type QuestionType = 'multipleChoice' | 'translation' | 'writing';
@@ -98,7 +99,9 @@ export interface StudyProgress {
     incorrect: number;
     streak: number;
     cardsReviewed: number;
+    timeSpent: number;
   };
+  mode: StudyMode;
   cards: Flashcard[];
   sessionStart: Date;
   savedAt?: Date;
@@ -192,4 +195,12 @@ export interface MatchingPair {
 
 export interface MatchingSet {
   pairs: MatchingPair[];
+}
+
+export interface StudyCardProgress {
+  cardId: string;
+  rating: number;
+  isCorrect: boolean;
+  mode: StudyMode;
+  timeSpent: number;
 }

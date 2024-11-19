@@ -45,6 +45,9 @@ export const zhTW = {
     saveSuccess: '設定儲存成功',
     saveError: '設定儲存失敗'
   },
+  studyMode:{
+    selected: '已選擇'
+  },
   profile: {
     level: '等級',
     xp: '經驗值',
@@ -58,7 +61,59 @@ export const zhTW = {
       xpReward: '+{{points}} 經驗值'
     },
     progress: '進度',
-    xpUntilNextLevel: '距離等級 {{level}} 還需 {{xp}} 經驗值'
+    xpUntilNextLevel: '距離等級 {{level}} 還需 {{xp}} 經驗值',
+    dropdown: {
+      profile: '個人資料',
+      settings: '設定',
+      logout: '登出'
+    },
+    details: {
+      joined: '加入時間',
+      lastActive: '最後活動時間',
+      studyStreak: '連續學習天數',
+      totalStudyTime: '總學習時間',
+      studySessions: '學習階段數',
+      cardsLearned: '已學習卡片',
+      cardsMastered: '已掌握卡片',
+      averageAccuracy: '平均正確率'
+    },
+    graphs: {
+      studyTime: '學習時間分布',
+      weeklyActivity: '每週活動',
+      masteryProgress: '掌握進度',
+      categoryProgress: '類別進度',
+      hourlyActivity: '每日時段活動',
+      learningCurve: '學習曲線',
+      minutes: '分鐘',
+      cards: '卡片',
+      accuracy: '正確率',
+      today: '今天',
+      thisWeek: '本週',
+      thisMonth: '本月',
+      allTime: '總計',
+      noData: '暫無資料',
+      cardsStudied: '已學習卡片',
+      daily: '每日',
+      weekly: '每週',
+      monthly: '每月'
+    },
+    badges: {
+      recent: '最新成就',
+      all: '所有成就',
+      locked: '尚未解鎖',
+      progress: '進度：{{current}}/{{total}}',
+      earnedOn: '獲得時間：{{date}}'
+    },
+    stats: {
+      dailyGoal: '每日目標',
+      weeklyGoal: '週目標',
+      monthlyGoal: '月目標',
+      achieved: '已達成',
+      remaining: '剩餘',
+      averagePerDay: '每日平均',
+      bestStreak: '最佳連續天數',
+      totalDays: '總學習天數'
+    }
   },
   home: {
     welcome: '歡迎回來',
@@ -123,12 +178,12 @@ export const zhTW = {
     errors: {
       failed: '登入失敗',
       googleFailed: 'Google 登入失敗',
-      passwordMatch: '密碼不相符',
+      passwordMatch: '密碼不一致',
       createAccount: '建立帳號失敗'
     }
   },
   study: {
-    title: '學習課程', 
+    title: '���習課程', 
     modes: {
       title: '學習模式', 
       flashcard: '字卡',
@@ -157,6 +212,18 @@ export const zhTW = {
       cardsStudied: '已學習：{{count}} 張',
       cardProgress: '第 {{current}} 張，共 {{total}} 張',
       progressCount: '{{completed}}/{{total}}',
+      complete: '完成進度',
+      completed: '已完成',
+      remaining: '剩餘',
+      streak: '連續正確',
+    },
+    fillInBlanks: {
+      placeholder: '在此輸入答案...'
+    },
+    matching: {
+      pairFound: '配對正確！',
+      pairNotFound: '配對錯誤，請再試一次',
+      complete: '所有配對完成！'
     },
     feedback: {
       correct: '正確！',
@@ -211,17 +278,21 @@ export const zhTW = {
       chineseTranslation: '中文翻譯',
       categories: '類別',
       title: '手動匯入',
+      actions: '操作',
+      status: '狀態',
       help: {
         word: '輸入單字',
         pos: '例如：名詞、動詞、形容詞',
         definition: '輸入英文定義',
         translation: '輸入中文翻譯',
         categories: '選擇或建立類別',
-        wordTooShort: '單字至少需要2個字元'
+        wordTooShort: '單字至少需要2個字元',
       },
       testTranslation: '測試翻譯',
       translationSuccess: '翻譯測試成功',
-      translating: '翻譯中...'
+      translating: '翻譯中...',
+      savedEntries: '已儲存的項目',
+      importSaved: '匯入所有已儲存項目'
     },
     fileImport: {
       title: '檔案匯入',
@@ -237,17 +308,30 @@ export const zhTW = {
     actions: {
       upload: '上傳 CSV 檔案',
       back: '返回',
-      startImport: '開始匯入',
+      startImport: '開始匯���',
       selectAll: '全選',
       clearSelection: '清除選擇',
-      search: '搜尋'
+      search: '搜尋',
+      importSaved: '匯入已儲存項目'
     },
     errors: {
       importFailed: '匯入失敗',
       fileReadError: '無法讀取檔案',
       translationFailed: '自動翻譯失敗。請手動輸入翻譯。',
       noContent: '請先輸入英文定義',
-      translationError: '翻譯失敗：{{error}}'
+      translationError: '翻譯失敗：{{error}}',
+      missingFields: '請填寫必填欄位（單字和英文定義）',
+      emptyTranslation: '翻譯結果為空',
+      uploadSuccess: '上傳成功！',
+      savingEntry: '儲存中...',
+      deleteConfirm: '確定要刪除此項目嗎？'
+    },
+    notifications: {
+      saved: '已儲存',
+      added: '已新增至待匯入清單',
+      imported: '匯入完成',
+      deleted: '已刪除',
+      progress: '處理中...'
     },
     instructions: '上傳包含正面和背面兩欄的 CSV 檔案。',
     dropzone: {
@@ -385,5 +469,19 @@ export const zhTW = {
       cancel: '取消',
       preview: '預覽資料'
     }
+  },
+  "study.progress": {
+    "overall": "總體進度",
+    "complete": "完成進度",
+    "completed": "已完成",
+    "remaining": "剩餘",
+    "cardsCompleted": "已完成卡片",
+    "correct": "正確",
+    "incorrect": "錯誤",
+    "accuracy": "正確率",
+    "streak": "連續正確"
+  },
+  "study.controls": {
+    "saveExit": "儲存並離開"
   }
 };

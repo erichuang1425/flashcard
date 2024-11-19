@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-  Grid, Card, CardContent, Typography, 
+  Grid, CardContent, Typography, 
   Box, Chip, useTheme, alpha
 } from '@mui/material';
 import { VocabularyWord } from '../types';
 import { useInView } from 'react-intersection-observer';
+import { Card3D } from './common/Card3D';
 
 interface WordGridProps {
   words: VocabularyWord[];
@@ -24,7 +25,7 @@ export const WordGrid: React.FC<WordGridProps> = ({ words, onLoadMore, hasMore }
   });
 
   return (
-    <Grid container spacing={2}>
+    <Grid container spacing={{ xs: 1.5, sm: 2 }}>
       {words.map((word, index) => (
         <Grid 
           item 
@@ -35,13 +36,15 @@ export const WordGrid: React.FC<WordGridProps> = ({ words, onLoadMore, hasMore }
           key={word.id || index}
           ref={index === words.length - 3 ? ref : undefined}
         >
-          <Card sx={{ 
-            height: '100%',
-            transition: 'transform 0.2s',
-            '&:hover': {
-              transform: 'translateY(-4px)'
-            }
-          }}>
+          <Card3D 
+            sx={{ 
+              height: '100%',
+              transform: 'none',
+              '&:hover': {
+                transform: 'translateY(-4px) scale(1.02)'
+              }
+            }}
+          >
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 {word.word}
@@ -65,7 +68,7 @@ export const WordGrid: React.FC<WordGridProps> = ({ words, onLoadMore, hasMore }
                 ))}
               </Box>
             </CardContent>
-          </Card>
+          </Card3D>
         </Grid>
       ))}
     </Grid>

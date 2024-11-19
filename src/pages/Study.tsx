@@ -3,7 +3,7 @@ import { Container, Typography, Box, Button, Paper, Alert, AlertTitle } from '@m
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getUserFlashcards, updateCardReview, saveStudyProgress, loadStudyProgress, clearStudyProgress } from '../services/firestore';
-import { FlashCard } from '../components/FlashCard';
+import  FlashCard  from '../components/FlashCard';
 import { StudyProgress } from '../components/StudyProgress';
 import { StudyFeedback } from '../components/StudyFeedback';
 import { calculateNextReview } from '../utils/spaced-repetition';
@@ -32,18 +32,29 @@ export const Study: React.FC = () => {
       correct: 0,
       incorrect: 0, 
       streak: 0,
-      cardsReviewed: 0
+      cardsReviewed: 0,
+      timeSpent: 0
     },
+    mode: 'flashcard',
     cards: [],
     sessionStart: new Date()
   });
-  const [showAnswer, setShowAnswer] = useState(false);
   const [studyMode, setStudyMode] = useState<StudyMode>('flashcard');
   const [error, setError] = useState<string | null>(null);
   const { t } = useI18n();
   const { preferences } = useUserPreferences();
   const [sessionProgress, setSessionProgress] = useState<StudyProgressType | null>(null);
   const [hasExistingSession, setHasExistingSession] = useState(false);
+
+  const studyStartTime = React.useRef(Date.now());
+
+
+  const cardAnswered = React.useRef(false);
+
+
+  useEffect(() => {
+    cardAnswered.current = false;
+  }, [currentIndex, studyMode]);
 
   const loadCards = async () => {
     if (user) {
@@ -104,11 +115,27 @@ export const Study: React.FC = () => {
     }
   }, [studyMode]);
 
+  useEffect(() => {
+    loadCards();
+  }, [studyMode]);
+
   const handleAnswer = async (isCorrect: boolean) => {
-    if (!user || currentIndex >= cards.length) return;
+    if (!user || currentIndex >= cards.length || cardAnswered.current) return;
     
+    cardAnswered.current = true; // Mark as answered
     const xpGained = isCorrect ? 8 : 3;
     await updateUserXP(user.uid, xpGained);
+    
+    const currentCard = cards[currentIndex];
+    await saveStudyProgress(user.uid, {
+      cardId: currentCard.id,
+      rating: isCorrect ? 4 : 2,
+      isCorrect,
+      mode: studyMode,
+      timeSpent: Date.now() - studyStartTime.current
+    });
+
+    studyStartTime.current = Date.now();
     
     setProgress(prev => ({
       ...prev,
@@ -122,37 +149,54 @@ export const Study: React.FC = () => {
       }
     }));
 
-    // Add these lines to update currentIndex and check completion
     if (currentIndex < cards.length - 1) {
       setCurrentIndex(prev => prev + 1);
+   
     } else {
       setIsComplete(true);
     }
   };
 
   const handleRating = async (rating: 1 | 2 | 3 | 4 | 5) => {
-    if (!user || currentIndex >= cards.length) return;
+    if (!user || currentIndex >= cards.length || cardAnswered.current) return;
     
-    const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
-    await updateUserXP(user.uid, xpGained);
+    cardAnswered.current = true;
 
-    setProgress(prev => ({
-      ...prev,
-      currentIndex: prev.currentIndex + 1,
-      stats: {
-        ...prev.stats,
-        correct: prev.stats.correct + (rating >= 3 ? 1 : 0),
-        incorrect: prev.stats.incorrect + (rating < 3 ? 1 : 0),
-        streak: rating >= 3 ? prev.stats.streak + 1 : 0,
-        cardsReviewed: prev.stats.cardsReviewed + 1
+    try {
+      const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
+      await updateUserXP(user.uid, xpGained);
+
+      const currentCard = cards[currentIndex];
+      await saveStudyProgress(user.uid, {
+        cardId: currentCard.id,
+        rating,
+        isCorrect: rating >= 3,
+        mode: studyMode,
+        timeSpent: Date.now() - studyStartTime.current
+      });
+
+ 
+      setProgress(prev => ({
+        ...prev,
+        stats: {
+          ...prev.stats,
+          correct: prev.stats.correct + (rating >= 3 ? 1 : 0),
+          incorrect: prev.stats.incorrect + (rating < 3 ? 1 : 0),
+          streak: rating >= 3 ? prev.stats.streak + 1 : 0,
+          cardsReviewed: prev.stats.cardsReviewed + 1,
+          timeSpent: prev.stats.timeSpent + (Date.now() - studyStartTime.current)
+        }
+      }));
+
+
+      studyStartTime.current = Date.now();
+      if (currentIndex < cards.length - 1) {
+        setCurrentIndex(prev => prev + 1);
+      } else {
+        setIsComplete(true);
       }
-    }));
-
-    if (currentIndex < cards.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-      setShowAnswer(false);
-    } else {
-      setIsComplete(true);
+    } catch (error) {
+      console.error('Error saving progress:', error);
     }
   };
 
@@ -176,17 +220,6 @@ export const Study: React.FC = () => {
     }));
   };
 
-  const handleSaveExit = async (progress: StudyProgressType) => {
-    if (!user) return;
-    try {
-      await saveStudyProgress(user.uid, progress);
-      navigate('/');
-    } catch (err) {
-      console.error('Error saving progress:', err);
-      setError('Failed to save progress');
-    }
-  };
-
   const handleStartNewSession = async () => {
     if (!user) return;
     try {
@@ -203,7 +236,6 @@ export const Study: React.FC = () => {
   const handleResumeSession = () => {
     if (!sessionProgress) return;
     
-    // Ensure we have valid cards array
     if (!sessionProgress.cards || !sessionProgress.cards.length) {
       handleStartNewSession();
       return;
@@ -217,9 +249,26 @@ export const Study: React.FC = () => {
         correct: sessionProgress.stats.correct || 0,
         incorrect: sessionProgress.stats.incorrect || 0,
         streak: sessionProgress.stats.streak || 0,
-        cardsReviewed: sessionProgress.stats.cardsReviewed || 0
-      }
+        cardsReviewed: sessionProgress.stats.cardsReviewed || 0,
+        timeSpent: sessionProgress.stats.timeSpent || 0
+      },
+      mode: sessionProgress.mode || 'flashcard'
     });
+  };
+
+
+  const handleModeChange = (newMode: StudyMode) => {
+    if (validModes.includes(newMode as typeof validModes[number])) {
+      setStudyMode(newMode);
+      cardAnswered.current = false;
+    
+      setCurrentIndex(0);
+      setProgress(prev => ({
+        ...prev,
+        mode: newMode,
+        currentIndex: 0
+      }));
+    }
   };
 
   const renderStudyMode = () => {
@@ -228,8 +277,8 @@ export const Study: React.FC = () => {
         return (
           <FlashCard 
             card={cards[currentIndex]}
-            onRating={showAnswer ? handleRating : undefined}
-            showAnswer={showAnswer}
+            onRating={handleRating}
+            showAnswer={false}
           />
         );
       case 'multipleChoice':
@@ -239,26 +288,6 @@ export const Study: React.FC = () => {
       case 'matching':
         return <MatchingGame cards={cards.slice(currentIndex, currentIndex + 6)} onComplete={handleMatchingComplete} />;
     }
-  };
-
-  const renderShowAnswerButton = () => {
-    if (studyMode !== 'flashcard') return null;
-    
-    return (
-      <Button 
-        variant="contained"
-        size="large"
-        onClick={() => setShowAnswer(!showAnswer)}
-        sx={{ 
-          minWidth: '200px',
-          height: '56px',
-          fontSize: '1.1rem',
-          fontWeight: 600,
-        }}
-      >
-        {showAnswer ? t('study.controls.hideAnswer') : t('study.controls.showAnswer')}
-      </Button>
-    );
   };
 
   if (error) {
@@ -310,41 +339,47 @@ export const Study: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, minHeight: '100vh' }}>
+    <Container 
+      maxWidth="xl" 
+      sx={{ 
+        py: { xs: 1, sm: 3 }, 
+        px: { xs: 1, sm: 2 },
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
       <Box sx={{ 
-        minHeight: { xs: 'calc(100vh - 64px)', sm: 'calc(100vh - 48px)' },
+        minHeight: { 
+          xs: 'calc(100vh - 56px)', 
+          sm: 'calc(100vh - 64px)' 
+        },
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        gap: { xs: 2, sm: 3 },
+        gap: { xs: 1, sm: 3 },
       }}>
-        {/* Progress Panel */}
+        {/* Progress sidebar */}
         <Box sx={{ 
           position: { xs: 'static', md: 'sticky' },
           top: { xs: 0, md: 24 },
           width: { xs: '100%', md: '300px' },
           height: { xs: 'auto', md: 'calc(100vh - 96px)' },
+          order: { xs: 2, md: 1 },
           overflowY: 'auto',
           bgcolor: 'background.paper',
           borderRadius: 2,
           p: 2, 
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
-          order: { xs: 2, md: 1 }
+          gap: 2
         }}>
           <StudyProgress 
             progress={progress} 
             total={cards.length} 
-            onSaveExit={() => handleSaveExit({
-              currentIndex,
-              stats: progress.stats,
-              cards,
-              sessionStart: progress.sessionStart
-            })} 
           />
           <StudyModeSelector 
             mode={studyMode} 
-            onModeChange={setStudyMode} 
+            onModeChange={handleModeChange} 
             modes={[
               { value: 'flashcard', label: t('study.modes.flashcard') },
               { value: 'multipleChoice', label: t('study.modes.multipleChoice') },
@@ -365,19 +400,21 @@ export const Study: React.FC = () => {
           </Typography>
         </Box>
 
-        {/* Main Content Area */}
+        {/* Main content area */}
         <Box sx={{ 
           flex: 1,
-          minHeight: { xs: '50vh', sm: '60vh' },
+          minHeight: { 
+            xs: 'calc(100vh - 200px)',
+            sm: '60vh' 
+          },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 3,
+          gap: { xs: 1, sm: 3 },
           order: { xs: 1, md: 2 },
-          pt: { xs: 0, md: 2 }
+          pt: { xs: 1, md: 2 }
         }}>
           {renderStudyMode()}
-          {renderShowAnswerButton()}
         </Box>
       </Box>
     </Container>

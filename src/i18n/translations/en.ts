@@ -58,7 +58,20 @@ export const en = {
       progress: '{{current}}/{{required}} completed',
       xpReward: '+{{points}} XP'
     },
-    xpUntilNextLevel: '{{xp}} XP until Level {{level}}'
+    xpUntilNextLevel: '{{xp}} XP until Level {{level}}',
+    dropdown: {
+      profile: 'Profile',
+      settings: 'Settings',
+      logout: 'Logout'
+    },
+    graphs: {
+      studyTime: 'Study Time',
+      cardsStudied: 'Cards Studied',
+      accuracy: 'Accuracy Rate',
+      daily: 'Daily',
+      weekly: 'Weekly',
+      monthly: 'Monthly'
+    }
   },
   home: {
     welcome: 'Welcome back',
@@ -150,7 +163,7 @@ export const en = {
       accuracy: 'Accuracy',
       overall: 'Overall Progress',
       currentStreak: 'Current Streak',
-      cardsProgress: 'Progress: {{reviewed}}/{{total}} cards', // Fixed format
+      cardsProgress: 'Progress: {{reviewed}}/{{total}} cards',
       correct: 'Correct',
       incorrect: 'Incorrect',
       cardsTotal: 'Total Cards: {{total}}',
@@ -180,6 +193,14 @@ export const en = {
       title: 'Resume Previous Session?',
       continueSession: 'Continue Session',
       newSession: 'Start New Session'
+    },
+    fillInBlanks: {
+      placeholder: 'Type your answer here...'
+    },
+    matching: {
+      pairFound: 'Good match!',
+      pairNotFound: 'Try another pair',
+      complete: 'All pairs matched!'
     }
   },
   import: {
@@ -221,7 +242,9 @@ export const en = {
       },
       testTranslation: 'Test Translation',
       translationSuccess: 'Translation test successful',
-      translating: 'Translating...'
+      translating: 'Translating...',
+      savedEntries: 'Saved Entries',
+      importSaved: 'Import All Saved Entries'
     },
     actions: {
       upload: 'Upload CSV File',
@@ -229,14 +252,27 @@ export const en = {
       startImport: 'Start Import',
       selectAll: 'Select All',
       clearSelection: 'Clear Selection',
-      search: 'Search'
+      search: 'Search',
+      importSaved: 'Import All Saved Entries',
     },
     errors: {
       importFailed: 'Import failed',
       fileReadError: 'Failed to read file',
       translationFailed: 'Auto-translation failed. Please enter translation manually.',
       noContent: 'Please enter English definition first',
-      translationError: 'Translation failed: {{error}}'
+      translationError: 'Translation failed: {{error}}',
+      missingFields: 'Please fill in required fields (Word and English Definition)',
+      emptyTranslation: 'Translation result is empty',
+      uploadSuccess: 'Upload successful!',
+      savingEntry: 'Saving entry...',
+      deleteConfirm: 'Are you sure you want to delete this item?'
+    },
+    notifications: {
+      saved: 'Entry saved',
+      added: 'Added to import list',
+      imported: 'Import complete',
+      deleted: 'Entry deleted',
+      progress: 'Processing...'
     },
     instructions: 'Upload a CSV file with two columns: front and back of the cards.',
     dropzone: {
@@ -352,6 +388,9 @@ export const en = {
       completed: 'Completed'
     }
   },
+  studyMode: {
+    selected: 'Selected Mode',
+  },
   navigation: {
     menu: {
       profile: 'Profile',
@@ -385,5 +424,19 @@ export const en = {
       cancel: 'Cancel',
       preview: 'Preview Data'
     }
+  },
+  "study.progress": {
+    "overall": "Overall Progress",
+    "complete": "Complete",
+    "completed": "Completed",
+    "remaining": "Remaining",
+    "cardsCompleted": "cards completed",
+    "correct": "Correct",
+    "incorrect": "Incorrect",
+    "accuracy": "Accuracy",
+    "streak": "Streak"
+  },
+  "study.controls": {
+    "saveExit": "Save & Exit"
   }
 };

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress, Button, Alert, LinearProgress } from '@mui/material';
-import { FlashCard } from './FlashCard';
+import  FlashCard  from './FlashCard';
 import { calculateNextReview } from '../utils/spaced-repetition';
 import { updateCardReview } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import type { Flashcard } from '../types';
+import { GlassPaper, FloatingBox } from './common/StyledComponents';
 
 interface StudySessionSummary {
   duration: number;
@@ -31,25 +32,22 @@ interface StudyProgress {
 interface StudySessionProps {
   cards: Flashcard[];
   onComplete: (summary: StudySessionSummary) => void;
-  onSaveExit?: (progress: StudyProgress) => void;
 }
 
-// Move Rating type and helper function before the component
-// Define allowed ratings type
+
 type Rating = 1 | 2 | 3 | 4 | 5;
 
-// Add helper function for calculating difficulty
+
 const calculateNewDifficulty = (currentDifficulty: number, rating: Rating): number => {
   if (rating >= 4) return Math.max(currentDifficulty - 1, 0);
   if (rating <= 2) return Math.min(currentDifficulty + 1, 5);
   return currentDifficulty;
 };
 
-export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, onSaveExit }) => {
+export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete }) => {
   const { user } = useAuth();
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionStart] = useState(new Date());
   const [stats, setStats] = useState({
@@ -59,7 +57,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
     completed: false,
     cardsStudied: 0
   });
-  // Fix the rating type in handleRating
+
   const handleRating = async (rating: Rating) => {
     if (isLoading || !user) return;
     setIsLoading(true);
@@ -69,12 +67,12 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
       const isCorrect = rating >= 3;
       const isMastered = rating >= 4;
       const newDifficulty = calculateNewDifficulty(card.difficulty, rating);
-      const { nextReview } = calculateNextReview(rating, newDifficulty); // Fix: Use object destructuring to get nextReview
+      const { nextReview } = calculateNextReview(rating, newDifficulty);
       
       await updateCardReview(
         user.uid,
         card.id,
-        nextReview, // Fix: Pass nextReview date directly 
+        nextReview,
         newDifficulty,
         isMastered
       );
@@ -86,11 +84,11 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
         cardsStudied: prev.cardsStudied + 1,
         completed: prev.completed
       }));
-  
-      if (currentIndex === cards.length - 1) {
-        const duration = (new Date().getTime() - sessionStart.getTime()) / 1000;
+
+      if (currentIndex >= cards.length - 1) {
+
         onComplete({
-          duration,
+          duration: (new Date().getTime() - sessionStart.getTime()) / 1000,
           cardsStudied: cards.length,
           accuracy: (stats.correct / cards.length) * 100,
           streak: stats.streak,
@@ -99,7 +97,6 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
         setStats(prev => ({ ...prev, completed: true }));
       } else {
         setCurrentIndex(prev => prev + 1);
-        setShowAnswer(false);
       }
     } finally {
       setIsLoading(false);
@@ -111,25 +108,9 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
     return Math.round((currentIndex / cards.length) * 100);
   };
 
-  const handleSaveExit = () => {
-    if (onSaveExit) {
-      onSaveExit({
-        currentIndex,
-        stats: {
-          ...stats,
-          completed: false,
-          cardsStudied: currentIndex
-        },
-        sessionStart,
-        cards
-      });
-    }
-  };
-
   const handleNextCard = () => {
     if (currentIndex < cards.length - 1) {
       setCurrentIndex(prev => prev + 1);
-      setShowAnswer(false);
     }
   };
 
@@ -144,32 +125,35 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
       flexDirection: 'column',
       gap: { xs: 2, sm: 3 }
     }}>
-      <Typography 
-        variant="body2" 
-        gutterBottom 
-        sx={{ 
-          textAlign: 'center',
-          fontSize: { xs: '1rem', sm: 'inherit' }
-        }}
-      >
-        {t('study.progress.cardsProgress', {
-          values: { 
-            reviewed: currentIndex,
-            total: cards.length
-          }
-        })}
-      </Typography>
+      <GlassPaper elevation={0} sx={{ p: 2 }}>
+        <FloatingBox>
+          <Typography 
+            variant="body2" 
+            gutterBottom 
+            sx={{ 
+              textAlign: 'center',
+              fontSize: { xs: '1rem', sm: 'inherit' }
+            }}
+          >
+            {t('study.progress.cardsProgress', {
+              values: { 
+                reviewed: currentIndex,
+                total: cards.length
+              }
+            })}
+          </Typography>
 
-      <LinearProgress 
-        variant="determinate" 
-        value={calculateProgress()}
-        sx={{ height: 8, borderRadius: 1 }}
-      />
+          <LinearProgress 
+            variant="determinate" 
+            value={calculateProgress()}
+            sx={{ height: 8, borderRadius: 1 }}
+          />
+        </FloatingBox>
+      </GlassPaper>
       
       <FlashCard
         card={cards[currentIndex]}
-        onRating={showAnswer ? handleRating : undefined}
-        showAnswer={showAnswer}
+        onRating={handleRating}
       />
       
       <Box sx={{ 
@@ -179,31 +163,8 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete, o
         gap: 2,
         flexDirection: { xs: 'column', sm: 'row' }
       }}>
-        <Button
-          variant="outlined"
-          onClick={handleSaveExit}
-          fullWidth={true}
-          sx={{ 
-            height: { xs: 48, sm: 'auto' },
-            fontSize: { xs: '1rem', sm: 'inherit' }
-          }}
-        >
-          {t('study.controls.saveExit')}
-        </Button>
         <Button 
           variant="contained"
-          onClick={() => setShowAnswer(!showAnswer)}
-          fullWidth={true}
-          sx={{ 
-            height: { xs: 48, sm: 'auto' },
-            fontSize: { xs: '1rem', sm: 'inherit' }
-          }}
-        >
-          {showAnswer ? t('study.controls.hideAnswer') : t('study.controls.showAnswer')}
-        </Button>
-
-        <Button
-          variant="outlined"
           onClick={handleNextCard}
           fullWidth={true}
           sx={{ 

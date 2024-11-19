@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Box, TextField, Button, Typography, Paper, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
+import { saveStudyProgress } from '../../services/firestore';
+import { useI18n } from '../../i18n/I18nContext';
+import { capitalizeFirstWord } from '../../utils/text';
 
 interface Props {
   card: Flashcard;
@@ -8,20 +11,33 @@ interface Props {
 }
 
 export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
+  const { t } = useI18n();
   const [answer, setAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const startTime = React.useRef(Date.now());
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (showResult) return;
-    
-    const correct = answer.toLowerCase().trim() === card.word.toLowerCase().trim();
-    setIsCorrect(correct);
+    if (!answer.trim()) return;
+
+    const isCorrect = answer.toLowerCase().trim() === card.word.toLowerCase().trim();
     setShowResult(true);
     
+
+    await saveStudyProgress(card.userId, {
+      cardId: card.id,
+      rating: isCorrect ? 4 : 2,
+      isCorrect,
+      mode: 'fillInBlanks',
+      timeSpent: Date.now() - startTime.current
+    });
+
+    // Reset timer for next card
+    startTime.current = Date.now();
+
     setTimeout(() => {
-      onAnswer(correct);
+      onAnswer(isCorrect);
       setAnswer('');
       setShowResult(false);
     }, 1500);
@@ -30,24 +46,33 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
   return (
     <Paper sx={{ p: 3, width: '100%', maxWidth: 600 }}>
       <Box component="form" onSubmit={handleSubmit}>
-        <Typography variant="body1" gutterBottom>
-          {card.englishDefinition.charAt(0).toUpperCase() + card.englishDefinition.slice(1)}
+        {/* Show only Chinese translation and part of speech before answering */}
+        <Typography variant="h4" align="center" gutterBottom>
+          {card.chineseTranslation}
         </Typography>
-        {card.chineseTranslation && (
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {card.chineseTranslation}
+        <Typography 
+          variant="subtitle1" 
+          align="center" 
+          color="text.secondary" 
+          gutterBottom
+        >
+          {card.partOfSpeech}
+        </Typography>
+        
+        {/* Only show English definition after showing result */}
+        {showResult && (
+          <Typography variant="body1" sx={{ mt: 2, mb: 3 }}>
+            {capitalizeFirstWord(card.englishDefinition)}
           </Typography>
         )}
-        <Typography variant="caption" display="block" sx={{ mb: 3 }}>
-          Part of Speech: {card.partOfSpeech}
-        </Typography>
         
         <TextField
           fullWidth
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          placeholder="Type the word"
+          placeholder={t('study.fillInBlanks.placeholder')}
           disabled={showResult}
+          autoFocus
           sx={{ mb: 2 }}
         />
         
@@ -63,7 +88,7 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
           fullWidth 
           disabled={!answer.trim() || showResult}
         >
-          Check Answer
+          {t('study.controls.next')}
         </Button>
       </Box>
     </Paper>
