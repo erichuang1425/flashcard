@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { 
   Box, Button, Typography, LinearProgress, Alert, 
   Table, TableBody, TableCell, TableHead, TableRow,
   Paper, Stepper, Step, StepLabel, CircularProgress,
   TablePagination, Tooltip, IconButton, ToggleButton, 
   ToggleButtonGroup, TextField, Grid, MenuItem,
-  SelectChangeEvent, FormControl, InputLabel, Select, Chip
+  SelectChangeEvent, FormControl, InputLabel, Select, Chip, Snackbar
 } from '@mui/material';
 import PreviewIcon from '@mui/icons-material/Preview';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -45,15 +46,15 @@ const parseCSVLine = (line: string): string[] => {
     
     if (char === '"') {
       if (isQuoted && line[i + 1] === '"') {
-        // Handle escaped quotes
+
         cell += '"';
         i++;
       } else {
-        // Toggle quote mode
+
         isQuoted = !isQuoted;
       }
     } else if (char === ',' && !isQuoted) {
-      // End of cell
+
       result.push(cell.trim());
       cell = '';
     } else {
@@ -71,6 +72,14 @@ const parseCSVLine = (line: string): string[] => {
 interface ImportToolsProps {
   defaultMode: 'file' | 'manual';
   onModeChange: (mode: 'file' | 'manual') => void;
+}
+
+interface SavedEntry {
+  word: string;
+  partOfSpeech: string;
+  englishDefinition: string;
+  chineseTranslation: string;
+  categories: string[];
 }
 
 export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeChange }) => {
@@ -101,6 +110,28 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
   const [globalCategories, setGlobalCategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
+  const [savedEntries, setSavedEntries] = useState<SavedEntry[]>([]);
+  const [notification, setNotification] = useState<{
+    message: string;
+    severity: 'success' | 'error' | 'info';
+    open: boolean;
+  }>({
+    message: '',
+    severity: 'info',
+    open: false
+  });
+
+  const showNotification = (message: string, severity: 'success' | 'error' | 'info' = 'success') => {
+    setNotification({
+      message,
+      severity,
+      open: true
+    });
+  };
+
+  const handleCloseNotification = () => {
+    setNotification(prev => ({ ...prev, open: false }));
+  };
 
   const handleCategoryChange = (event: SelectChangeEvent<string[]>) => {
     setSelectedCategories(event.target.value as string[]);
@@ -129,16 +160,14 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
         .filter(line => line.trim())
         .slice(1);
       
-      // Move to import stage immediately
+
       setActiveStep(2);
       setStats({ total: dataLines.length, processed: 0, success: 0, failed: 0, completed: false });
-      
-      // Process in smaller batches to allow UI updates
+
       const batchSize = 5;
       for (let i = 0; i < dataLines.length; i += batchSize) {
         const batch = dataLines.slice(i, i + batchSize);
-        
-        // Process each item in the current batch
+
         for (let j = 0; j < batch.length; j++) {
           const [word, partOfSpeech, englishDefinition, chineseTranslation] = parseCSVLine(batch[j]);
           
@@ -174,8 +203,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
             }));
           }
         }
-        
-        // Add a small delay between batches to allow UI updates
+
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (err) {
@@ -232,11 +260,11 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Word</TableCell>
-              <TableCell>Part of Speech</TableCell>
-              <TableCell>English Definition</TableCell>
-              <TableCell>Chinese Translation</TableCell>
-              <TableCell align="center">Status</TableCell>
+              <TableCell>{t('import.manual.word')}</TableCell>
+              <TableCell>{t('import.manual.partOfSpeech')}</TableCell>
+              <TableCell>{t('import.manual.englishDefinition')}</TableCell>
+              <TableCell>{t('import.manual.chineseTranslation')}</TableCell>
+              <TableCell align="center">{t('import.manual.status')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -307,52 +335,56 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
     </Box>
   );
 
-  const handleManualSubmit = async () => {
+  const handleManualSubmit = async (entry: SavedEntry) => {
     if (!user) return;
     
     try {
       setUploading(true);
-      setError(null);
+      showNotification(t('import.notifications.progress'), 'info');
 
-      let chineseTranslation = manualEntry.chineseTranslation;
-
-      // If Chinese translation is empty, attempt auto-translation
-      if (!chineseTranslation && manualEntry.englishDefinition) {
-        try {
-          chineseTranslation = await translateToTraditionalChinese(manualEntry.englishDefinition);
-        } catch (err) {
-          console.error('Auto-translation failed:', err);
-          setError(t('import.errors.translationFailed'));
-          return;
-        }
-      }
-
-      await addFlashcard({
-        userId: user.uid,
-        ...manualEntry,
-        chineseTranslation,
-        difficulty: 0,
-        created: new Date(),
-        lastReviewed: undefined,
-        nextReview: new Date(),
-        mastered: false
-      });
-
-      // Reset form and show success
-      setManualEntry({
-        word: '',
-        partOfSpeech: '',
-        englishDefinition: '',
-        chineseTranslation: '',
-        categories: []
-      });
-
-      setSuccess(true);
+      setSavedEntries(prev => [...prev, entry]);
+      showNotification(t('import.notifications.added'));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add flashcard');
+      setError(err instanceof Error ? err.message : 'Failed to save entry');
+      showNotification(t('import.errors.savingEntry'), 'error');
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleImportSaved = async () => {
+    if (!user || savedEntries.length === 0) return;
+    
+    try {
+      setUploading(true);
+      showNotification(t('import.notifications.progress'), 'info');
+      
+      for (const entry of savedEntries) {
+        await addFlashcard({
+          userId: user.uid,
+          ...entry,
+          difficulty: 0,
+          created: new Date(),
+          lastReviewed: undefined,
+          nextReview: new Date(),
+          mastered: false
+        });
+      }
+
+      
+      setSavedEntries([]);
+      showNotification(t('import.notifications.imported'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import flashcards');
+      showNotification(t('import.errors.importFailed'), 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteSaved = (index: number) => {
+    setSavedEntries(prev => prev.filter((_, i) => i !== index));
+    showNotification(t('import.notifications.deleted'));
   };
 
   const renderManualEntry = () => (
@@ -361,14 +393,65 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
         onSubmit={handleManualSubmit}
         availableCategories={globalCategories}
       />
-      <Button
-        variant="contained"
-        onClick={handleManualSubmit}
-        disabled={uploading}
-        sx={{ mt: 2 }}
-      >
-        {t('import.actions.startImport')}
-      </Button>
+      
+      {/* Saved Entries Section */}
+      {savedEntries.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            {t('import.manual.savedEntries')} ({savedEntries.length})
+          </Typography>
+          <Paper sx={{ mt: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                <TableCell>{t('import.manual.word')}</TableCell>
+              <TableCell>{t('import.manual.partOfSpeech')}</TableCell>
+              <TableCell>{t('import.manual.englishDefinition')}</TableCell>
+              <TableCell>{t('import.manual.chineseTranslation')}</TableCell>
+
+                  <TableCell align="center">{t('import.manual.actions')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {savedEntries.map((entry, index) => (
+                  <TableRow key={index}>
+                    <TableCell>{entry.word}</TableCell>
+                    <TableCell>{entry.partOfSpeech}</TableCell>
+                    <TableCell>
+                      <Tooltip title={entry.englishDefinition}>
+                        <span>
+                          {entry.englishDefinition.slice(0, 30)}
+                          {entry.englishDefinition.length > 30 ? '...' : ''}
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{entry.chineseTranslation}</TableCell>
+                    <TableCell align="center">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDeleteSaved(index)}
+                        color="error"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+          
+          <Button
+            variant="contained"
+            onClick={handleImportSaved}
+            disabled={uploading}
+            sx={{ mt: 2 }}
+            fullWidth
+          >
+            {t('import.actions.importSaved')} ({savedEntries.length})
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 
@@ -431,7 +514,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
   };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    // ...existing onDrop logic...
+
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -667,6 +750,30 @@ export const ImportTools: React.FC<ImportToolsProps> = ({ defaultMode, onModeCha
           {error}
         </Alert>
       )}
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={3000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ 
+          vertical: 'bottom', 
+          horizontal: 'center'
+        }}
+      >
+        <Alert 
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          elevation={6}
+          variant="filled"
+          sx={{ 
+            width: '100%',
+            maxWidth: '90vw',
+            mb: { xs: 7, sm: 0 }, 
+          }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

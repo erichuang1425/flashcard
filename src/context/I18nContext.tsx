@@ -1,28 +1,29 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { en } from '../i18n/translations/en';
 import { zhTW } from '../i18n/translations/zh-TW';
+import { useUserPreferences } from '../context/UserPreferencesContext';
+import type { UserPreferences } from '../context/UserPreferencesContext';
 
-// Define available languages
 export type Language = 'en' | 'zh-TW';
 
-// Define the translations type based on the English translations structure
+
 type TranslationsType = typeof en;
 
-// Define nested path type for translations
+
 type NestedKeyOf<ObjectType extends object> = {
   [Key in keyof ObjectType & (string | number)]: ObjectType[Key] extends object
     ? `${Key}` | `${Key}.${NestedKeyOf<ObjectType[Key]>}`
     : `${Key}`
 }[keyof ObjectType & (string | number)];
 
-// Define the values that can be passed to the translation function
+
 interface TranslationValues {
   [key: string]: string | number;
 }
 
-// Define the context type
+
 interface I18nContextType {
-  t: (key: NestedKeyOf<TranslationsType>, values?: { values: TranslationValues }) => string;
+  t: (key: NestedKeyOf<TranslationsType>, options?: { values: TranslationValues }) => string;
   language: Language;
   setLanguage: (lang: Language) => void;
 }
@@ -32,10 +33,22 @@ const translations: Record<Language, TranslationsType> = {
   'zh-TW': zhTW
 };
 
-const I18nContext = createContext<I18nContextType | null>(null);
+const I18nContext = createContext<I18nContextType>({
+  t: (key: string) => key,
+  language: 'en',
+  setLanguage: () => {},
+});
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('en');
+  const { preferences, setPreferences } = useUserPreferences();
+  const [language, setLanguage] = useState<Language>(preferences?.language || 'en');
+
+
+  useEffect(() => {
+    if (preferences?.language && preferences.language !== language) {
+      setLanguage(preferences.language as Language);
+    }
+  }, [preferences?.language]);
 
   const t = useCallback((path: NestedKeyOf<TranslationsType>, options?: { values: TranslationValues }): string => {
     const keys = path.split('.');
@@ -63,8 +76,22 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return current;
   }, [language]);
 
+  const setLanguageAndPersist = (newLang: Language) => {
+    setPreferences(prev => ({
+      ...prev,
+      language: newLang
+    }));
+    setLanguage(newLang);
+  };
+
+  const value: I18nContextType = {
+    t,
+    language,
+    setLanguage: setLanguageAndPersist,
+  };
+
   return (
-    <I18nContext.Provider value={{ t, language, setLanguage }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );

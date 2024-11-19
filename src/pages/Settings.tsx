@@ -35,12 +35,13 @@ import { CategoryProgress } from '../components/analytics/CategoryProgress';
 import { getUserAnalytics } from '../services/analytics';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { UserAchievement } from '../types/gamification';
+import { SelectChangeEvent } from '@mui/material/Select';
 
 const defaultPreferences: UserPreferences = {
   theme: 'system',
   dailyGoal: 30,
   studySessionLength: 25,
-  studyVocabLimit: 20,  // Add default value
+  studyVocabLimit: 20,  
   notifications: true,
   audioEnabled: true,
   language: 'en',
@@ -71,8 +72,8 @@ export const Settings: React.FC = () => {
         const prefsDoc = await getDoc(doc(db, 'users', user.uid, 'preferences', 'study'));
         if (prefsDoc.exists()) {
           setPreferences({
-            ...defaultPreferences, // Spread default values first
-            ...prefsDoc.data() as UserPreferences // Override with stored values
+            ...defaultPreferences,
+            ...prefsDoc.data() as UserPreferences 
           });
         }
       } catch (error) {
@@ -122,6 +123,13 @@ export const Settings: React.FC = () => {
     setTimeout(() => setSaveStatus(null), 3000);
   };
 
+  const handleLanguageChange = (event: SelectChangeEvent<string>) => {
+    const newLang = event.target.value as Language;
+    setLanguage(newLang);
+    // Show success notification in the selected language
+    setSaveStatus({type: 'success', message: newLang === 'en' ? 'Language changed successfully' : '語言變更成功'});
+  };
+
   return (
     <Container maxWidth="md" sx={{
       minHeight: '100vh',
@@ -166,7 +174,7 @@ export const Settings: React.FC = () => {
                 <Select
                   value={language}
                   label={t('settings.language')}
-                  onChange={(e) => setLanguage(e.target.value as Language)}
+                  onChange={handleLanguageChange}
                 >
                   <MenuItem value="en">English</MenuItem>
                   <MenuItem value="zh-TW">繁體中文</MenuItem>

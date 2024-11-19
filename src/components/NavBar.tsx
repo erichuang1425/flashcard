@@ -15,6 +15,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -29,7 +30,7 @@ interface NavBarProps {
   showGamePanel: boolean;
 }
 
-export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) => {
+export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel, focusMode, onFocusChange }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -38,7 +39,6 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) 
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { levelSystem } = useGamification();
-  const { focusMode, toggleFocusMode } = useFocusMode();
   const { t } = useI18n();
   
   const menuItems = [
@@ -71,60 +71,212 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) 
     signOut();
   };
 
-  const renderMobileNav = () => (
-    <Drawer
-      variant="temporary"
-      anchor="left"
-      open={mobileOpen}
-      onClose={() => setMobileOpen(false)}
-      ModalProps={{ keepMounted: true }}
-      sx={{
-        '& .MuiDrawer-paper': {
-          width: { xs: '100%', sm: 280 },
-          boxSizing: 'border-box',
-          height: '100%',
-          paddingBottom: 'env(safe-area-inset-bottom)'
-        }
-      }}
-    >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Avatar sx={{ bgcolor: 'primary.main' }}>
-          {user?.email?.[0]?.toUpperCase() || 'G'}
-        </Avatar>
-        <Typography variant="subtitle1" noWrap>
-          {user?.displayName || user?.email || 'Guest'}
-        </Typography>
-      </Box>
-      <Divider />
-      <List>
-        {menuItems.map((item) => (
+  // touchstart handler for mobile devices
+  const handleMobileMenuClick = (event: React.MouseEvent<HTMLElement> | React.TouchEvent<HTMLElement>) => {
+    event.preventDefault(); // prevent default to avoid double triggers
+    if (isMobile) {
+      setMobileOpen(true);
+    } else {
+      handleMenuOpen(event as React.MouseEvent<HTMLElement>);
+    }
+  };
+
+  return (
+    <>
+      <AppBar 
+        position="fixed" 
+        elevation={1}
+        sx={{
+          transition: 'background-color 0.3s ease',
+          bgcolor: focusMode ? 'background.paper' : 'primary.main'
+        }}
+      >
+        <Toolbar>
+          {isMobile ? (
+            <>
+              <IconButton
+                color="inherit"
+                edge="start"
+                onClick={() => setMobileOpen(true)}
+                sx={{ mr: 2 }}
+              >
+                <MenuIcon />
+              </IconButton>
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ flexGrow: 1 }}
+                onClick={() => navigate('/')}
+              >
+                {t('navigation.appName')}
+              </Typography>
+              <IconButton
+                onClick={handleMobileMenuClick}
+                color="inherit"
+                sx={{ ml: 1 }}
+              >
+                <Avatar sx={{ width: 32, height: 32 }}>
+                  {user?.email?.[0]?.toUpperCase() || 'G'}
+                </Avatar>
+              </IconButton>
+            </>
+          ) : (
+            <>
+              {isMobile && (
+                <IconButton
+                  color="inherit"
+                  edge="start"
+                  onClick={() => setMobileOpen(true)}
+                  sx={{ mr: 2 }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+              
+              <Typography 
+                variant="h6" 
+                component="div" 
+                sx={{ 
+                  flexGrow: 1,
+                  cursor: 'pointer'
+                }}
+                onClick={() => navigate('/')}
+              >
+                {t('navigation.appName')}
+              </Typography>
+
+              {!isMobile && levelSystem && (
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  mr: 2,
+                  gap: 1 
+                }}>
+                  <EmojiEventsIcon color="inherit" />
+                  <Typography variant="body1">
+                    {t('navigation.level')} {levelSystem.currentLevel}
+                  </Typography>
+                </Box>
+              )}
+
+              {!isMobile && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <FocusMode 
+                    active={focusMode} 
+                    onChange={onFocusChange} 
+                  />
+                  {menuItems.map((item) => (
+                    <Button 
+                      key={item.text}
+                      color={location.pathname === item.path ? 'secondary' : 'inherit'}
+                      onClick={() => navigate(item.path)}
+                      startIcon={item.icon}
+                      sx={{
+                        borderRadius: 2,
+                        ...(location.pathname === item.path && {
+                          bgcolor: 'rgba(255, 255, 255, 0.12)',
+                        })
+                      }}
+                    >
+                      {item.text}
+                    </Button>
+                  ))}
+                  {user && (
+                    <>
+                      <Divider orientation="vertical" flexItem sx={{ mx: 1, bgcolor: 'rgba(255, 255, 255, 0.12)' }} />
+                      <IconButton
+                        onClick={handleMenuOpen}
+                        size="small"
+                        sx={{ ml: 2 }}
+                      >
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: 'secondary.main',
+                            width: 32,
+                            height: 32,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {user.email?.[0]?.toUpperCase() || 'G'}
+                        </Avatar>
+                      </IconButton>
+                    </>
+                  )}
+                </Box>
+              )}
+            </>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      {/* Mobile Drawer with enhanced menu items */}
+      <Drawer
+        variant="temporary"
+        anchor="left"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: { xs: '85%', sm: 280 },
+            boxSizing: 'border-box',
+          },
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar sx={{ width: 40, height: 40 }}>
+            {user?.email?.[0]?.toUpperCase() || 'G'}
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle1">{user?.email}</Typography>
+            {levelSystem && (
+              <Typography variant="caption" color="text.secondary">
+                {t('navigation.level')} {levelSystem.currentLevel}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+        <Divider />
+        <List>
+          {menuItems.map((item) => (
+            <ListItemButton
+              key={item.text}
+              onClick={() => {
+                navigate(item.path);
+                setMobileOpen(false);
+              }}
+              selected={location.pathname === item.path}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          ))}
           <ListItemButton
-            key={item.text}
             onClick={() => {
-              navigate(item.path);
+              navigate('/profile');
               setMobileOpen(false);
             }}
-            selected={location.pathname === item.path}
           >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
+            <ListItemIcon><AccountCircleIcon /></ListItemIcon>
+            <ListItemText primary={t('navigation.menu.profile')} />
           </ListItemButton>
-        ))}
-        {user && (
-          <>
-            <Divider />
-            <ListItemButton onClick={signOut}>
-              <ListItemIcon><LogoutIcon /></ListItemIcon>
-              <ListItemText primary="Logout" />
-            </ListItemButton>
-          </>
-        )}
-      </List>
-    </Drawer>
-  );
+          <ListItemButton
+            onClick={() => {
+              navigate('/settings');
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon><SettingsIcon /></ListItemIcon>
+            <ListItemText primary={t('navigation.menu.settings')} />
+          </ListItemButton>
+          <ListItemButton onClick={signOut}>
+            <ListItemIcon><LogoutIcon /></ListItemIcon>
+            <ListItemText primary={t('navigation.menu.logout')} />
+          </ListItemButton>
+        </List>
+      </Drawer>
 
-  const renderDesktopMenu = (
-    <>
+      {/* Profile Menu (for both mobile and desktop) */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -149,122 +301,22 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel }) 
               {user?.email?.[0]?.toUpperCase() || 'G'}
             </Avatar>
           </ListItemIcon>
-          Profile
+          {t('navigation.menu.profile')}
         </MenuItem>
         <MenuItem onClick={handleSettingsClick}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
-          Settings
+          {t('navigation.menu.settings')}
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>
-          Logout
+          {t('navigation.menu.logout')}
         </MenuItem>
       </Menu>
-    </>
-  );
-
-  return (
-    <>
-      <AppBar 
-        position="fixed" 
-        elevation={1}
-        sx={{
-          transition: 'background-color 0.3s ease',
-          bgcolor: focusMode ? 'background.paper' : 'primary.main'
-        }}
-      >
-        <Toolbar>
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              edge="start"
-              onClick={() => setMobileOpen(true)}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          
-          <Typography 
-            variant="h6" 
-            component="div" 
-            sx={{ 
-              flexGrow: 1,
-              cursor: 'pointer'
-            }}
-            onClick={() => navigate('/')}
-          >
-            {t('navigation.appName')}
-          </Typography>
-
-          {!isMobile && levelSystem && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              mr: 2,
-              gap: 1 
-            }}>
-              <EmojiEventsIcon color="inherit" />
-              <Typography variant="body1">
-                {t('navigation.level')} {levelSystem.currentLevel}
-              </Typography>
-            </Box>
-          )}
-
-          {!isMobile && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <FocusMode 
-                active={focusMode} 
-                onChange={toggleFocusMode} 
-              />
-              {menuItems.map((item) => (
-                <Button 
-                  key={item.text}
-                  color={location.pathname === item.path ? 'secondary' : 'inherit'}
-                  onClick={() => navigate(item.path)}
-                  startIcon={item.icon}
-                  sx={{
-                    borderRadius: 2,
-                    ...(location.pathname === item.path && {
-                      bgcolor: 'rgba(255, 255, 255, 0.12)',
-                    })
-                  }}
-                >
-                  {item.text}
-                </Button>
-              ))}
-              {user && (
-                <>
-                  <Divider orientation="vertical" flexItem sx={{ mx: 1, bgcolor: 'rgba(255, 255, 255, 0.12)' }} />
-                  <IconButton
-                    onClick={handleMenuOpen}
-                    size="small"
-                    sx={{ ml: 2 }}
-                  >
-                    <Avatar 
-                      sx={{ 
-                        bgcolor: 'secondary.main',
-                        width: 32,
-                        height: 32,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {user.email?.[0]?.toUpperCase() || 'G'}
-                    </Avatar>
-                  </IconButton>
-                </>
-              )}
-            </Box>
-          )}
-        </Toolbar>
-      </AppBar>
-      {renderDesktopMenu}
-      {renderMobileNav()}
       <Toolbar /> 
     </>
   );

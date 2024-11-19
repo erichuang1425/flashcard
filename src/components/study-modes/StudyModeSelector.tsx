@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Tabs, Tab, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Tabs, Tab, FormControl, InputLabel, Select, MenuItem, Typography } from '@mui/material';
 import {
   School as SchoolIcon,
   CheckBox as CheckBoxIcon,
@@ -8,6 +8,8 @@ import {
 } from '@mui/icons-material';
 import type { StudyMode } from '../../types';
 import { useI18n } from '../../i18n/I18nContext';
+import { Card3D } from '../common/Card3D';
+import { GlassPaper } from '../common/StyledComponents';
 
 interface StudyModeSelectorProps {
   mode: StudyMode;
@@ -36,18 +38,76 @@ export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({
   };
 
   return (
-    <FormControl fullWidth>
-      <InputLabel>{t('study.modes.title')}</InputLabel>
-      <Select
-        value={mode}
-        onChange={(e) => onModeChange(e.target.value as StudyMode)}
-        label={t('study.modes.title')}
-      >
-        <MenuItem value="flashcard">{t('study.modes.flashcard')}</MenuItem>
-        <MenuItem value="multipleChoice">{t('study.modes.multipleChoice')}</MenuItem>
-        <MenuItem value="matching">{t('study.modes.matching')}</MenuItem>
-        <MenuItem value="fillBlanks">{t('study.modes.fillBlanks')}</MenuItem>
-      </Select>
-    </FormControl>
+    <Box sx={{ 
+      display: 'grid',
+      gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+      gap: 2
+    }}>
+      {effectiveModes.map((m) => (
+        <GlassPaper
+          key={m.value}
+          onClick={() => onModeChange(m.value)}
+          sx={{
+            cursor: 'pointer',
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            opacity: mode === m.value ? 1 : 0.7,
+            transform: mode === m.value ? 'scale(1.02)' : 'none',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: theme => 
+                mode === m.value 
+                  ? `linear-gradient(135deg, ${theme.palette.primary.main}20, transparent)`
+                  : 'transparent',
+              zIndex: -1,
+              transition: 'opacity 0.3s ease',
+              opacity: 0
+            },
+            '&:hover': {
+              opacity: 1,
+              transform: 'scale(1.02)',
+              '&::after': {
+                opacity: 1
+              }
+            }
+          }}
+        >
+          <Box sx={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            width: '100%'
+          }}>
+            {m.icon}
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle1">
+                {m.label}
+              </Typography>
+              {mode === m.value && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'text.secondary',
+                    display: 'block',
+                    mt: 0.5 
+                  }}
+                >
+                  {t('studyMode.selected')}
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        </GlassPaper>
+      ))}
+    </Box>
   );
 };

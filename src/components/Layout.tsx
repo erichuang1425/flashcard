@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Container, Toolbar, Paper, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
+import { 
+  Box, Container, Toolbar, Paper, useMediaQuery, useTheme, IconButton, 
+  Collapse, Tooltip, SwipeableDrawer, Fab 
+} from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import CloseIcon from '@mui/icons-material/Close';
@@ -9,6 +12,7 @@ import { useGamification } from '../context/GamificationContext';
 import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
 import { useLocation } from 'react-router-dom';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,14 +29,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [autoHide, setAutoHide] = useState(false);
   const location = useLocation();
+  const [mobileGamePanelOpen, setMobileGamePanelOpen] = useState(false);
 
   const toggleGamePanel = () => {
     if (isMobile) {
-      setShowGamePanel(!showGamePanel);  // Just toggle visibility for mobile
+      setShowGamePanel(!showGamePanel); 
     } else {
       setShowGamePanel(!showGamePanel);
       setIsPanelCollapsed(false);
     }
+  };
+
+  const toggleMobileGamePanel = () => {
+    setMobileGamePanelOpen(!mobileGamePanelOpen);
   };
   
   // Auto collapse panel on small screens
@@ -69,9 +78,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         flex: 1,
         position: 'relative',
         overflow: 'hidden',
-        justifyContent: 'center', // Center the content
+        justifyContent: 'center', 
         pb: { 
-          xs: showGamePanel ? '64px' : 0, // Remove conditional padding
+          xs: showGamePanel ? '64px' : 0, 
           md: 0 
         },
         pr: { 
@@ -153,26 +162,88 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </>
             )}
 
-            {/* Mobile Floating Panel */}
+            {/* Mobile Panel */}
             {isMobile && (
-              <Paper
-                elevation={3}
-                sx={{
-                  position: 'fixed',
-                  bottom: '16px',
-                  right: '16px',
-                  width: '180px',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  zIndex: 1200,
-                  boxShadow: theme => `0 4px 12px ${theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.15)'}`,
-                }}
-              >
-                <Box sx={{ p: 1 }}>
-                  <PomodoroTimer compact miniature />
-                  {levelSystem && <LevelProgress compact />}
-                </Box>
-              </Paper>
+              <>
+                <Fab
+                  size="small"
+                  color="primary"
+                  onClick={toggleMobileGamePanel}
+                  sx={{
+                    position: 'fixed',
+                    right: 16,
+                    bottom: 16,
+                    zIndex: 1200,
+                    transform: mobileGamePanelOpen ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.3s ease'
+                  }}
+                >
+                  <KeyboardArrowUpIcon />
+                </Fab>
+
+                <SwipeableDrawer
+                  anchor="bottom"
+                  open={mobileGamePanelOpen}
+                  onClose={() => setMobileGamePanelOpen(false)}
+                  onOpen={() => setMobileGamePanelOpen(true)}
+                  disableSwipeToOpen={false}
+                  swipeAreaWidth={30}
+                  ModalProps={{
+                    keepMounted: true
+                  }}
+                  PaperProps={{
+                    sx: {
+                      height: 'auto',
+                      maxHeight: '85vh',
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                      overflow: 'visible',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 8,
+                        left: '50%',
+                        width: 40,
+                        height: 4,
+                        backgroundColor: 'grey.300',
+                        borderRadius: 2,
+                        transform: 'translateX(-50%)'
+                      }
+                    }
+                  }}
+                >
+                  <Box sx={{ 
+                    p: 3,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 3,
+                    mt: 2
+                  }}>
+                    {levelSystem && (
+                      <Paper 
+                        elevation={0} 
+                        sx={{ 
+                          p: 2, 
+                          bgcolor: 'background.default',
+                          borderRadius: 2
+                        }}
+                      >
+                        <LevelProgress compact />
+                      </Paper>
+                    )}
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: 'background.default',
+                        borderRadius: 2
+                      }}
+                    >
+                      <PomodoroTimer compact />
+                    </Paper>
+                  </Box>
+                </SwipeableDrawer>
+              </>
             )}
           </>
         )}

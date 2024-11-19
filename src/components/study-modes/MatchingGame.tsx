@@ -1,94 +1,193 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Button, Typography, Paper, Grid } from '@mui/material';
+import { Box, Paper, Grid, Button, Typography, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
+import { useI18n } from '../../i18n/I18nContext';
+import { saveStudyProgress } from '../../services/firestore';
 
 interface Props {
   cards: Flashcard[];
-  onComplete: (score: number) => void;
+  onComplete: (count: number) => void;
 }
 
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
 export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
   const [matched, setMatched] = useState<Set<string>>(new Set());
-  const [words, setWords] = useState<string[]>([]);
-  const [definitions, setDefinitions] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [options, setOptions] = useState<{words: string[], definitions: string[]}>({words: [], definitions: []});
 
   useEffect(() => {
-    const shuffledWords = shuffle(cards.map(c => c.word));
-    const shuffledDefs = shuffle(cards.map(c => c.englishDefinition));
-    setWords(shuffledWords);
-    setDefinitions(shuffledDefs);
-  }, [cards]);
+    setSelected(null);
+    setMatched(new Set());
+    setFeedback(null);
+  }, [currentCardIndex]);
 
-  const handleSelect = (item: string, isWord: boolean) => {
+  const handleSelect = async (item: string, isWord: boolean) => {
     if (matched.has(item)) return;
+
+    const currentCard = cards[currentCardIndex];
 
     if (!selected) {
       setSelected(item);
       return;
     }
 
-    const card = cards.find(c => 
-      (isWord && c.englishDefinition === selected && c.word === item) ||
-      (!isWord && c.word === selected && c.englishDefinition === item)
-    );
+    const isMatch = isWord 
+      ? currentCard.englishDefinition === selected && currentCard.word === item
+      : currentCard.word === selected && currentCard.englishDefinition === item;
 
-    if (card) {
-      const newMatched = new Set([...Array.from(matched), card.word, card.englishDefinition]);
+    if (isMatch) {
+      const newMatched = new Set([...Array.from(matched), item, selected]);
       setMatched(newMatched);
+      setFeedback({ message: t('study.matching.pairFound'), type: 'success' });
       
-      // Check if all pairs are matched
-      if (newMatched.size === cards.length * 2) {
+      // Only mark current card as completed when its pair is matched
+      if (newMatched.has(currentCard.word) && newMatched.has(currentCard.englishDefinition)) {
+        await saveStudyProgress(currentCard.userId, {
+          cardId: currentCard.id,
+          rating: 4,
+          isCorrect: true,
+          mode: 'matching',
+          timeSpent: 0 
+        });
+
+
+        const remainingCards = cards.filter((card, idx) => 
+          idx > currentCardIndex && !Array.from(newMatched).includes(card.word)
+        );
+        
+        // Generate new options including next card and random distractors
+        const newOptions = {
+          words: [currentCard.word],
+          definitions: [currentCard.englishDefinition]
+        };
+
+       
+        const shuffledRemaining = shuffleArray(remainingCards).slice(0, 3);
+        shuffledRemaining.forEach(card => {
+          if (newOptions.words.length < 3) newOptions.words.push(card.word);
+          if (newOptions.definitions.length < 3) newOptions.definitions.push(card.englishDefinition);
+        });
+
+
+        newOptions.words = shuffleArray(newOptions.words);
+        newOptions.definitions = shuffleArray(newOptions.definitions);
+        
+
+        setOptions(newOptions);
+        
         setTimeout(() => {
-          onComplete(cards.length);
+          setCurrentCardIndex(prev => prev + 1);
         }, 1000);
       }
+    } else {
+      setFeedback({ message: t('study.matching.pairNotFound'), type: 'error' });
     }
-    setSelected(null);
+    
+    setTimeout(() => {
+      setSelected(null);
+      setFeedback(null);
+    }, 1500);
   };
 
-  const isSelected = (item: string) => selected === item;
-  const isMatched = (item: string) => matched.has(item);
+  const currentCard = cards[currentCardIndex];
+  if (!currentCard) {
+    onComplete(currentCardIndex);
+    return null;
+  }
+  // Generate initial options including current card and some distractors
+  useEffect(() => {
+    const initialOptions = {
+      words: [currentCard.word],
+      definitions: [currentCard.englishDefinition]
+    };
+
+
+    cards.slice(0, 4).forEach(card => {
+      if (card.id !== currentCard.id) {
+        if (initialOptions.words.length < 3) initialOptions.words.push(card.word);
+        if (initialOptions.definitions.length < 3) initialOptions.definitions.push(card.englishDefinition);
+      }
+    });
+
+    setOptions(initialOptions);
+  }, [currentCard, cards]);
+  // Add 2-3 distractor options
+  cards.slice(0, 4).forEach(card => {
+    if (card.id !== currentCard.id) {
+      if (options.words.length < 3) options.words.push(card.word);
+      if (options.definitions.length < 3) options.definitions.push(card.englishDefinition);
+    }
+  });
 
   return (
-    <Paper sx={{ p: 3, width: '100%', maxWidth: 800 }}>
-      <Typography variant="h6" gutterBottom align="center">
-        Match the words with their definitions
-      </Typography>
-      <Grid container spacing={2}>
+    <Paper sx={{ p: 3, width: '100%', maxWidth: 800, mx: 'auto' }}>
+      {feedback && (
+        <Alert 
+          severity={feedback.type} 
+          sx={{ mb: 2 }}
+        >
+          {feedback.message}
+        </Alert>
+      )}
+      
+      <Grid container spacing={4}>
         <Grid item xs={6}>
-          {words.map((word) => (
-            <Button
-              key={word}
-              fullWidth
-              variant={isSelected(word) ? 'contained' : 'outlined'}
-              disabled={isMatched(word)}
-              onClick={() => handleSelect(word, true)}
-              sx={{ mb: 1, textTransform: 'none' }}
-            >
-              {word}
-            </Button>
-          ))}
+          <Typography variant="h6" gutterBottom align="center">
+            Words
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {options.words.map((word) => (
+              <Button
+                key={word}
+                variant={selected === word ? 'contained' : 'outlined'}
+                onClick={() => handleSelect(word, true)}
+                disabled={matched.has(word)}
+                sx={{ 
+                  p: 2,
+                  opacity: matched.has(word) ? 0.7 : 1,
+                  bgcolor: matched.has(word) ? 'success.light' : undefined
+                }}
+              >
+                {word}
+              </Button>
+            ))}
+          </Box>
         </Grid>
+        
         <Grid item xs={6}>
-          {definitions.map((def) => (
-            <Button
-              key={def}
-              fullWidth
-              variant={isSelected(def) ? 'contained' : 'outlined'}
-              disabled={isMatched(def)}
-              onClick={() => handleSelect(def, false)}
-              sx={{ mb: 1, textTransform: 'none' }}
-            >
-              {def}
-            </Button>
-          ))}
+          <Typography variant="h6" gutterBottom align="center">
+            Definitions
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {options.definitions.map((def) => (
+              <Button
+                key={def}
+                variant={selected === def ? 'contained' : 'outlined'}
+                onClick={() => handleSelect(def, false)}
+                disabled={matched.has(def)}
+                sx={{ 
+                  p: 2,
+                  opacity: matched.has(def) ? 0.7 : 1,
+                  bgcolor: matched.has(def) ? 'success.light' : undefined
+                }}
+              >
+                {def}
+              </Button>
+            ))}
+          </Box>
         </Grid>
       </Grid>
     </Paper>
   );
-};
-
-const shuffle = <T,>(array: T[]): T[] => {
-  return [...array].sort(() => Math.random() - 0.5);
 };

@@ -1,23 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Button, Typography, Paper, Alert } from '@mui/material';
-import { getUserFlashcards } from '../../services/firestore';
+import { getUserFlashcards, saveStudyProgress } from '../../services/firestore';
 import type { Flashcard } from '../../types';
-import { capitalizeFirstWord } from '../../utils/helpers';
+import { capitalizeFirstWord } from '../../utils/text';
 import { useI18n } from '../../i18n/I18nContext';
 
 interface Props {
   card: Flashcard;
-  onAnswer: (correct: boolean) => void;
+  onAnswer: (isCorrect: boolean) => void;
 }
 
 export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element => {
   const [selected, setSelected] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [options, setOptions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [canProceed, setCanProceed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const { t } = useI18n();
+  const startTime = React.useRef(Date.now());
+
+  interface EnhancedOption {
+    english: string;
+    chinese: string;
+    original: Flashcard;
+  }
+
+  const [options, setOptions] = useState<EnhancedOption[]>([]);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -30,19 +37,43 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
         );
         
         if (similarCards.length < 3) {
-          // Fallback options if not enough similar cards
+
           const fallbackOptions = [
-            `${capitalizeFirstWord(`not ${card.englishDefinition}`)}`,
-            `${capitalizeFirstWord(`different from ${card.englishDefinition}`)}`,
-            `${capitalizeFirstWord(`opposite of ${card.englishDefinition}`)}`
+            {
+              english: capitalizeFirstWord(`not ${card.englishDefinition}`),
+              chinese: `不是${card.chineseTranslation}`,
+              original: card
+            },
+            {
+              english: capitalizeFirstWord(`different from ${card.englishDefinition}`),
+              chinese: `與${card.chineseTranslation}不同`,
+              original: card
+            },
+            {
+              english: capitalizeFirstWord(`opposite of ${card.englishDefinition}`),
+              chinese: `${card.chineseTranslation}的相反`,
+              original: card
+            }
           ];
-          setOptions(shuffle([capitalizeFirstWord(card.englishDefinition), ...fallbackOptions]));
+          setOptions(shuffle([
+            {
+              english: capitalizeFirstWord(card.englishDefinition),
+              chinese: card.chineseTranslation || '未翻译',
+              original: card
+            },
+            ...fallbackOptions
+          ]));
         } else {
-          // Normal case with similar cards
-          const wrongOptions = shuffle(similarCards)
-            .slice(0, 3)
-            .map((c: Flashcard) => capitalizeFirstWord(c.englishDefinition));
-          setOptions(shuffle([capitalizeFirstWord(card.englishDefinition), ...wrongOptions]));
+
+          const wrongOptions = safeOptions(shuffle(similarCards).slice(0, 3));
+          setOptions(shuffle([
+            {
+              english: capitalizeFirstWord(card.englishDefinition),
+              chinese: card.chineseTranslation || '未翻译',
+              original: card
+            },
+            ...wrongOptions
+          ]));
         }
         setError(null);
       } catch (err) {
@@ -54,21 +85,30 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
     loadOptions();
   }, [card]);
 
-  const handleSelect = (option: string) => {
+  const handleSelect = async (option: string) => {
     if (showResult || !option) return;
-    
-    setSelected(option);
-    setShowResult(true);
     
     const correct = capitalizeFirstWord(card.englishDefinition) === option;
     setIsCorrect(correct);
+    setShowResult(true);
+    
+
+    await saveStudyProgress(card.userId, {
+      cardId: card.id,
+      rating: correct ? 4 : 2, 
+      isCorrect: correct,
+      mode: 'multipleChoice',
+      timeSpent: Date.now() - startTime.current
+    });
+
+    // Reset timer for next card
+    startTime.current = Date.now();
     
     setTimeout(() => {
-      onAnswer(correct); // Call onAnswer first
+      onAnswer(correct);
       setSelected(null);
       setShowResult(false);
       setOptions([]);
-      setCanProceed(false);
     }, 1500);
   };
 
@@ -89,21 +129,41 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
           <Box sx={{ display: 'grid', gap: 2 }}>
             {options.map((option) => (
               <Button
-                key={option}
-                variant={selected === option ? 'contained' : 'outlined'}
-                onClick={() => handleSelect(option)}
+                key={option.english}
+                variant={selected === option.english ? 'contained' : 'outlined'}
+                onClick={() => handleSelect(option.english)}
                 color={
                   showResult
-                    ? option === capitalizeFirstWord(card.englishDefinition)
+                    ? option.english === capitalizeFirstWord(card.englishDefinition)
                       ? 'success'
-                      : selected === option
+                      : selected === option.english
                       ? 'error'
                       : 'primary'
                     : 'primary'
                 }
-                sx={{ py: 2, textAlign: 'left', textTransform: 'none' }}
+                sx={{ 
+                  py: 2, 
+                  textAlign: 'left', 
+                  textTransform: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 0.5
+                }}
               >
-                {option}
+                <Typography variant="body1">
+                  {option.english}
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary"
+                  sx={{ 
+                    opacity: 0.8,
+                    fontStyle: 'italic'
+                  }}
+                >
+                  {option.chinese}
+                </Typography>
               </Button>
             ))}
             
@@ -127,3 +187,11 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
 const shuffle = <T,>(array: T[]): T[] => {
   return [...array].sort(() => Math.random() - 0.5);
 };
+
+
+const safeOptions = (cards: Flashcard[]) => 
+  cards.filter(c => c.chineseTranslation).map(c => ({
+    english: capitalizeFirstWord(c.englishDefinition),
+    chinese: c.chineseTranslation as string,
+    original: c
+  }));

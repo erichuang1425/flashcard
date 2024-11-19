@@ -17,6 +17,7 @@ import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { Flashcard } from '../types';
 import { useI18n } from '../i18n/I18nContext';
+import { Card3D } from '../components/common/Card3D';
 
 interface StudyStats {
   total: number;
@@ -30,6 +31,7 @@ interface StudyStats {
   totalInDatabase: number;
   remainingToStudy: number;
   totalStudied: number;
+  totalStudyDays: number;
   error?: string;
 }
 
@@ -48,7 +50,8 @@ export const Home: React.FC = () => {
     weeklyGoal: 0,
     totalInDatabase: 0,
     remainingToStudy: 0,
-    totalStudied: 0
+    totalStudied: 0,
+    totalStudyDays: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +68,6 @@ export const Home: React.FC = () => {
       setLoading(true);
       
       try {
-        // Get all required data in parallel using new counter system
         const [studyStats, cardsCount] = await Promise.all([
           getUserStudyStats(user.uid),
           getTotalCardsCount(user.uid)
@@ -84,7 +86,8 @@ export const Home: React.FC = () => {
           weeklyGoal: studyStats?.weeklyStudyGoal || 60,
           totalInDatabase: cardsCount.totalCards,
           remainingToStudy: cardsCount.remainingCards,
-          totalStudied: studyStats?.totalStudySessions || 0
+          totalStudied: studyStats?.totalStudySessions || 0,
+          totalStudyDays: studyStats?.totalStudyDays || 0
         });
 
       } catch (error) {
@@ -157,7 +160,7 @@ export const Home: React.FC = () => {
         {/* Quick Stats - Adjust card heights */}
         <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card3D>
               <CardContent sx={{ 
                 textAlign: 'center', 
                 py: { xs: 2, sm: 2.5 },
@@ -176,10 +179,10 @@ export const Home: React.FC = () => {
                   {t('home.stats.dueToday')}
                 </Typography>
               </CardContent>
-            </Card>
+            </Card3D>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card3D>
               <CardContent sx={{ 
                 textAlign: 'center', 
                 py: { xs: 2, sm: 2.5 },
@@ -198,10 +201,10 @@ export const Home: React.FC = () => {
                   {t('home.stats.mastered')}
                 </Typography>
               </CardContent>
-            </Card>
+            </Card3D>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card3D>
               <CardContent sx={{ 
                 textAlign: 'center', 
                 py: { xs: 2, sm: 2.5 },
@@ -220,10 +223,10 @@ export const Home: React.FC = () => {
                   {t('home.stats.totalStudied')}
                 </Typography>
               </CardContent>
-            </Card>
+            </Card3D>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card3D>
               <CardContent sx={{ 
                 textAlign: 'center', 
                 py: { xs: 2, sm: 2.5 },
@@ -242,7 +245,7 @@ export const Home: React.FC = () => {
                   {t('home.stats.streak')}
                 </Typography>
               </CardContent>
-            </Card>
+            </Card3D>
           </Grid>
         </Grid>
 
@@ -290,7 +293,7 @@ export const Home: React.FC = () => {
         <Grid container spacing={{ xs: 2, sm: 3 }}>
           {/* Progress Card */}
           <Grid item xs={12} md={8}>
-            <Card>
+            <Card3D depth={2}>
               <CardContent sx={{ 
                 p: { xs: 2, sm: 3 },
                 '& .MuiLinearProgress-root': {
@@ -329,7 +332,6 @@ export const Home: React.FC = () => {
                   <LinearProgress 
                     variant="determinate" 
                     value={calculatePercentage(stats.weeklyProgress, stats.weeklyGoal)}
-                    color="secondary"
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                   <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
@@ -337,11 +339,11 @@ export const Home: React.FC = () => {
                   </Typography>
                 </Box>
               </CardContent>
-            </Card>
+            </Card3D>
           </Grid>
           
           <Grid item xs={12} md={4}>
-            <Card>
+            <Card3D depth={2}>
               <CardContent sx={{ 
                 p: { xs: 2, sm: 3 },
                 minHeight: { xs: '160px', sm: '180px' },
@@ -363,7 +365,7 @@ export const Home: React.FC = () => {
                   </Box>
                 </Box>
               </CardContent>
-            </Card>
+            </Card3D>
           </Grid>
         </Grid>
       </Box>
