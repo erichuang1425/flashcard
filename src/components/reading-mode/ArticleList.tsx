@@ -60,10 +60,18 @@ export const ArticleList: React.FC<ArticleListProps> = ({
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          transition: 'all 0.3s ease',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          transformStyle: 'preserve-3d',
+          position: 'relative',
           '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: theme.shadows[8],
+            transform: 'translateY(-8px) rotateX(4deg)',
+            '& .MuiCardContent-root': {
+              borderColor: 'primary.main',
+            },
+            '& .article-tag': {
+              backgroundColor: 'primary.main',
+              color: 'primary.contrastText',
+            }
           }
         }}
       >
@@ -75,13 +83,43 @@ export const ArticleList: React.FC<ArticleListProps> = ({
             flexDirection: 'column',
           }}
         >
-          <CardContent sx={{ 
-            flexGrow: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            p: hasImage ? 2 : 3
-          }}>
+          <CardContent 
+            sx={{ 
+              flexGrow: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              p: 0,
+              position: 'relative',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 2,
+              overflow: 'hidden',
+              transition: 'border-color 0.3s ease',
+            }}
+          >
+            <Box 
+              className="article-tag"
+              sx={{
+                position: 'absolute',
+                top: 16,
+                right: -32,
+                px: 4,
+                py: 0.5,
+                bgcolor: 'grey.100',
+                color: 'text.secondary',
+                transform: 'rotate(45deg)',
+                transformOrigin: 'center',
+                zIndex: 1,
+                typography: 'caption',
+                fontWeight: 500,
+                transition: 'all 0.3s ease',
+                boxShadow: 1
+              }}
+            >
+              {article.category}
+            </Box>
+
             {article.coverImage ? (
               <Box 
                 component="img"
@@ -91,35 +129,56 @@ export const ArticleList: React.FC<ArticleListProps> = ({
                   width: '100%',
                   height: 200,
                   objectFit: 'cover',
-                  borderRadius: 1,
                 }}
               />
             ) : (
               <Box sx={{
                 height: 200,
-                bgcolor: theme => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
-                borderRadius: 1,
+                background: theme => `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.light})`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                mb: 2
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.2) 100%)',
+                }
               }}>
-                <Typography variant="h3" color="text.secondary" sx={{ opacity: 0.5 }}>
+                <Typography 
+                  variant="h2" 
+                  sx={{ 
+                    color: 'common.white',
+                    opacity: 0.8,
+                    fontWeight: 700,
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.2)'
+                  }}
+                >
                   {article.title.charAt(0)}
                 </Typography>
               </Box>
             )}
 
-            <Box sx={{ flexGrow: 1 }}>
-              <Typography variant="h6" gutterBottom sx={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                lineHeight: 1.3,
-                minHeight: '2.6em'
-              }}>
+            <Box sx={{ 
+              flexGrow: 1, 
+              p: 2.5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1
+            }}>
+              <Typography 
+                variant="h6" 
+                sx={{
+                  fontWeight: 600,
+                  mb: 0.5,
+                  color: 'text.primary',
+                }}
+              >
                 {article.title}
               </Typography>
               
@@ -128,47 +187,75 @@ export const ArticleList: React.FC<ArticleListProps> = ({
                   variant="body2" 
                   color="text.secondary" 
                   sx={{ 
-                    mb: 1,
+                    mb: 'auto',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     display: '-webkit-box',
                     WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical'
+                    WebkitBoxOrient: 'vertical',
+                    lineHeight: 1.5
                   }}
                 >
                   {article.subtitle}
                 </Typography>
               )}
-            </Box>
 
-            <Box sx={{ mt: 'auto' }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('reading.interface.wordCount', { values:{values: article.wordCount }})}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
+              <Box sx={{ mt: 2 }}>
+                <Stack 
+                  direction="row" 
+                  spacing={2} 
+                  alignItems="center" 
+                  sx={{ mb: 1 }}
+                >
+                  <Typography 
+                    variant="caption" 
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      color: 'text.secondary',
+                      '& > span': {
+                        fontWeight: 600,
+                        color: 'text.primary'
+                      }
+                    }}
+                  >
+                    <span>{article.wordCount}</span> words
+                  </Typography>
                   {progress > 0 && (
-                    `${progress}% ${t('reading.interface.progress.completed')}`
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: 'success.main',
+                        fontWeight: 500 
+                      }}
+                    >
+                      {progress}% completed
+                    </Typography>
                   )}
-                </Typography>
-              </Stack>
+                </Stack>
 
-              <LinearProgress 
-                variant="determinate" 
-                value={progress}
-                sx={{ 
-                  height: 6, 
-                  borderRadius: 3,
-                  bgcolor: theme => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.200',
-                  visibility: progress > 0 ? 'visible' : 'hidden'
-                }}
-              />
+                <LinearProgress 
+                  variant="determinate" 
+                  value={progress}
+                  sx={{ 
+                    height: 6, 
+                    borderRadius: 3,
+                    bgcolor: theme => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
+                    visibility: progress > 0 ? 'visible' : 'hidden',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundImage: theme => 
+                        `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.success.light})`
+                    }
+                  }}
+                />
+              </Box>
             </Box>
           </CardContent>
         </CardActionArea>
       </Paper3D>
     );
-  }, [onArticleSelect, t, theme]);
+  }, [onArticleSelect, theme]);
 
   return (
     <Box sx={{ height: '100%', width: '100%', overflow: 'auto' }}>

@@ -15,7 +15,7 @@ import { ArticleList } from '../components/reading-mode/ArticleList';
 import { ArticleImporter } from '../components/reading-mode/ArticleImporter';
 import { ReadingInterface } from '../components/reading-mode/ReadingInterface';
 import { ReadingNavigation } from '../components/reading-mode/ReadingNavigation';
-import { getUserArticles, checkArticleCache, cacheArticles, getArticlePage } from '../services/articleService';
+import { getUserArticles, checkArticleCache, cacheArticles, getArticlePage, getFullArticle } from '../services/articleService';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { Article } from '../context/ReadingModeContext';
@@ -148,6 +148,27 @@ export const Reading: React.FC = () => {
     }
   }, [user]);
 
+  const handleArticleSelect = async (article: Article) => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const fullArticle = await getFullArticle(user.uid, article.id);
+      
+      if (!fullArticle || !fullArticle.content) {
+        throw new Error('Failed to load article content');
+      }
+      
+      // Start reading mode by setting the current article
+      setCurrentArticle(fullArticle);
+    } catch (err) {
+      setError('Failed to load article content');
+      logger.error('Article content load failed', err as Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // If viewing an article, show the article interface
   if (currentArticle) {
     return (
@@ -225,7 +246,7 @@ export const Reading: React.FC = () => {
           ) : (
             <ArticleList 
               articles={articleData.articles}
-              onArticleSelect={setCurrentArticle}
+              onArticleSelect={handleArticleSelect}
               totalCount={articleData.totalCount}
               isLoading={loading}
               onPageChange={async (newPage) => {
