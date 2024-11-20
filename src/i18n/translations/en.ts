@@ -484,13 +484,13 @@ export const en = {
     "saveExit": "Save & Exit"
   },
   reading: {
-    
     tabs: {
       library: 'Article Library',
       import: 'Import Article',
       categories: 'Categories',
       recent: 'Recent',
-      favorites: 'Favorites'
+      favorites: 'Favorites',
+      manage: 'Manage Articles'
     },
     title: 'Reading Mode',
     library: {
@@ -593,6 +593,24 @@ export const en = {
     },
     dictionary: {
       addToFlashcards: 'Add to Flashcards'
+    },
+    manage: {
+      title: 'Manage Articles',
+      deleteSelected: 'Delete Selected ({{count}})',
+      never: 'Never',
+      confirmDelete: 'Delete',
+      deleteConfirmTitle: 'Confirm Deletion',
+      deleteConfirmMessage: 'Are you sure you want to delete {{count}} selected articles? This action cannot be undone.',
+      error: {
+        deleteFailed: 'Failed to delete articles'
+      },
+      columns: {
+        title: 'Title',
+        category: 'Category',
+        wordCount: 'Words',
+        lastRead: 'Last Read',
+        progress: 'Progress'
+      }
     }
   }
 };

@@ -9,7 +9,8 @@ import {
   Tooltip,
   Fade,
   Stack,
-  CircularProgress
+  CircularProgress,
+  Fab
 } from '@mui/material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import NotesIcon from '@mui/icons-material/Notes';
@@ -21,14 +22,21 @@ import { NoteSystem } from './NoteSystem';
 import { motion } from 'framer-motion';
 import { Paper3D } from '../common/Paper3D';
 import { ReadingAchievementPopup } from './ReadingAchievementPopup';
+import { ReadingActionMenu } from './ReadingActionMenu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { logger } from '../../services/logging';
 import { sanitizeText, isValidText } from '../../utils/textSanitizer';
+import { useAuth } from '../../context/AuthContext';
+import { getRandomArticle } from '../../services/articleService';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
 
 export const ReadingInterface: React.FC = () => {
-  const { currentArticle, readingProgress, updateProgress, isReading } = useReadingMode();
+  const { user } = useAuth();
+  const { currentArticle, readingProgress, updateProgress, isReading, setCurrentArticle } = useReadingMode();
   const { preferences } = useUserPreferences();
   const [activeParagraph, setActiveParagraph] = useState<number>(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -46,15 +54,29 @@ export const ReadingInterface: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isContentLoading, setIsContentLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  const handleRandomArticle = async () => {
+    if (!user) return;
+    try {
+      const article = await getRandomArticle(user.uid);
+      if (article) {
+        setCurrentArticle(article);
+      }
+    } catch (err) {
+      logger.error('Failed to get random article', err as Error);
+    }
+  };
 
   const {
-    fontSize = 16,
-    lineHeight = 1.6,
-    fontFamily = 'system-ui',
-    enableTTS = false,
-  } = preferences?.readingSettings || {};
-
+    readingSettings: {
+      fontSize = 16,
+      lineHeight = 1.6,
+      fontFamily = 'system-ui',
+      enableTTS = false,
+    } = {}
+  } = preferences || {};
 
   const pageVariants = {
     initial: { opacity: 0, x: 20 },
@@ -325,16 +347,31 @@ export const ReadingInterface: React.FC = () => {
  
   if (!currentArticle) return null;
 
+  const handleNotes = () => {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      const text = selection.toString().trim();
+      if (text && text.split(/\s+/).length > 1 && isValidText(text)) {
+        setSelectedText(sanitizeText(text));
+        setNotesOpen(true);
+      }
+    }
+  };
+
   return (
     <ErrorBoundary>
       <Container 
         maxWidth="md" 
         sx={{ 
-          py: { xs: 4, sm: 5, md: 6 },
-          px: { xs: 2, sm: 3, md: 4 },
-          maxWidth: { sm: '95%', md: '900px !important' }, // Increased from 800px
+          py: { xs: 2, sm: 5, md: 6 },
+          px: { xs: 0, sm: 3, md: 4 }, // Remove horizontal padding on mobile
+          maxWidth: { 
+            xs: '100% !important', // Full width on mobile
+            sm: '95%', 
+            md: '900px !important'
+          },
           margin: '0 auto',
-          WebkitOverflowScrolling: 'touch', // For Safari momentum scrolling
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <Box sx={{ mb: { xs: 3, sm: 4 } }}>
@@ -351,9 +388,9 @@ export const ReadingInterface: React.FC = () => {
           >
             <Box 
               sx={{
-                p: { xs: 3, sm: 4, md: 5 },
+                p: { xs: 2, sm: 4, md: 5 }, // Reduced padding on mobile
                 minHeight: '80vh',
-                borderRadius: 2,
+                borderRadius: { xs: 0, sm: 2 }, // Remove border radius on mobile
                 position: 'relative',
                 bgcolor: theme => theme.palette.mode === 'dark' ? 'background.paper' : '#fff',
                 '& ::selection': {
@@ -374,7 +411,7 @@ export const ReadingInterface: React.FC = () => {
                   borderBottom: 1,
                   borderColor: 'divider',
                   pb: 3,
-                  px: { xs: 2, sm: 3, md: 4 }, // Added horizontal padding
+                  px: { xs: 1, sm: 3, md: 4 }, // Less horizontal padding on mobile
                 }}>
                   <Typography 
                     variant="h3" 
@@ -454,7 +491,7 @@ export const ReadingInterface: React.FC = () => {
                     height: '100%',
                     overflowY: 'auto',
                     scrollBehavior: 'smooth',
-                    px: { xs: 2, sm: 3, md: 4 }, // Added consistent horizontal padding
+                    px: { xs: 1, sm: 3, md: 4 }, // Less horizontal padding on mobile
                     WebkitUserSelect: 'text', // Enable text selection
                     userSelect: 'text',
                     '& p:first-of-type::first-letter': {
@@ -472,25 +509,22 @@ export const ReadingInterface: React.FC = () => {
                       textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
                     },
                     '& p': {
-                      fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' }, // Increased font sizes
-                      lineHeight: { xs: 1.6, sm: 1.8 }, // Adjusted line height
-                      mb: { xs: 2.5, sm: 3 }, // Increased paragraph spacing
-                      maxWidth: '100%', // Ensure content fits
+                      fontSize: 'inherit',
+                      lineHeight: 'inherit',
+                      fontFamily: 'inherit',
+                      mb: { xs: 2.5, sm: 3 },
+                      maxWidth: '100%',
                       wordBreak: 'break-word',
                       hyphens: 'auto',
                       textAlign: 'justify',
-                      '@supports (-webkit-hyphens: auto)': {
-                        hyphens: 'auto',
-                        WebkitHyphens: 'auto',
-                      },
-                      '@media screen and (max-width: 600px)': {
-                        textAlign: 'left', // Left align on mobile for better readability
-                      },
-                      cursor: 'text', // Show text cursor
+                      cursor: 'text',
                       WebkitUserSelect: 'text',
                       userSelect: 'text',
-                      WebkitTouchCallout: 'default', // Enable text selection on iOS
-                      WebkitTapHighlightColor: 'rgba(0,0,0,0)', // Remove tap highlight on mobile
+                      WebkitTouchCallout: 'default',
+                      WebkitTapHighlightColor: 'rgba(0,0,0,0)',
+                      '@media screen and (max-width: 600px)': {
+                        textAlign: 'left'
+                      },
                       '&::selection': {
                         backgroundColor: theme => `${theme.palette.primary.main}30`,
                         color: 'inherit'
@@ -499,7 +533,10 @@ export const ReadingInterface: React.FC = () => {
                     '@media screen and (max-width: 600px)': {
                       WebkitOverflowScrolling: 'touch',
                       msOverflowStyle: '-ms-autohiding-scrollbar',
-                    }
+                    },
+                    fontSize: `${fontSize}px`,
+                    lineHeight: lineHeight,
+                    fontFamily: `${fontFamily}, system-ui, serif`,
                   }}
                 >
                   <Box ref={contentRef}>
@@ -509,7 +546,10 @@ export const ReadingInterface: React.FC = () => {
                         data-page={pageNum}
                         sx={{
                           opacity: isContentLoading ? 0 : 1,
-                          transition: 'opacity 0.3s ease'
+                          transition: 'opacity 0.3s ease',
+                          fontSize: `${fontSize}px`, // Add base font size here
+                          lineHeight: lineHeight,
+                          fontFamily: `${fontFamily}, system-ui, serif`,
                         }}
                       >
                         {paragraphs.map((paragraph, index) => {
@@ -520,14 +560,15 @@ export const ReadingInterface: React.FC = () => {
                               paragraph
                               data-index={globalIndex}
                               sx={{
-                                fontSize: `${fontSize}px !important`,
-                                lineHeight: `${lineHeight} !important`,
-                                fontFamily: `${fontFamily}, system-ui, serif`,
+                                fontSize: 'inherit', // Inherit from parent instead of setting directly
+                                lineHeight: 'inherit',
+                                fontFamily: 'inherit',
+                                // ...rest of styles...
                                 transition: 'all 0.3s ease',
                                 backgroundColor: activeParagraph === globalIndex ? 
                                   'action.selected' : 'transparent',
-                                p: { xs: 2, sm: 3 },
-                                mx: { xs: -1, sm: -2 },
+                                p: { xs: 1.5, sm: 2, md: 3 }, // Less padding on mobile
+                                mx: { xs: 0, sm: -2 }, // Remove margin on mobile
                                 my: 1,
                                 borderRadius: 1,
                                 cursor: 'pointer',
@@ -559,34 +600,28 @@ export const ReadingInterface: React.FC = () => {
           </motion.div>
         </Paper3D>
 
-        <Tooltip title="Take Notes (Ctrl+N)" placement="left" arrow>
-  <div>
-    <IconButton
-      onClick={() => {
-        const selection = window.getSelection();
-        if (selection && !selection.isCollapsed) {
-          const text = selection.toString().trim();
-          if (text && text.split(/\s+/).length > 1 && isValidText(text)) {
-            setSelectedText(sanitizeText(text));
-            setNotesOpen(true);
-          }
-        }
-      }}
-      sx={{
-        position: 'fixed',
-        right: 32,
-        bottom: 32,
-        backgroundColor: 'primary.main',
-        color: 'white',
-        '&:hover': {
-          backgroundColor: 'primary.dark',
-        },
-      }}
-    >
-      <NotesIcon />
-    </IconButton>
-  </div>
-</Tooltip>
+        {isMobile ? (
+          <ReadingActionMenu 
+            onRandomArticle={handleRandomArticle}
+            onTakeNotes={handleNotes}
+          />
+        ) : (
+          <Tooltip title="Random Article">
+            <Fab
+              color="primary"
+              size="medium"
+              onClick={handleRandomArticle}
+              sx={{
+                position: 'fixed',
+                bottom: theme.spacing(3),
+                right: theme.spacing(3),
+                zIndex: theme.zIndex.speedDial,
+              }}
+            >
+              <ShuffleIcon />
+            </Fab>
+          </Tooltip>
+        )}
 
         <ReadingAchievementPopup 
           open={Boolean(achievement)}
@@ -602,7 +637,7 @@ export const ReadingInterface: React.FC = () => {
             setSelectedWord('');
           }}
           onAddToFlashcards={async (word, definition) => {
-  
+            // Implementation for adding to flashcards
           }}
         />
 

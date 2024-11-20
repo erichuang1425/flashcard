@@ -3,9 +3,9 @@ import {
   where, orderBy, limit, startAfter, increment,
   serverTimestamp, DocumentSnapshot, writeBatch,
   deleteDoc, getDoc, arrayUnion, arrayRemove,
-  documentId
+  documentId, deleteField
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase';
 import localforage from 'localforage';
 import { Article, ArticleCounter, ArticleContentCache, ArticlePageCache, PARAGRAPHS_PER_PAGE } from '../types/reading';
@@ -240,6 +240,73 @@ export const deleteArticle = async (userId: string, articleId: string) => {
   });
 
   await batch.commit();
+};
+
+export const batchDeleteArticles = async (userId: string, articleIds: string[]) => {
+  if (!articleIds.length) return;
+
+  const batch = writeBatch(db);
+  const counterRef = doc(db, 'users', userId, 'counters', 'articles');
+  const counterDoc = await getDoc(counterRef);
+
+  if (!counterDoc.exists()) {
+    throw new Error('Article counter not initialized');
+  }
+
+  const counterData = counterDoc.data();
+  
+  // Delete each article document
+  articleIds.forEach(id => {
+    const articleRef = doc(db, 'users', userId, 'articles', id);
+    batch.delete(articleRef);
+  });
+
+  // Update counter document
+  batch.update(counterRef, {
+    count: increment(-articleIds.length),
+    items: counterData.items.filter((item: any) => !articleIds.includes(item.id)),
+    lastUpdated: new Date(),
+    // Remove from indexMap
+    ...Object.fromEntries(articleIds.map(id => [`indexMap.${id}`, deleteField()]))
+  });
+
+  // Fix the categories update logic
+  interface CounterItem {
+    id: string;
+    category?: string;
+  }
+
+  const categoriesToUpdate = Object.entries(counterData.categories || {})
+    .filter(([category, count]) => {
+      const categoryItems = counterData.items.filter((item: CounterItem) => item.category === category);
+      return categoryItems.some((item: CounterItem) => articleIds.includes(item.id));
+    });
+
+  categoriesToUpdate.forEach(([category]) => {
+    const itemsInCategory = counterData.items.filter(
+      (item: { category?: string; id: string }) => item.category === category && articleIds.includes(item.id)
+    ).length;
+    batch.update(counterRef, {
+      [`categories.${category}`]: increment(-itemsInCategory)
+    });
+  });
+
+  await batch.commit();
+
+  // Clear caches
+  await localforage.removeItem(CACHE_KEY);
+  await Promise.all(articleIds.map(id => clearArticleCache(id)));
+
+  // Clean up any associated storage files (e.g. cover images)
+  try {
+    await Promise.all(articleIds.map(async (id) => {
+      const storageRef = ref(storage, `users/${userId}/articles/${id}`);
+      await deleteObject(storageRef).catch(() => {}); // Ignore if file doesn't exist
+    }));
+  } catch (err) {
+    logger.warn('Some article storage cleanup failed', err as Error);
+    // Don't throw - storage cleanup is non-critical
+  }
 };
 
 export const getUserArticles = async (

@@ -1,3 +1,4 @@
+import { random } from "lodash";
 import { title } from "process";
 
 export const zhTW = {
@@ -488,10 +489,14 @@ export const zhTW = {
     "saveExit": "儲存並離開"
   },
   reading: {
+    actions:{
+      random: '隨機貼文',
+    },
     tabs: {
       library: '文章庫',
       import: '匯入文章',
       categories: '分類',
+      manage: '管理文章',
       recent: '最近',
       favorites: '收藏'
     },
@@ -591,6 +596,24 @@ export const zhTW = {
         crimson: 'Crimson Pro 字體',
         notoSerif: 'Noto Serif 字體',
         ibmPlex: 'IBM Plex Serif 字體'
+      }
+    },
+    manage: {
+      title: '管理文章',
+      deleteSelected: '刪除已選擇 ({{count}})',
+      never: '從未',
+      confirmDelete: '刪除',
+      deleteConfirmTitle: '確認刪除',
+      deleteConfirmMessage: '確定要刪除 {{count}} 篇已選擇的文章嗎？此動作無法復原。',
+      error: {
+        deleteFailed: '刪除文章失敗'
+      },
+      columns: {
+        title: '標題',
+        category: '分類',
+        wordCount: '字數',
+        lastRead: '最後閱讀',
+        progress: '進度'
       }
     }
   }
