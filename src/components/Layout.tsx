@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Container, Toolbar, Paper, useMediaQuery, useTheme, IconButton, 
-  Collapse, Tooltip, SwipeableDrawer, Fab 
+  Collapse, Tooltip, SwipeableDrawer, Fab, Typography, Slider, FormControlLabel, Switch 
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -13,6 +13,9 @@ import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
 import { useLocation } from 'react-router-dom';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import { useUserPreferences } from '../context/UserPreferencesContext';
+import { useI18n } from '../i18n/I18nContext';
+import { useReadingMode } from '../context/ReadingModeContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,6 +33,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [autoHide, setAutoHide] = useState(false);
   const location = useLocation();
   const [mobileGamePanelOpen, setMobileGamePanelOpen] = useState(false);
+  const { preferences, setPreferences } = useUserPreferences();
+  const { t } = useI18n();
+  const { currentArticle } = useReadingMode();
 
   const toggleGamePanel = () => {
     if (isMobile) {
@@ -44,6 +50,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     setMobileGamePanelOpen(!mobileGamePanelOpen);
   };
   
+  const updateReadingSettings = (key: string, value: any) => {
+    setPreferences(prev => ({
+      ...prev,
+      readingSettings: {
+        ...prev.readingSettings,
+        [key]: value
+      }
+    }));
+  };
+
   // Auto collapse panel on small screens
   useEffect(() => {
     const handleResize = () => {
@@ -241,6 +257,44 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     >
                       <PomodoroTimer compact />
                     </Paper>
+                    
+                    {/* Add reading settings to mobile panel */}
+                    {location.pathname === '/reading' && currentArticle && (
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          bgcolor: 'background.default',
+                          borderRadius: 2
+                        }}
+                      >
+                        <Box sx={{ mb: 2 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            {t('reading.settings.fontSize')}
+                          </Typography>
+                          <Slider
+                            value={preferences.readingSettings.fontSize}
+                            onChange={(_, value) => updateReadingSettings('fontSize', value)}
+                            min={12}
+                            max={32}
+                            marks
+                            size="small"
+                            valueLabelDisplay="auto"
+                          />
+                        </Box>
+
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={preferences.readingSettings.focusModeEnabled}
+                              onChange={(e) => updateReadingSettings('focusModeEnabled', e.target.checked)}
+                              size="small"
+                            />
+                          }
+                          label={t('reading.settings.focusMode')}
+                        />
+                      </Paper>
+                    )}
                   </Box>
                 </SwipeableDrawer>
               </>

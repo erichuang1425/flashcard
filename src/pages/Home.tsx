@@ -14,6 +14,7 @@ import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TimerIcon from '@mui/icons-material/Timer';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { Flashcard } from '../types';
 import { useI18n } from '../i18n/I18nContext';
@@ -249,7 +250,7 @@ export const Home: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Action Buttons - Adjust spacing */}
+        {/* Action Buttons - Updated with Reading Mode */}
         <Box sx={{ 
           display: 'flex', 
           gap: { xs: 1.5, sm: 2 },
@@ -273,6 +274,21 @@ export const Home: React.FC = () => {
             }}
           >
             {t('home.buttons.startReview')} ({stats.dueToday} {t('home.cards')})
+          </Button>
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            color="secondary"
+            startIcon={<MenuBookIcon />}
+            onClick={() => navigate('/reading')} // This is already correct
+            sx={{
+              py: 2,
+              fontSize: '1.1rem',
+              boxShadow: theme => `0 8px 32px ${theme.palette.secondary.main}20`
+            }}
+          >
+            {t('home.buttons.startReading')}
           </Button>
           <Button
             variant="outlined"

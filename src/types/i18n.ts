@@ -1,4 +1,8 @@
+import type { en } from '../i18n/translations/en';
+
 export type Language = 'en' | 'zh-TW';
+
+export type TranslationsType = typeof en;
 
 export interface TranslationValues {
   [key: string]: string | number;

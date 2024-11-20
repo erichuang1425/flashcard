@@ -1,12 +1,12 @@
 import { auth, db } from './firebase';
 import { 
   collection, addDoc, getDocs, query, where, orderBy, 
-  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc, startAfter, getCountFromServer, serverTimestamp 
+  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc, startAfter, getCountFromServer, serverTimestamp, arrayUnion, arrayRemove, deleteField 
 }  from 'firebase/firestore';
 import { 
   Flashcard, StudySessionSummary, StudyStats, Worksheet, 
   VocabularyWord, WorksheetStats, VocabularyDefinition, 
-  StudyProgress, StudyCardProgress 
+  StudyProgress, StudyCardProgress, FlashcardCounter 
 } from '../types';
 import { flashcardCache, categoryCache, worksheetCache, studyStatsCache, userWorksheetCache, analyticsCache } from '../utils/Cache';
 import type { FlashcardsResponse } from '../types/responses';
@@ -21,9 +21,18 @@ interface FlashcardDocument {
   [key: string]: any; 
 }
 
+interface CollectionItem {
+  id: string;
+  title: string;
+  updatedAt: Date;
+}
+
 interface CollectionCounter {
   count: number;
   lastUpdated: Date;
+  items: CollectionItem[];
+  categories: Record<string, number>;
+  indexMap: Record<string, number>; // For quick lookups
 }
 
 const updateCollectionCounter = async (
@@ -56,6 +65,40 @@ const updateCollectionCounter = async (
   }
 };
 
+export const initializeFlashcardCounter = async (userId: string) => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  
+  try {
+    await setDoc(counterRef, {
+      count: 0,
+      items: [],
+      lastUpdated: new Date(),
+      categories: {},
+      indexMap: {}
+    });
+  } catch (error) {
+    console.error('Error initializing flashcard counter:', error);
+    throw error;
+  }
+};
+
+export const initializeArticleCounter = async (userId: string) => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'articles');
+  
+  try {
+    await setDoc(counterRef, {
+      count: 0,
+      items: [],
+      lastUpdated: new Date(),
+      categories: {},
+      indexMap: {}
+    });
+  } catch (error) {
+    console.error('Error initializing article counter:', error);
+    throw error;
+  }
+};
+
 export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
   const batch = writeBatch(db);
   
@@ -69,6 +112,27 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
       nextReview: new Date()
     });
 
+    // Update counter document with new item
+    const counterRef = doc(db, 'users', flashcard.userId, 'counters', 'flashcards');
+    const counterDoc = await getDoc(counterRef);
+    
+    if (!counterDoc.exists()) {
+      await initializeFlashcardCounter(flashcard.userId);
+    }
+
+    const newItem: CollectionItem = {
+      id: flashcardRef.id,
+      title: flashcard.word,
+      updatedAt: new Date()
+    };
+
+    batch.update(counterRef, {
+      count: increment(1),
+      items: arrayUnion(newItem),
+      lastUpdated: new Date(),
+      [`categories.${flashcard.categories[0] || 'uncategorized'}`]: increment(1),
+      [`indexMap.${flashcardRef.id}`]: counterDoc.data()?.count || 0
+    });
 
     if (flashcard.categories?.length) {
       const categoryPromises = flashcard.categories.map(async (categoryName) => {
@@ -95,8 +159,6 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
     }
 
     await batch.commit();
-    await updateCollectionCounter(flashcard.userId, 'flashcards', 1);
-
     flashcardCache.delete(`flashcards-${flashcard.userId}`);
     categoryCache.clear();
     return flashcardRef.id;
@@ -883,11 +945,23 @@ export const updateWorksheetProgress = async (
   }
 };
 
-export const deleteFlashcard = async (userId: string, cardId: string) => {
+export const deleteFlashcard = async (userId: string, cardId: string, category?: string) => {
+  const batch = writeBatch(db);
+  
   try {
-    await deleteDoc(doc(db, 'users', userId, 'flashcards', cardId));
-    await updateCollectionCounter(userId, 'flashcards', -1);
-    
+    const cardRef = doc(db, 'users', userId, 'flashcards', cardId);
+    batch.delete(cardRef);
+
+    const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+    batch.update(counterRef, {
+      count: increment(-1),
+      items: arrayRemove(cardId),
+      lastUpdated: new Date(),
+      [`indexMap.${cardId}`]: deleteField(),
+      ...(category ? { [`categories.${category}`]: increment(-1) } : {})
+    });
+
+    await batch.commit();
     flashcardCache.delete(`flashcards-${userId}`);
     studyStatsCache.delete(`stats-${userId}`);
   } catch (error) {
@@ -991,6 +1065,25 @@ export const clearStudyProgress = async (userId: string) => {
     console.error('Error clearing study progress:', error);
     throw error;
   }
+};
+
+export const getFlashcardCount = async (userId: string): Promise<FlashcardCounter> => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const counterDoc = await getDoc(counterRef);
+  
+  if (!counterDoc.exists()) {
+    await initializeFlashcardCounter(userId);
+    return {
+      count: 0,
+      items: [],
+      cardIds: [], // Add missing cardIds property
+      lastUpdated: new Date(),
+      categories: {},
+      indexMap: {}
+    };
+  }
+  
+  return counterDoc.data() as FlashcardCounter;
 };
 
 export { 

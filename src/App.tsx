@@ -15,6 +15,9 @@ import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
+import '@fontsource/source-serif-pro';
+import '@fontsource/noto-serif';
+import '@fontsource/crimson-pro';
 import { GamificationProvider } from './context/GamificationContext';
 import { FocusModeProvider } from './context/FocusModeContext';
 import { Profile } from './pages/Profile';
@@ -23,6 +26,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ThemeModeProvider } from './context/ThemeModeContext';
 import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { I18nProvider } from './i18n/I18nContext';
+import { ReadingModeProvider } from './context/ReadingModeContext';
+import { Reading } from './pages/Reading';
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -33,50 +38,57 @@ const App: React.FC = () => {
         <ThemeModeProvider>
           <ThemeProvider>
             <SettingsProvider>
-              <GamificationProvider>
-                <FocusModeProvider>
-                  <Layout>
-                    <Routes>
-                      <Route path="/" element={
-                        user ? <Home /> : <Navigate to="/login" replace />
-                      } />
-                      <Route path="/login" element={
-                        !user ? <Login /> : <Navigate to="/" replace />
-                      } />
-                      <Route path="/register" element={
-                        !user ? <Register /> : <Navigate to="/" replace />
-                      } />
-                      <Route path="/study" element={
-                        <ProtectedRoute>
-                          <Study />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/import" element={
-                        <ProtectedRoute>
-                          <Import />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/worksheets" element={
-                        <ProtectedRoute>
-                          <Worksheets />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/settings" element={
-                        <ProtectedRoute>
-                          <Settings />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/profile" element={
-                        <ProtectedRoute>
-                          <Profile />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                  </Layout>
-                </FocusModeProvider>
-              </GamificationProvider>
+              <ReadingModeProvider>
+                <GamificationProvider>
+                  <FocusModeProvider>
+                    <Layout>
+                      <Routes>
+                        <Route path="/" element={
+                          user ? <Home /> : <Navigate to="/login" replace />
+                        } />
+                        <Route path="/login" element={
+                          !user ? <Login /> : <Navigate to="/" replace />
+                        } />
+                        <Route path="/register" element={
+                          !user ? <Register /> : <Navigate to="/" replace />
+                        } />
+                        <Route path="/study" element={
+                          <ProtectedRoute>
+                            <Study />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/import" element={
+                          <ProtectedRoute>
+                            <Import />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/worksheets" element={
+                          <ProtectedRoute>
+                            <Worksheets />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/settings" element={
+                          <ProtectedRoute>
+                            <Settings />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/profile" element={
+                          <ProtectedRoute>
+                            <Profile />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
+                        <Route path="/reading" element={
+                          <ProtectedRoute>
+                            <Reading />
+                          </ProtectedRoute>
+                        } />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                      </Routes>
+                    </Layout>
+                  </FocusModeProvider>
+                </GamificationProvider>
+              </ReadingModeProvider>
             </SettingsProvider>
           </ThemeProvider>
         </ThemeModeProvider>
