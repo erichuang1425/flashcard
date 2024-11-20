@@ -11,6 +11,7 @@ import localforage from 'localforage';
 import { Article, ArticleCounter, ArticleContentCache, ArticlePageCache, PARAGRAPHS_PER_PAGE } from '../types/reading';
 import { chunk } from 'lodash';
 import { logger, ArticleError, CacheError } from './logging';
+import { sanitizeText, isValidText } from '../utils/textSanitizer';
 
 interface CursorPagination {
   lastDoc: DocumentSnapshot | null;
@@ -137,15 +138,13 @@ export const initializeArticleCounter = async (userId: string) => {
   }
 };
 
-const sanitizeText = (text: string): string => {
-  return text
-    .replace(/[^\p{L}\p{N}\p{P}\p{Z}]/gu, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
-
 export const importArticle = async (userId: string, article: any) => {
   try {
+    // Validate text content
+    if (!isValidText(article.content) || !isValidText(article.title)) {
+      throw new Error('Article contains too many invalid characters');
+    }
+
     const articleRef = doc(collection(db, 'users', userId, 'articles'));
     const batch = writeBatch(db);
     

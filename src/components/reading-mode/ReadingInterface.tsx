@@ -12,6 +12,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import NotesIcon from '@mui/icons-material/Notes';
 import { useReadingMode } from '../../context/ReadingModeContext';
 import { useUserPreferences } from '../../context/UserPreferencesContext';
 import { ReadingSpeedTracker } from './ReadingSpeedTracker';
@@ -24,6 +25,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { logger } from '../../services/logging';
+import { sanitizeText, isValidText } from '../../utils/textSanitizer';
 
 export const ReadingInterface: React.FC = () => {
   const { currentArticle, readingProgress, updateProgress, isReading } = useReadingMode();
@@ -111,11 +113,11 @@ export const ReadingInterface: React.FC = () => {
     if (!selection || selection.isCollapsed) return;
 
     const text = selection.toString().trim();
-    if (!text) return;
+    if (!text || !isValidText(text)) return;
 
-    // For single word lookup
+    // For single word lookup only
     if (text.split(/\s+/).length === 1) {
-      setSelectedWord(text);
+      setSelectedWord(sanitizeText(text));
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       
@@ -126,16 +128,47 @@ export const ReadingInterface: React.FC = () => {
       document.body.appendChild(fakeAnchor);
       setDictAnchorEl(fakeAnchor);
       setTimeout(() => document.body.removeChild(fakeAnchor), 100);
-    } else {
-      // For longer text selections
-      setSelectedText(text);
-      setNotesOpen(true);
     }
+    // Remove automatic notes popup for text selection
   };
+
+  // Add keyboard shortcut handler for notes
+  const handleKeyShortcut = useCallback((e: KeyboardEvent) => {
+    if (e.ctrlKey && e.key === 'n') {
+      e.preventDefault();
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) return;
+
+      const text = selection.toString().trim();
+      if (text && text.split(/\s+/).length > 1 && isValidText(text)) {
+        setSelectedText(sanitizeText(text));
+        setNotesOpen(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     document.addEventListener('mouseup', handleTextSelection);
-    return () => document.removeEventListener('mouseup', handleTextSelection);
+    document.addEventListener('keydown', handleKeyShortcut);
+    return () => {
+      document.removeEventListener('mouseup', handleTextSelection);
+      document.removeEventListener('keydown', handleKeyShortcut);
+    };
+  }, [handleKeyShortcut]);
+
+  useEffect(() => {
+    if (!currentArticle?.content) return;
+    let mounted = true;
+    
+    const loadPage = async (pageNum: number) => {
+      // Prevent duplicate loading
+      if (loadedPages[pageNum]) return;
+      
+      if (!currentArticle?.content) return;
+      const allParagraphs = currentArticle.content.split('\n');
+      const start = pageNum * PARAGRAPHS_PER_PAGE;
+      const end = start + PARAGRAPHS_PER_PAGE;
+    };
   }, []);
 
   useEffect(() => {
@@ -299,7 +332,9 @@ export const ReadingInterface: React.FC = () => {
         sx={{ 
           py: { xs: 4, sm: 5, md: 6 },
           px: { xs: 2, sm: 3, md: 4 },
-          maxWidth: '800px !important',
+          maxWidth: { sm: '95%', md: '900px !important' }, // Increased from 800px
+          margin: '0 auto',
+          WebkitOverflowScrolling: 'touch', // For Safari momentum scrolling
         }}
       >
         <Box sx={{ mb: { xs: 3, sm: 4 } }}>
@@ -324,7 +359,9 @@ export const ReadingInterface: React.FC = () => {
                 '& ::selection': {
                   backgroundColor: theme => theme.palette.primary.light + '40',
                   color: theme => theme.palette.primary.dark
-                }
+                },
+                overflowX: 'hidden', // Prevent horizontal scrolling
+                WebkitOverflowScrolling: 'touch', // For Safari momentum scrolling
               }}
             >
               <motion.div
@@ -336,17 +373,19 @@ export const ReadingInterface: React.FC = () => {
                   mb: { xs: 4, sm: 5 },
                   borderBottom: 1,
                   borderColor: 'divider',
-                  pb: 3
+                  pb: 3,
+                  px: { xs: 2, sm: 3, md: 4 }, // Added horizontal padding
                 }}>
                   <Typography 
                     variant="h3" 
                     gutterBottom
                     sx={{
-                      fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+                      fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' }, // Adjusted font sizes
                       lineHeight: 1.2,
                       fontWeight: 500,
                       color: 'text.primary',
-                      letterSpacing: '-0.01em'
+                      letterSpacing: '-0.01em',
+                      wordBreak: 'break-word', // Better word wrapping
                     }}
                   >
                     {currentArticle.title}
@@ -364,6 +403,34 @@ export const ReadingInterface: React.FC = () => {
                     >
                       {currentArticle.subtitle}
                     </Typography>
+                  )}
+
+                  {/* Add cover image if available */}
+                  {currentArticle.coverImage && (
+                    <Box
+                      sx={{
+                        mt: 3,
+                        mx: { xs: -3, sm: -4, md: -5 },
+                        height: { xs: 200, sm: 300, md: 400 },
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={currentArticle.coverImage}
+                        alt={currentArticle.title}
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transition: 'transform 0.3s ease',
+                          '&:hover': {
+                            transform: 'scale(1.02)'
+                          }
+                        }}
+                      />
+                    </Box>
                   )}
                 </Box>
 
@@ -386,7 +453,53 @@ export const ReadingInterface: React.FC = () => {
                   sx={{
                     height: '100%',
                     overflowY: 'auto',
-                    scrollBehavior: 'smooth'
+                    scrollBehavior: 'smooth',
+                    px: { xs: 2, sm: 3, md: 4 }, // Added consistent horizontal padding
+                    WebkitUserSelect: 'text', // Enable text selection
+                    userSelect: 'text',
+                    '& p:first-of-type::first-letter': {
+                      fontSize: '4em',
+                      float: 'left',
+                      lineHeight: '0.8',
+                      padding: '0.1em 0.1em 0 0',
+                      background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      borderRadius: '0.1em',
+                      marginRight: '0.1em',
+                      fontWeight: 700,
+                      fontFamily: 'Georgia, serif',
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
+                    },
+                    '& p': {
+                      fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' }, // Increased font sizes
+                      lineHeight: { xs: 1.6, sm: 1.8 }, // Adjusted line height
+                      mb: { xs: 2.5, sm: 3 }, // Increased paragraph spacing
+                      maxWidth: '100%', // Ensure content fits
+                      wordBreak: 'break-word',
+                      hyphens: 'auto',
+                      textAlign: 'justify',
+                      '@supports (-webkit-hyphens: auto)': {
+                        hyphens: 'auto',
+                        WebkitHyphens: 'auto',
+                      },
+                      '@media screen and (max-width: 600px)': {
+                        textAlign: 'left', // Left align on mobile for better readability
+                      },
+                      cursor: 'text', // Show text cursor
+                      WebkitUserSelect: 'text',
+                      userSelect: 'text',
+                      WebkitTouchCallout: 'default', // Enable text selection on iOS
+                      WebkitTapHighlightColor: 'rgba(0,0,0,0)', // Remove tap highlight on mobile
+                      '&::selection': {
+                        backgroundColor: theme => `${theme.palette.primary.main}30`,
+                        color: 'inherit'
+                      }
+                    },
+                    '@media screen and (max-width: 600px)': {
+                      WebkitOverflowScrolling: 'touch',
+                      msOverflowStyle: '-ms-autohiding-scrollbar',
+                    }
                   }}
                 >
                   <Box ref={contentRef}>
@@ -413,11 +526,22 @@ export const ReadingInterface: React.FC = () => {
                                 transition: 'all 0.3s ease',
                                 backgroundColor: activeParagraph === globalIndex ? 
                                   'action.selected' : 'transparent',
-                                p: 2,
+                                p: { xs: 2, sm: 3 },
+                                mx: { xs: -1, sm: -2 },
+                                my: 1,
                                 borderRadius: 1,
                                 cursor: 'pointer',
+                                textAlign: 'justify',
+                                hyphens: 'auto',
                                 '&:hover': {
                                   backgroundColor: 'action.hover'
+                                },
+                                WebkitUserSelect: 'text',
+                                userSelect: 'text',
+                                touchAction: 'pan-y', // Enable smooth scrolling on touch
+                                '&::selection': {
+                                  backgroundColor: theme => `${theme.palette.primary.main}30`,
+                                  color: 'inherit'
                                 }
                               }}
                               onClick={() => enableTTS && handleTextToSpeech(paragraph)}
@@ -440,20 +564,91 @@ export const ReadingInterface: React.FC = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
         >
-          <Stack 
-            direction="row" 
-            spacing={2} 
-            justifyContent="space-between"
-            sx={{ mt: 3 }}
+          <Box
+            sx={{
+              position: 'sticky',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              mt: 4,
+              pb: { xs: 4, sm: 2 }, // Adjusted bottom padding for mobile
+              px: { xs: 2, sm: 3 }, // Consistent horizontal padding
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              boxShadow: 2,
+              zIndex: 10,
+              '@supports (padding-bottom: env(safe-area-inset-bottom))': {
+                paddingBottom: 'env(safe-area-inset-bottom)', // iOS safe area support
+              }
+            }}
           >
-            <IconButton sx={{ boxShadow: 2 }}>
-              <ChevronLeftIcon />
-            </IconButton>
-            <IconButton sx={{ boxShadow: 2 }}>
-              <ChevronRightIcon />
-            </IconButton>
-          </Stack>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Previous Chapter
+              </Typography>
+            </Box>
+            
+            <Box sx={{ 
+              flex: 2, 
+              height: 4, 
+              bgcolor: 'divider',
+              borderRadius: 2,
+              position: 'relative'
+            }}>
+              <Box 
+                sx={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  height: '100%',
+                  width: `${readingProgress?.progress || 0}%`,
+                  bgcolor: 'primary.main',
+                  borderRadius: 2,
+                  transition: 'width 0.3s ease'
+                }}
+              />
+            </Box>
+
+            <Box sx={{ flex: 1, textAlign: 'right' }}>
+              <Typography variant="caption" color="text.secondary">
+                Next Chapter
+              </Typography>
+            </Box>
+          </Box>
         </motion.div>
+
+<Tooltip title="Take Notes (Ctrl+N)" placement="left" arrow>
+  <div>
+    <IconButton
+      onClick={() => {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) {
+          const text = selection.toString().trim();
+          if (text && text.split(/\s+/).length > 1 && isValidText(text)) {
+            setSelectedText(sanitizeText(text));
+            setNotesOpen(true);
+          }
+        }
+      }}
+      sx={{
+        position: 'fixed',
+        right: 32,
+        bottom: 32,
+        backgroundColor: 'primary.main',
+        color: 'white',
+        '&:hover': {
+          backgroundColor: 'primary.dark',
+        },
+      }}
+    >
+      <NotesIcon />
+    </IconButton>
+  </div>
+</Tooltip>
 
         <ReadingAchievementPopup 
           open={Boolean(achievement)}

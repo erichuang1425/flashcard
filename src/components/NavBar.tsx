@@ -22,6 +22,7 @@ import { useGamification } from '../context/GamificationContext';
 import { FocusMode } from './gamification/FocusMode';
 import { useFocusMode } from '../context/FocusModeContext';
 import {useI18n} from '../i18n/I18nContext';
+import { useReadingMode } from '../context/ReadingModeContext';
 
 interface NavBarProps {
   focusMode: boolean;
@@ -40,7 +41,11 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel, fo
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { levelSystem } = useGamification();
   const { t } = useI18n();
-  
+  const { isReadingMode } = useReadingMode();
+
+  // Replace isReadingMode with path-based detection
+  const isReadingPage = location.pathname === '/reading';
+
   const menuItems = [
     { text: t('navigation.menu.home'), icon: <HomeIcon />, path: '/' },
     { text: t('navigation.menu.study'), icon: <SchoolIcon />, path: '/study' },
@@ -88,7 +93,27 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel, fo
         elevation={1}
         sx={{
           transition: 'background-color 0.3s ease',
-          bgcolor: focusMode ? 'background.paper' : 'primary.main'
+          bgcolor: isReadingPage  // Updated here
+            ? 'rgba(45, 45, 45, 0.95)' // Elegant dark grey for reading mode
+            : focusMode 
+              ? 'background.paper' 
+              : 'primary.main',
+          backdropFilter: isReadingPage ? 'blur(8px)' : 'none', // Updated here
+          '& .MuiToolbar-root': {
+            color: isReadingPage ? 'grey.100' : 'inherit'  // Updated here
+          },
+          '& .MuiButton-root': {
+            color: isReadingPage ? 'grey.100' : 'inherit',
+            '&:hover': {
+              backgroundColor: isReadingPage 
+                ? 'rgba(255, 255, 255, 0.08)'
+                : 'rgba(255, 255, 255, 0.12)'
+            }
+          },
+          '& .MuiIconButton-root': {
+            color: isReadingPage ? 'grey.100' : 'inherit'
+          },
+          boxShadow: isReadingPage ? 'none' : undefined
         }}
       >
         <Toolbar>
