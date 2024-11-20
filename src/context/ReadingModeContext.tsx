@@ -41,15 +41,17 @@ export interface Article {
   id: string;
   title: string;
   subtitle?: string;
-  content: string;
+  content?: string; // Make content optional since it's not always present
   category: string;
   coverImage?: string;
   readingTime: number;
   wordCount: number;
   sourceUrl?: string;
   createdAt: string;
+  updatedAt?: string;
   readCount: number;
   progress: ArticleProgress;
+  lastRead?: Date | null;
 }
 
 interface ArticleProgress {

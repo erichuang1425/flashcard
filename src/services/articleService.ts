@@ -8,7 +8,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from './firebase';
 import localforage from 'localforage';
-import { Article, ArticleCache, ArticleCounter, ArticleContentCache, ArticlePageCache, PARAGRAPHS_PER_PAGE } from '../types/reading';
+import { Article, ArticleCounter, ArticleContentCache, ArticlePageCache, PARAGRAPHS_PER_PAGE } from '../types/reading';
 import { chunk } from 'lodash';
 import { logger, ArticleError, CacheError } from './logging';
 
@@ -38,6 +38,44 @@ const CACHE_KEY = 'articles_cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const CONTENT_CACHE_KEY = 'article_content_cache';
 const PAGE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+
+const ARTICLE_CACHE_KEY = 'article_cache_v1';
+
+
+interface ArticleCache {
+  content: string;
+  timestamp: number;
+}
+
+// Add new cache functions
+const setCachedArticle = async (articleId: string, content: string): Promise<void> => {
+  try {
+    const cache = await localforage.getItem<Record<string, ArticleCache>>(ARTICLE_CACHE_KEY) || {};
+    cache[articleId] = {
+      content,
+      timestamp: Date.now()
+    };
+    await localforage.setItem(ARTICLE_CACHE_KEY, cache);
+  } catch (error) {
+    logger.warn('Failed to cache article', error as Error);
+  }
+};
+
+const getCachedArticle = async (articleId: string): Promise<string | null> => {
+  try {
+    const cache = await localforage.getItem<Record<string, ArticleCache>>(ARTICLE_CACHE_KEY);
+    const articleCache = cache?.[articleId];
+    
+    if (!articleCache || Date.now() - articleCache.timestamp > CACHE_DURATION) {
+      return null;
+    }
+    
+    return articleCache.content;
+  } catch (error) {
+    logger.warn('Failed to retrieve cached article', error as Error);
+    return null;
+  }
+};
 
 export const checkArticleCache = async (): Promise<ArticleCache | null> => {
   const debugId = Math.random().toString(36).substring(7);
@@ -333,47 +371,39 @@ export const getArticlePageContent = async (
   preloadNext = true
 ): Promise<string[]> => {
   try {
-    const cache = await getContentCache();
-    const cachedPageContent = cache?.[articleId]?.[pageNum];
-    
-    if (cachedPageContent && !isPageCacheStale(cachedPageContent)) {
-      if (preloadNext) {
-        preloadArticlePage(userId, articleId, pageNum + 1);
+    // Try cache first
+    const cachedContent = await getCachedArticle(articleId);
+    let content: string;
+
+    if (cachedContent) {
+      content = cachedContent;
+    } else {
+      const articleRef = doc(db, 'users', userId, 'articles', articleId);
+      const articleDoc = await getDoc(articleRef);
+      
+      if (!articleDoc.exists()) {
+        throw new Error('Article not found');
       }
-      return cachedPageContent.content;
+
+      content = articleDoc.data().content;
+      await setCachedArticle(articleId, content);
     }
 
-    const articleRef = doc(db, 'users', userId, 'articles', articleId);
-    const articleDoc = await getDoc(articleRef);
-    
-    if (!articleDoc.exists()) {
-      throw new Error('Article not found');
-    }
-
-    const allContent = articleDoc.data().content as string;
-    const paragraphs = allContent.split('\n')
-      .map(p => sanitizeText(p))
+    const paragraphs = content.split('\n')
+      .map(p => p.trim())
       .filter(p => p.length > 0);
     
     const startIdx = pageNum * PARAGRAPHS_PER_PAGE;
     const endIdx = startIdx + PARAGRAPHS_PER_PAGE;
-    const currentPageContent = paragraphs.slice(startIdx, endIdx);
-
-    await cacheArticlePage(articleId, pageNum, currentPageContent);
-
-    if (preloadNext) {
-      preloadArticlePage(userId, articleId, pageNum + 1, paragraphs);
-    }
-
-    return currentPageContent;
+    
+    return paragraphs.slice(startIdx, endIdx);
   } catch (err) {
-    const error = new ArticleError('Failed to fetch article page content', {
+    const error = new ArticleError('Failed to fetch article content', {
       userId,
       articleId,
-      pageNum,
-      preloadNext
+      pageNum
     });
-    logger.error('Content fetch failed', error, { originalError: err });
+    logger.error('Content fetch failed', error);
     throw error;
   }
 };
@@ -621,13 +651,14 @@ const batchGetArticles = async (userId: string, articleIds: string[]): Promise<A
       const q = query(articlesRef, where(documentId(), 'in', batchIds));
       
       const snapshot = await getDocs(q);
+      
+      // Simplified document processing - content is part of the document data
       const batchArticles = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           title: data.title,
           subtitle: data.subtitle,
-          content: data.content,
           category: data.category || 'uncategorized',
           coverImage: data.coverImage,
           wordCount: data.wordCount || 0,
@@ -641,10 +672,19 @@ const batchGetArticles = async (userId: string, articleIds: string[]): Promise<A
           },
           sourceUrl: data.sourceUrl,
           lastRead: data.lastRead?.toDate() || null
-        } as Article;
+        } as Article;  // Note: Removed content field
       });
 
       articles.push(...batchArticles);
+      
+      // Cache the articles after fetching
+      batchArticles.forEach(article => {
+        if (article.content) {
+          setCachedArticle(article.id, article.content).catch(err => 
+            logger.warn('Failed to cache article content', err)
+          );
+        }
+      });
 
       logger.info(`Processing batch chunk ${index + 1}/${chunks.length}`, {
         chunk: {
@@ -686,6 +726,59 @@ const batchGetArticles = async (userId: string, articleIds: string[]): Promise<A
     });
     logger.error('Batch fetch operation failed', error);
     throw error;
+  }
+};
+
+export const getFullArticle = async (userId: string, articleId: string): Promise<Article | null> => {
+  try {
+    const articleRef = doc(db, 'users', userId, 'articles', articleId);
+    const articleDoc = await getDoc(articleRef);
+    
+    if (!articleDoc.exists()) {
+      return null;
+    }
+
+    const data = articleDoc.data();
+    
+    // Try to get cached content first
+    const cachedContent = await getCachedArticle(articleId);
+    // If not in cache, use the content from Firestore
+    const content = cachedContent || data.content;
+
+    if (!content) {
+      throw new Error('Article content is missing');
+    }
+
+    // Cache the content if we got it from Firestore
+    if (!cachedContent && data.content) {
+      await setCachedArticle(articleId, data.content);
+    }
+
+    const article: Article = {
+      id: articleDoc.id,
+      title: data.title,
+      subtitle: data.subtitle,
+      content, // Important: Add content here
+      category: data.category || 'uncategorized',
+      coverImage: data.coverImage,
+      wordCount: data.wordCount || 0,
+      readingTime: Math.ceil((data.wordCount || 0) / 200),
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.()?.toISOString(),
+      readCount: data.readCount || 0,
+      progress: data.progress || {
+        wordsRead: 0,
+        lastPosition: 0,
+        completed: false
+      },
+      sourceUrl: data.sourceUrl,
+      lastRead: data.lastRead?.toDate() || null
+    };
+
+    return article;
+  } catch (err) {
+    logger.error('Failed to get full article', err as Error);
+    throw err; // Rethrow to handle in component
   }
 };
 

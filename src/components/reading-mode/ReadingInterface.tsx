@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -8,7 +8,8 @@ import {
   IconButton,
   Tooltip,
   Fade,
-  Stack
+  Stack,
+  CircularProgress
 } from '@mui/material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { useReadingMode } from '../../context/ReadingModeContext';
@@ -22,6 +23,7 @@ import { ReadingAchievementPopup } from './ReadingAchievementPopup';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { ErrorBoundary } from '../ErrorBoundary';
+import { logger } from '../../services/logging';
 
 export const ReadingInterface: React.FC = () => {
   const { currentArticle, readingProgress, updateProgress, isReading } = useReadingMode();
@@ -37,8 +39,13 @@ export const ReadingInterface: React.FC = () => {
   const [loadedPages, setLoadedPages] = useState<{ [key: number]: string[] }>({});
   const [achievement, setAchievement] = useState<string | null>(null);
   const PARAGRAPHS_PER_PAGE = 50;
+  const [renderedPages, setRenderedPages] = useState<number[]>([]);
+  const [lastScrollPosition, setLastScrollPosition] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isContentLoading, setIsContentLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Safely access readingSettings with defaults
+
   const {
     fontSize = 16,
     lineHeight = 1.6,
@@ -46,7 +53,7 @@ export const ReadingInterface: React.FC = () => {
     enableTTS = false,
   } = preferences?.readingSettings || {};
 
-  // Add page turning animation
+
   const pageVariants = {
     initial: { opacity: 0, x: 20 },
     animate: { opacity: 1, x: 0 },
@@ -60,7 +67,7 @@ export const ReadingInterface: React.FC = () => {
         const index = parseInt(paragraph.dataset.index || '0');
         setActiveParagraph(index);
         
-        const totalParagraphs = currentArticle?.content.split('\n').length || 1;
+        const totalParagraphs = currentArticle?.content?.split('\n').length || 1;
         updateProgress({
           progress: (index / totalParagraphs) * 100,
           lastPosition: window.scrollY
@@ -139,6 +146,7 @@ export const ReadingInterface: React.FC = () => {
       // Prevent duplicate loading
       if (loadedPages[pageNum]) return;
       
+      if (!currentArticle?.content) return;
       const allParagraphs = currentArticle.content.split('\n');
       const start = pageNum * PARAGRAPHS_PER_PAGE;
       const end = start + PARAGRAPHS_PER_PAGE;
@@ -158,9 +166,130 @@ export const ReadingInterface: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [currentArticle, currentPage, loadedPages]); // Add loadedPages dependency to prevent unnecessary loads
+  }, [currentArticle, currentPage, loadedPages]);
 
-  
+  useEffect(() => {
+    if (!currentArticle?.content || isInitialized) return;
+    
+    const initializeContent = async () => {
+      try {
+        setIsContentLoading(true);
+        const paragraphs = currentArticle?.content
+          ?.split('\n')
+          ?.map(p => p.trim())
+          ?.filter(p => p.length > 0) ?? [];
+        
+        const initialPages = {
+          0: paragraphs.slice(0, PARAGRAPHS_PER_PAGE),
+          1: paragraphs.slice(PARAGRAPHS_PER_PAGE, PARAGRAPHS_PER_PAGE * 2)
+        };
+        
+        setLoadedPages(initialPages);
+        setRenderedPages([0, 1]);
+        setIsInitialized(true);
+      } catch (error) {
+        logger.error('Failed to initialize content', error as Error);
+      } finally {
+        setIsContentLoading(false);
+      }
+    };
+
+    initializeContent();
+  }, [currentArticle?.content, isInitialized]);
+
+  const updateVisiblePages = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    const containerHeight = containerRef.current.clientHeight;
+    const scrollTop = containerRef.current.scrollTop;
+    const totalHeight = containerRef.current.scrollHeight;
+    
+    const currentPage = Math.floor(scrollTop / (containerHeight * 0.8));
+    const visiblePages = [currentPage - 1, currentPage, currentPage + 1].filter(p => p >= 0);
+    
+    setRenderedPages(visiblePages);
+  }, []);
+
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+      const currentScroll = containerRef.current.scrollTop;
+      
+      // Only update if scrolled more than 100px
+      if (Math.abs(currentScroll - lastScrollPosition) > 100) {
+        setLastScrollPosition(currentScroll);
+        updateVisiblePages();
+      }
+    };
+
+    const container = containerRef.current;
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [lastScrollPosition, updateVisiblePages]);
+
+
+  const contentPages = useMemo(() => {
+    if (!currentArticle?.content || !isInitialized) {
+      return {};
+    }
+    
+    try {
+      const paragraphs = currentArticle.content
+        .split('\n')
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+      
+      const pages: Record<number, string[]> = {};
+      
+      renderedPages.forEach(pageNum => {
+        const start = pageNum * PARAGRAPHS_PER_PAGE;
+        const end = start + PARAGRAPHS_PER_PAGE;
+        pages[pageNum] = paragraphs.slice(start, end);
+      });
+      
+      return pages;
+    } catch (error) {
+      logger.error('Error preparing content pages', error as Error);
+      return {};
+    }
+  }, [currentArticle?.content, renderedPages, isInitialized]);
+
+
+  const paragraphElements = useMemo(() => {
+    const elements: HTMLElement[] = [];
+    Object.values(contentPages).flat().forEach((_, index) => {
+      const element = document.querySelector(`[data-index="${index}"]`);
+      if (element) elements.push(element as HTMLElement);
+    });
+    return elements;
+  }, [contentPages]);
+
+  useEffect(() => {
+    if (!isReading) return;
+
+    const observer = new IntersectionObserver(handleIntersection, { threshold: 0.5 });
+    paragraphElements.forEach(p => observer.observe(p));
+    return () => observer.disconnect();
+  }, [isReading, handleIntersection, paragraphElements]);
+
+
+  if (!currentArticle?.content || isContentLoading) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <CircularProgress />
+          <Typography color="text.secondary">
+            Loading article content...
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+ 
   if (!currentArticle) return null;
 
   return (
@@ -253,56 +382,53 @@ export const ReadingInterface: React.FC = () => {
                 />
 
                 <Box 
-                  ref={contentRef}
+                  ref={containerRef}
                   sx={{
-                    '& p': {
-                      fontSize: preferences.readingSettings.fontSize,
-                      lineHeight: preferences.readingSettings.lineHeight,
-                      fontFamily: preferences.readingSettings.fontFamily,
-                      my: { xs: 2.5, sm: 3 },
-                      color: theme => theme.palette.mode === 'dark' ? 'text.primary' : 'text.primary',
-                      maxWidth: '70ch',
-                      mx: 'auto',
-                      cursor: 'text',
-                      position: 'relative',
-                      px: 2,
-                      py: 1,
-                      borderRadius: 1,
-                      transition: 'background-color 0.2s ease',
-                      userSelect: 'text',
-                      '&:hover': {
-                        bgcolor: theme => theme.palette.action.hover
-                      },
-                      '&.active-paragraph': {
-                        bgcolor: theme => theme.palette.action.selected
-                      }
-                    }
+                    height: '100%',
+                    overflowY: 'auto',
+                    scrollBehavior: 'smooth'
                   }}
                 >
-                  {Object.values(loadedPages).flat().map((paragraph, index) => (
-                    <Typography
-                      key={index}
-                      paragraph
-                      data-index={index}
-                      sx={{
-                        fontSize,
-                        lineHeight,
-                        fontFamily,
-                        transition: 'all 0.3s ease',
-                        backgroundColor: activeParagraph === index ? 
-                          'action.selected' : 'transparent',
-                        p: 2,
-                        borderRadius: 1,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          backgroundColor: 'action.hover'
-                        }
-                      }}
-                      onClick={() => enableTTS && handleTextToSpeech(paragraph)}
-                    >
-                      {paragraph}
-                    </Typography>
-                  ))}
+                  <Box ref={contentRef}>
+                    {Object.entries(contentPages).map(([pageNum, paragraphs]) => (
+                      <Box 
+                        key={pageNum} 
+                        data-page={pageNum}
+                        sx={{
+                          opacity: isContentLoading ? 0 : 1,
+                          transition: 'opacity 0.3s ease'
+                        }}
+                      >
+                        {paragraphs.map((paragraph, index) => {
+                          const globalIndex = parseInt(pageNum) * PARAGRAPHS_PER_PAGE + index;
+                          return (
+                            <Typography
+                              key={globalIndex}
+                              paragraph
+                              data-index={globalIndex}
+                              sx={{
+                                fontSize,
+                                lineHeight,
+                                fontFamily,
+                                transition: 'all 0.3s ease',
+                                backgroundColor: activeParagraph === globalIndex ? 
+                                  'action.selected' : 'transparent',
+                                p: 2,
+                                borderRadius: 1,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: 'action.hover'
+                                }
+                              }}
+                              onClick={() => enableTTS && handleTextToSpeech(paragraph)}
+                            >
+                              {paragraph}
+                            </Typography>
+                          );
+                        })}
+                      </Box>
+                    ))}
+                  </Box>
                 </Box>
               </motion.div>
             </Box>
@@ -343,7 +469,7 @@ export const ReadingInterface: React.FC = () => {
             setSelectedWord('');
           }}
           onAddToFlashcards={async (word, definition) => {
-            // Implement flashcard creation logic
+  
           }}
         />
 
