@@ -22,6 +22,7 @@ import { Article } from '../context/ReadingModeContext';
 import { DocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { logger } from '../services/logging';
 import { RandomArticleButton } from '../components/reading-mode/RandomArticleButton';
+import { ManageArticlesTab } from '../components/reading-mode/ManageArticlesTab';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface TabPanelProps {
@@ -177,12 +178,17 @@ export const Reading: React.FC = () => {
     }
   };
 
-  // Handle browser back button
   useEffect(() => {
+    // Clear current article when directly navigating to reading page
+    const clearArticle = () => setCurrentArticle(null);
+    clearArticle();
+  }, []);
+
+  useEffect(() => {
+    // Handle browser back button
     const handlePopState = (event: PopStateEvent) => {
       if (currentArticle) {
         setCurrentArticle(null);
-        // Restore previous tab
         if (event.state?.prevTab !== undefined) {
           setActiveTab(event.state.prevTab);
         }
@@ -260,6 +266,7 @@ export const Reading: React.FC = () => {
         >
           <Tab label={t('reading.tabs.library')} />
           <Tab label={t('reading.tabs.import')} />
+          <Tab label={t('reading.tabs.manage')} />
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
@@ -283,6 +290,13 @@ export const Reading: React.FC = () => {
 
         <TabPanel value={activeTab} index={1}>
           <ArticleImporter />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={2}>
+          <ManageArticlesTab 
+            articles={articleData.articles}
+            onArticlesDeleted={initializeData}
+          />
         </TabPanel>
       </Paper>
       <RandomArticleButton />
