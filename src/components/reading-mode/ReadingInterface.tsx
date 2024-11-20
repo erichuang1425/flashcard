@@ -520,9 +520,9 @@ export const ReadingInterface: React.FC = () => {
                               paragraph
                               data-index={globalIndex}
                               sx={{
-                                fontSize,
-                                lineHeight,
-                                fontFamily,
+                                fontSize: `${fontSize}px !important`,
+                                lineHeight: `${lineHeight} !important`,
+                                fontFamily: `${fontFamily}, system-ui, serif`,
                                 transition: 'all 0.3s ease',
                                 backgroundColor: activeParagraph === globalIndex ? 
                                   'action.selected' : 'transparent',
@@ -559,69 +559,7 @@ export const ReadingInterface: React.FC = () => {
           </motion.div>
         </Paper3D>
 
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Box
-            sx={{
-              position: 'sticky',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              mt: 4,
-              pb: { xs: 4, sm: 2 }, // Adjusted bottom padding for mobile
-              px: { xs: 2, sm: 3 }, // Consistent horizontal padding
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 2,
-              bgcolor: 'background.paper',
-              borderRadius: 2,
-              boxShadow: 2,
-              zIndex: 10,
-              '@supports (padding-bottom: env(safe-area-inset-bottom))': {
-                paddingBottom: 'env(safe-area-inset-bottom)', // iOS safe area support
-              }
-            }}
-          >
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                Previous Chapter
-              </Typography>
-            </Box>
-            
-            <Box sx={{ 
-              flex: 2, 
-              height: 4, 
-              bgcolor: 'divider',
-              borderRadius: 2,
-              position: 'relative'
-            }}>
-              <Box 
-                sx={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  height: '100%',
-                  width: `${readingProgress?.progress || 0}%`,
-                  bgcolor: 'primary.main',
-                  borderRadius: 2,
-                  transition: 'width 0.3s ease'
-                }}
-              />
-            </Box>
-
-            <Box sx={{ flex: 1, textAlign: 'right' }}>
-              <Typography variant="caption" color="text.secondary">
-                Next Chapter
-              </Typography>
-            </Box>
-          </Box>
-        </motion.div>
-
-<Tooltip title="Take Notes (Ctrl+N)" placement="left" arrow>
+        <Tooltip title="Take Notes (Ctrl+N)" placement="left" arrow>
   <div>
     <IconButton
       onClick={() => {

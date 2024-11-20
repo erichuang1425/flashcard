@@ -22,6 +22,7 @@ import { Article } from '../context/ReadingModeContext';
 import { DocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { logger } from '../services/logging';
 import { RandomArticleButton } from '../components/reading-mode/RandomArticleButton';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -57,6 +58,8 @@ export const Reading: React.FC = () => {
   const mountedRef = useRef(true);
   const [error, setError] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 8;
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const initializeData = useCallback(async () => {
     if (!user || loadingRef.current) return;
@@ -159,7 +162,12 @@ export const Reading: React.FC = () => {
         throw new Error('Failed to load article content');
       }
       
-      // Start reading mode by setting the current article
+      // Push state with tab info for browser back button
+      navigate('', { 
+        state: { prevTab: activeTab },
+        replace: true 
+      });
+      
       setCurrentArticle(fullArticle);
     } catch (err) {
       setError('Failed to load article content');
@@ -168,6 +176,22 @@ export const Reading: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (currentArticle) {
+        setCurrentArticle(null);
+        // Restore previous tab
+        if (event.state?.prevTab !== undefined) {
+          setActiveTab(event.state.prevTab);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentArticle]);
 
   // If viewing an article, show the article interface
   if (currentArticle) {
