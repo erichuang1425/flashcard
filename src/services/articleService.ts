@@ -42,10 +42,17 @@ const PAGE_CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 const ARTICLE_CACHE_KEY = 'article_cache_v1';
 
+const METADATA_CACHE_KEY = 'article_metadata_cache_v1';
+const METADATA_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 interface ArticleCache {
   content: string;
   timestamp: number;
+}
+
+interface SearchFilters {
+  category?: string;
+  searchTerm?: string;
 }
 
 // Add new cache functions
@@ -546,7 +553,43 @@ interface ArticleCounterMetadata {
   indexMap: { [key: string]: number };
 }
 
+const getCachedMetadata = async (userId: string): Promise<ArticleCounterMetadata | null> => {
+  try {
+    const cache = await localforage.getItem<{
+      data: ArticleCounterMetadata;
+      timestamp: number;
+      userId: string;
+    }>(METADATA_CACHE_KEY);
+
+    if (!cache || cache.userId !== userId || 
+        Date.now() - cache.timestamp > METADATA_CACHE_DURATION) {
+      return null;
+    }
+
+    return cache.data;
+  } catch (error) {
+    logger.warn('Failed to get cached metadata', error as Error);
+    return null;
+  }
+};
+
+const cacheMetadata = async (userId: string, data: ArticleCounterMetadata): Promise<void> => {
+  try {
+    await localforage.setItem(METADATA_CACHE_KEY, {
+      data,
+      timestamp: Date.now(),
+      userId
+    });
+  } catch (error) {
+    logger.warn('Failed to cache metadata', error as Error);
+  }
+};
+
 export const getArticleMetadata = async (userId: string): Promise<ArticleCounterMetadata | null> => {
+  // Try cache first
+  const cached = await getCachedMetadata(userId);
+  if (cached) return cached;
+
   const counterRef = doc(db, 'users', userId, 'counters', 'articles');
   const counterDoc = await getDoc(counterRef);
   
@@ -554,13 +597,13 @@ export const getArticleMetadata = async (userId: string): Promise<ArticleCounter
     return null;
   }
 
-  return counterDoc.data() as ArticleCounterMetadata;
-};
+  const metadata = counterDoc.data() as ArticleCounterMetadata;
+  
+  // Cache the fresh metadata
+  await cacheMetadata(userId, metadata);
 
-interface SearchFilters {
-  category?: string;
-  searchTerm?: string;
-}
+  return metadata;
+};
 
 export const getArticlePage = async (
   userId: string,
