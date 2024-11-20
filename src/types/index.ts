@@ -204,3 +204,16 @@ export interface StudyCardProgress {
   mode: StudyMode;
   timeSpent: number;
 }
+
+export interface FlashcardCounter {
+  count: number;
+  cardIds: string[];
+  lastUpdated: Date;
+  categories?: { [key: string]: number };
+  items: Array<{
+    id: string;
+    title: string;
+    updatedAt: Date;
+  }>;
+  indexMap: { [key: string]: number };
+}

@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
+import { debounce } from 'lodash';
 
 export interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
+  theme: 'system' | 'light' | 'dark';
   notifications: boolean;
   audioEnabled: boolean;
   dailyGoal: number;
@@ -15,7 +16,22 @@ export interface UserPreferences {
     autoStartBreak: boolean;
   };
   studyVocabLimit: number;
-  language: 'en' | 'zh-TW';
+  language: string;
+  appMode: 'flashcards' | 'reading';
+  lastModeSwitch?: string;
+  lastUpdated?: string;
+  readingSettings: {
+    fontSize: number;
+    lineHeight: number;
+    fontFamily: string;
+    enableTTS: boolean;
+    autoScroll: boolean;
+    highlightColor: string;
+    focusModeEnabled: boolean;
+    readingSpeed?: number;
+    highlightCategories?: string[];
+    theme: 'light' | 'dark' | 'sepia';
+  };
 }
 
 const defaultPreferences: UserPreferences = {
@@ -30,7 +46,20 @@ const defaultPreferences: UserPreferences = {
     autoStartBreak: false
   },
   studyVocabLimit: 20,
-  language: 'en'
+  language: 'en',
+  appMode: 'flashcards',
+  readingSettings: {
+    fontSize: 16,
+    lineHeight: 1.6,
+    fontFamily: 'system-ui',
+    enableTTS: false,
+    autoScroll: false,
+    highlightColor: '#ffd700',
+    focusModeEnabled: false,
+    readingSpeed: 250,
+    highlightCategories: [],
+    theme: 'light'
+  }
 };
 
 interface UserPreferencesContextType {
@@ -63,6 +92,9 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
       return Math.min(Math.max(num, min), max);
     };
 
+    // Ensure language is a valid option
+    const validatedLang = ['en', 'zh-TW'].includes(prefs.language) ? prefs.language : 'en';
+
     return {
       ...prefs,
       dailyGoal: ensureNumber(prefs.dailyGoal, 5, 240, defaultPreferences.dailyGoal),
@@ -73,7 +105,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         workDuration: ensureNumber(prefs.pomodoroSettings.workDuration, 5, 60, defaultPreferences.pomodoroSettings.workDuration),
         breakDuration: ensureNumber(prefs.pomodoroSettings.breakDuration, 1, 30, defaultPreferences.pomodoroSettings.breakDuration)
       },
-      language: ['en', 'zh-TW'].includes(prefs.language) ? prefs.language : defaultPreferences.language
+      language: validatedLang
     };
   };
 
@@ -91,6 +123,46 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
     }
   };
 
+  // Add debounce and batch write handling
+  const debouncedSave = useCallback(
+    debounce(async (prefs: UserPreferences) => {
+      if (!user) return;
+      try {
+        // Language is a critical setting, update immediately
+        const criticalSettings = {
+          language: prefs.language,
+          theme: prefs.theme,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        await setDoc(
+          doc(db, 'users', user.uid, 'preferences', 'settings'),
+          criticalSettings,
+          { merge: true }
+        );
+
+        // Defer other settings updates
+        setTimeout(async () => {
+          const nonCriticalSettings: Partial<UserPreferences> = {
+            ...prefs,
+            lastUpdated: new Date().toISOString()
+          };
+          delete nonCriticalSettings.language;
+          delete nonCriticalSettings.theme;
+
+          await setDoc(
+            doc(db, 'users', user.uid, 'preferences', 'settings'),
+            nonCriticalSettings,
+            { merge: true }
+          );
+        }, 2000);
+      } catch (err) {
+        console.error('Error saving preferences:', err);
+      }
+    }, 1000),
+    [user]
+  );
+
   const updatePreference = async <K extends keyof UserPreferences>(
     key: K,
     value: UserPreferences[K]
@@ -101,8 +173,8 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
         [key]: value,
       };
       const validatedPrefs = validatePreferences(newPrefs);
-      await saveToDatabase(validatedPrefs);
       setPreferences(validatedPrefs);
+      await debouncedSave(validatedPrefs);
     } catch (err) {
       console.error('Error updating preference:', err);
       throw err;

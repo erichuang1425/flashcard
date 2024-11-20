@@ -1,12 +1,12 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { en } from './translations/en';
 import { zhTW } from './translations/zh-TW';
 import type { I18nContextType, Language, TranslationOptions } from '../types/i18n';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 
-const translations = {
+const translations: Record<Language, typeof en> = {
   'en': en,
-  'zh-TW': zhTW
+  'zh-TW': zhTW as unknown as typeof en // Double type assertion to safely cast
 };
 
 export const I18nContext = createContext<I18nContextType>({
@@ -17,11 +17,21 @@ export const I18nContext = createContext<I18nContextType>({
 
 export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { preferences, setPreferences } = useUserPreferences();
+  const [language, setLanguage] = useState<Language>(
+    preferences?.language === 'zh-TW' ? 'zh-TW' : 'en'
+  );
+
+  // Sync with preferences when they load
+  useEffect(() => {
+    if (preferences?.language && preferences.language !== language) {
+      setLanguage(preferences.language as Language);
+    }
+  }, [preferences?.language]);
 
   const t = (key: string, options?: TranslationOptions): string => {
     try {
       const keys = key.split('.');
-      let value = keys.reduce((obj, k) => obj[k], translations[preferences.language] as any);
+      let value = keys.reduce((obj: any, k) => obj?.[k], translations[language as Language]);
 
       if (typeof value !== 'string') return key;
 
@@ -38,17 +48,29 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const setLanguage = (newLang: 'en' | 'zh-TW') => {
-    setPreferences(prev => ({
-      ...prev,
-      language: newLang
-    }));
+  const setLanguageWithValidation = async (newLang: Language) => {
+    if (newLang !== 'en' && newLang !== 'zh-TW') {
+      console.error('Invalid language selection:', newLang);
+      return;
+    }
+
+    setLanguage(newLang);
+    
+    try {
+      await setPreferences(prev => ({
+        ...prev,
+        language: newLang,
+        lastUpdated: new Date().toISOString()
+      }));
+    } catch (err) {
+      console.error('Error saving language preference:', err);
+    }
   };
 
   const value: I18nContextType = {
     t,
-    language: preferences.language,
-    setLanguage,
+    language: language as Language,
+    setLanguage: setLanguageWithValidation,
   };
 
   return (

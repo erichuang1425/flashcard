@@ -1,3 +1,5 @@
+import { title } from "process";
+
 export const zhTW = {
   common: {
     save: '儲存',
@@ -43,7 +45,17 @@ export const zhTW = {
       title: '應用程式偏好設定'
     },
     saveSuccess: '設定儲存成功',
-    saveError: '設定儲存失敗'
+    saveError: '設定儲存失敗',
+    appMode: '應用程式模式',
+    selectMode: '選擇模式',
+    modeHelp: '在字卡和閱讀模式之間切換',
+    modes: {
+      flashcards: '字卡模式',
+      reading: '閱讀模式'
+    },
+    readingPreferences: '閱讀偏好設定',
+    fontSize: '字體大小',
+    focusMode: '專注模式'
   },
   studyMode:{
     selected: '已選擇'
@@ -92,16 +104,6 @@ export const zhTW = {
       thisMonth: '本月',
       allTime: '總計',
       noData: '暫無資料',
-      cardsStudied: '已學習卡片',
-      daily: '每日',
-      weekly: '每週',
-      monthly: '每月'
-    },
-    badges: {
-      recent: '最新成就',
-      all: '所有成就',
-      locked: '尚未解鎖',
-      progress: '進度：{{current}}/{{total}}',
       earnedOn: '獲得時間：{{date}}'
     },
     stats: {
@@ -133,11 +135,12 @@ export const zhTW = {
       minutesCompleted: '分鐘已完成'
     },
     actions: {
-      startStudying: '��始學習',
+      startStudying: '開始學習',
       importCards: '匯入卡片'
     },
     buttons: {
       startReview: '開始複習',
+      startReading: '開始閱讀',
       browse: '瀏覽詞庫',
       addNewCards: '取得新卡片'
     },
@@ -183,7 +186,7 @@ export const zhTW = {
     }
   },
   study: {
-    title: '���習課程', 
+    title: '學習課程', 
     modes: {
       title: '學習模式', 
       flashcard: '字卡',
@@ -308,7 +311,7 @@ export const zhTW = {
     actions: {
       upload: '上傳 CSV 檔案',
       back: '返回',
-      startImport: '開始匯���',
+      startImport: '開始匯入',
       selectAll: '全選',
       clearSelection: '清除選擇',
       search: '搜尋',
@@ -358,7 +361,7 @@ export const zhTW = {
       delete: '刪除',
       edit: '編輯',
       export: {
-        pdf: '匯�� PDF',
+        pdf: '匯出 PDF',
         word: '匯出 Word'
       },
       viewAnswers: '查看解答',
@@ -454,7 +457,7 @@ export const zhTW = {
       title: '建立學習單',
       titleLabel: '學習單標題',
       difficulty: '難度',
-      timeLimit: '時間限制���分鐘）',
+      timeLimit: '時間限制（分鐘）',
       categories: '類別',
       submit: '建立學習單',
       cancel: '取消',
@@ -483,5 +486,112 @@ export const zhTW = {
   },
   "study.controls": {
     "saveExit": "儲存並離開"
+  },
+  reading: {
+    tabs: {
+      library: '文章庫',
+      import: '匯入文章',
+      categories: '分類',
+      recent: '最近',
+      favorites: '收藏'
+    },
+    title: '閱讀模式',
+    library: {
+      empty: '尚無文章。立即匯入新文章開始閱讀！',
+      articleCount: '{{count}} 篇文章',
+      sortBy: {
+        recent: '最新',
+        title: '標題',
+        readTime: '閱讀時間',
+        progress: '進度'
+      },
+      filter: {
+        all: '所有文章',
+        inProgress: '閱讀中',
+        completed: '已完成',
+        unread: '未讀'
+      },
+      search: '搜尋文章...',
+      categories: {
+        all: '所有分類',
+        manage: '管理分類'
+      },
+      stats: {
+        totalArticles: '共 {{count}} 篇文章',
+        avgReadTime: '平均閱讀時間：{{time}} 分鐘',
+        totalReadTime: '總閱讀時間：{{time}} 分鐘'
+      },
+      tools: {
+        import: '匯入新文章',
+        manage: '管理文章庫',
+        sync: '同步進度',
+        export: '匯出資料'
+      },
+      confirmations: {
+        deleteArticle: '確定要刪除這篇文章嗎？',
+        clearLibrary: '確定要清空文章庫嗎？'
+      }
+    },
+    import: {
+      title: '匯入文章',
+      dropzone: {
+        title: '將 ZIP 檔案拖放至此處，或點擊瀏覽',
+        description: '文章套件應包含 details.json、content.txt 和選擇性的封面圖片'
+      },
+      error: {
+        invalidZip: 'ZIP 檔案結構無效',
+        missingFiles: '缺少必要檔案',
+        corrupted: '文章內容已損壞',
+        failed: '匯入文章失敗'
+      },
+      success: '文章匯入成功',
+      validation: {
+        checking: '檢查檔案結構中...',
+        validating: '驗證內容中...',
+        success: '檔案結構有效',
+        preparing: '準備匯入中...'
+      },
+      settings: {
+        extractLinks: '提取連結',
+        autoCategories: '自動分類',
+        parseMetadata: '解析中繼資料'
+      },
+      status: {
+        queued: '等待中',
+        processing: '處理中',
+        failed: '失敗',
+        completed: '已完成'
+      }
+    },
+    interface: {
+      readingTime: '閱讀時間：{{minutes}} 分鐘',
+      wordCount: '{{count}} 個字',
+      startReading: '開始閱讀',
+      continueReading: '繼續閱讀',
+      focusMode: '專注模式',
+      addToFlashcards: '加入字卡',
+      textToSpeech: '文字轉語音',
+      search: '搜尋文章...',
+    },
+    dictionary: {
+      addToFlashcards: '加入字卡'
+    },
+    settings: {
+      fontSize: '字體大小',
+      fontFamily: '字體家族',
+      lineHeight: '行高',
+      focusMode: '專注模式',
+      enableTTS: '文字轉語音',
+      theme: '主題',
+      fonts: {
+        system: '系統預設字體',
+        georgia: 'Georgia 字體',
+        merriweather: 'Merriweather 字體',
+        sourceSerif: 'Source Serif Pro 字體',
+        crimson: 'Crimson Pro 字體',
+        notoSerif: 'Noto Serif 字體',
+        ibmPlex: 'IBM Plex Serif 字體'
+      }
+    }
   }
 };

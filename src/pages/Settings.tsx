@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -21,9 +22,12 @@ import {
   CircularProgress,
   Badge,
   Avatar,
-  Grid
+  Grid,
+  LinearProgress
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SchoolIcon from '@mui/icons-material/School';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -36,6 +40,9 @@ import { getUserAnalytics } from '../services/analytics';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { UserAchievement } from '../types/gamification';
 import { SelectChangeEvent } from '@mui/material/Select';
+import { migrateCollectionIDs, verifyCollectionIDs } from '../utils/migrations';
+import SyncIcon from '@mui/icons-material/Sync';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 const defaultPreferences: UserPreferences = {
   theme: 'system',
@@ -45,6 +52,19 @@ const defaultPreferences: UserPreferences = {
   notifications: true,
   audioEnabled: true,
   language: 'en',
+  appMode: 'flashcards',
+  readingSettings: {
+    fontSize: 16,
+    lineHeight: 1.5,
+    fontFamily: 'Arial',
+    enableTTS: false,
+    autoScroll: false,
+    highlightColor: '#ffeb3b',
+    focusModeEnabled: false,
+    readingSpeed: 200,
+    highlightCategories: [],
+    theme: 'light'
+  },
   pomodoroSettings: {
     workDuration: 25,
     breakDuration: 5,
@@ -53,8 +73,8 @@ const defaultPreferences: UserPreferences = {
 };
 
 type Language = 'en' | 'zh-TW';
-
 export const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { preferences, setPreferences } = useUserPreferences();
   const { mode, setMode } = useThemeMode();
@@ -63,6 +83,10 @@ export const Settings: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [categoryStats, setCategoryStats] = useState<any>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -128,6 +152,77 @@ export const Settings: React.FC = () => {
     setLanguage(newLang);
     // Show success notification in the selected language
     setSaveStatus({type: 'success', message: newLang === 'en' ? 'Language changed successfully' : '語言變更成功'});
+  };
+
+  const handleVerifyCollections = async () => {
+    if (!user) return;
+    try {
+      setIsLoading(true);
+      const verification = await verifyCollectionIDs(user.uid);
+      setNotification({
+        type: verification.isValid ? 'success' : 'warning',
+        message: `Verification results - Flashcards: ${verification.flashcards.actual}, Articles: ${verification.articles.actual}`
+      });
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        message: 'Verification failed: ' + (error as Error).message
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMigrateCollections = async () => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // First verify
+      const verification = await verifyCollectionIDs(user.uid);
+      console.log('Current state:', verification);
+  
+      if (verification.isValid) {
+        setNotification({
+          type: 'info',
+          message: 'Collections already in sync'
+        });
+        return;
+      }
+  
+      // Show stats before migration
+      setNotification({
+        type: 'info',
+        message: `Found ${verification.flashcards.actual} flashcards and ${verification.articles.actual} articles to migrate`
+      });
+  
+      // Perform migration
+      const result = await migrateCollectionIDs(user.uid);
+      
+      // Verify again after migration
+      const finalVerification = await verifyCollectionIDs(user.uid);
+      
+      if (finalVerification.isValid) {
+        setNotification({
+          type: 'success',
+          message: `Migration successful: ${result.flashcards} flashcards, ${result.articles} articles synchronized`
+        });
+      } else {
+        setNotification({
+          type: 'warning',
+          message: `Migration completed but some items may need attention. Flashcards: ${result.flashcards}/${verification.flashcards.actual}, Articles: ${result.articles}/${verification.articles.actual}`
+        });
+      }
+    } catch (err) {
+      console.error('Migration failed:', err);
+      setNotification({
+        type: 'error',
+        message: 'Migration failed: ' + (err as Error).message
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -357,6 +452,51 @@ export const Settings: React.FC = () => {
             {t('common.save')}
           </Button>
         </Box>
+
+        <Paper sx={{ mt: 3, p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Migration Tools
+          </Typography>
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: 2,
+            mt: 2 
+          }}>
+            <Button
+              variant="outlined"
+              onClick={() => handleVerifyCollections()}
+              disabled={isLoading}
+              startIcon={<AssessmentIcon />}
+              fullWidth
+            >
+              Verify Collections
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleMigrateCollections}
+              disabled={isLoading}
+              startIcon={<SyncIcon />}
+              fullWidth
+            >
+              Migrate Collections
+            </Button>
+          </Box>
+          {isLoading && (
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress />
+            </Box>
+          )}
+          {notification && (
+            <Alert 
+              severity={notification.type} 
+              sx={{ mt: 2 }}
+              onClose={() => setNotification(null)}
+            >
+              {notification.message}
+            </Alert>
+          )}
+        </Paper>
       </Box>
     </Container>
   );

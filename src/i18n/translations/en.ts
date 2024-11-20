@@ -43,7 +43,17 @@ export const en = {
       title: 'App Preferences'
     },
     saveSuccess: 'Settings saved successfully',
-    saveError: 'Failed to save settings'
+    saveError: 'Failed to save settings',
+    appMode: 'App Mode',
+    selectMode: 'Select Mode',
+    modeHelp: 'Switch between flashcards and reading mode',
+    modes: {
+      flashcards: 'Flashcards Mode',
+      reading: 'Reading Mode'
+    },
+    readingPreferences: 'Reading Preferences',
+    fontSize: 'Font Size',
+    focusMode: 'Focus Mode'
   },
   profile: {
     level: 'Level',
@@ -64,13 +74,46 @@ export const en = {
       settings: 'Settings',
       logout: 'Logout'
     },
+    details: {
+      joined: 'Join Date',
+      lastActive: 'Last Active',
+      studyStreak: 'Study Streak',
+      totalStudyTime: 'Total Study Time',
+      studySessions: 'Study Sessions',
+      cardsLearned: 'Cards Learned',
+      cardsMastered: 'Cards Mastered',
+      averageAccuracy: 'Average Accuracy'
+    },
     graphs: {
-      studyTime: 'Study Time',
       cardsStudied: 'Cards Studied',
       accuracy: 'Accuracy Rate',
       daily: 'Daily',
       weekly: 'Weekly',
-      monthly: 'Monthly'
+      monthly: 'Monthly',
+      studyTime: 'Study Time Distribution',
+      weeklyActivity: 'Weekly Activity',
+      masteryProgress: 'Mastery Progress',
+      categoryProgress: 'Category Progress',
+      hourlyActivity: 'Daily Time Activity',
+      learningCurve: 'Learning Curve',
+      minutes: 'minutes',
+      cards: 'cards',
+      today: 'Today',
+      thisWeek: 'This Week',
+      thisMonth: 'This Month',
+      allTime: 'All Time',
+      noData: 'No data available',
+      earnedOn: 'Earned on: {{date}}'
+    },
+    stats: {
+      dailyGoal: 'Daily Goal',
+      weeklyGoal: 'Weekly Goal',
+      monthlyGoal: 'Monthly Goal',
+      achieved: 'Achieved',
+      remaining: 'Remaining',
+      averagePerDay: 'Average Per Day',
+      bestStreak: 'Best Streak',
+      totalDays: 'Total Study Days'
     }
   },
   home: {
@@ -96,6 +139,7 @@ export const en = {
     },
     buttons: {
       startReview: 'Start Review',
+      startReading: 'Start Reading',
       browse: 'Browse Library',
       addNewCards: 'Get New Cards'
     },
@@ -438,5 +482,117 @@ export const en = {
   },
   "study.controls": {
     "saveExit": "Save & Exit"
+  },
+  reading: {
+    
+    tabs: {
+      library: 'Article Library',
+      import: 'Import Article',
+      categories: 'Categories',
+      recent: 'Recent',
+      favorites: 'Favorites'
+    },
+    title: 'Reading Mode',
+    library: {
+      empty: 'No articles yet. Import some to get started!',
+      articleCount: '{{count}} articles',
+      sortBy: {
+        recent: 'Most Recent',
+        title: 'Title',
+        readTime: 'Reading Time',
+        progress: 'Progress'
+      },
+      filter: {
+        all: 'All Articles',
+        inProgress: 'In Progress',
+        completed: 'Completed',
+        unread: 'Unread'
+      },
+      search: 'Search articles...',
+      categories: {
+        all: 'All Categories',
+        manage: 'Manage Categories'
+      },
+      stats: {
+        totalArticles: '{{count}} articles',
+        avgReadTime: 'Average read time: {{time}} min',
+        totalReadTime: 'Total read time: {{time}} min'
+      },
+      tools: {
+        import: 'Import New',
+        manage: 'Manage Library',
+        sync: 'Sync Progress',
+        export: 'Export Data'
+      },
+      confirmations: {
+        deleteArticle: 'Are you sure you want to delete this article?',
+        clearLibrary: 'Are you sure you want to clear your library?',
+      }
+    },
+    import: {
+      title: 'Import Article',
+      dropzone: {
+        title: 'Drop ZIP file here or click to browse',
+        description: 'Article package should contain details.json, content.txt and optional cover image',
+        titleMultiple: 'Drop ZIP files here or click to browse',
+        descriptionMultiple: 'You can select multiple article packages at once'
+      },
+      error: {
+        invalidZip: 'Invalid ZIP file structure',
+        missingFiles: 'Required files are missing',
+        corrupted: 'Article content is corrupted',
+        failed: 'Failed to import article',
+        partialFail: 'Some articles failed to import'
+      },
+      success: {
+        single: 'Article imported successfully',
+        multiple: 'All articles imported successfully'
+      },
+      validation: {
+        checking: 'Checking file structure...',
+        validating: 'Validating content...',
+        success: 'File structure is valid',
+        preparing: 'Preparing to import...'
+      },
+      settings: {
+        extractLinks: 'Extract links',
+        autoCategories: 'Auto-categorize',
+        parseMetadata: 'Parse metadata'
+      },
+      status: {
+        queued: 'Queued',
+        processing: 'Processing',
+        failed: 'Failed',
+        completed: 'Completed'
+      }
+    },
+    interface: {
+      readingTime: '{{minutes}} min read',
+      wordCount: '{{count}} words',
+      startReading: 'Start Reading',
+      continueReading: 'Continue Reading',
+      focusMode: 'Focus Mode',
+      addToFlashcards: 'Add to Flashcards',
+      textToSpeech: 'Text to Speech',
+      search: 'Search articles...',
+      progress: {
+        progress: '{{percent}}% completed',
+        importing: 'Importing article...',
+        analyzing: 'Analyzing content...',
+        saving: 'Saving article...',
+        error: {
+          fileStructure: 'Invalid file structure',
+          fileSize: 'File too large',
+          fileType: 'Invalid file type',
+          parsing: 'Error parsing content',
+          network: 'Network error',
+          unknown: 'Unknown error occurred'
+        },
+        success: 'Article successfully imported'
+      }
+    },
+    dictionary: {
+      addToFlashcards: 'Add to Flashcards'
+    }
   }
 };
