@@ -30,23 +30,27 @@ export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
     <Box
       sx={{
         position: 'fixed',
-        bottom: theme.spacing(2), // Reduced spacing on mobile
+        bottom: theme.spacing(2),
         right: theme.spacing(2),
         zIndex: theme.zIndex.speedDial,
-        display: { xs: 'block', sm: 'none' } // Only show on mobile
+        display: { xs: 'block', sm: 'none' }, 
+        '& .MuiFab-root': {
+          margin: theme.spacing(1), 
+          transition: 'all 0.2s ease'  
+        }
       }}
     >
       <AnimatePresence>
         {isOpen && (
           <Stack 
-            spacing={1} 
+            spacing={1.5} 
             sx={{ 
-              mb: 1,
-              // Ensure menu opens upward from FAB
               position: 'absolute',
               bottom: '100%',
               right: 0,
-              pb: 1
+              pb: 1,
+              alignItems: 'flex-end', 
+              minWidth: 56 
             }}
             component={motion.div}
             initial={{ opacity: 0, y: 20 }}
@@ -62,6 +66,11 @@ export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
               }}
               component={motion.button}
               variants={buttonVariants}
+              sx={{ 
+                width: 48, 
+                height: 48,
+                boxShadow: theme => `0 4px 12px ${theme.palette.primary.main}40`
+              }}
             >
               <ShuffleIcon />
             </Fab>
@@ -74,6 +83,11 @@ export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
               }}
               component={motion.button}
               variants={buttonVariants}
+              sx={{ 
+                width: 48, 
+                height: 48,
+                boxShadow: theme => `0 4px 12px ${theme.palette.primary.main}40`
+              }}
             >
               <NotesIcon />
             </Fab>
@@ -81,17 +95,17 @@ export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
         )}
       </AnimatePresence>
       <Fab
-        size="large" // Increased size for better touch target
+        size="large"
         color="primary"
         onClick={toggleMenu}
         sx={{
           width: 56,
           height: 56,
-          // Add some elevation and improved touch feedback
           boxShadow: theme => `0 8px 24px ${theme.palette.primary.main}40`,
           '&:active': {
             transform: 'scale(0.95)'
-          }
+          },
+          transition: 'transform 0.2s ease'
         }}
       >
         {isOpen ? <CloseIcon /> : <MenuIcon />}

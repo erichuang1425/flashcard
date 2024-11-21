@@ -7,6 +7,11 @@ export const theme = createTheme({
       light: '#64b5f6',
       dark: '#1976d2',
     },
+    secondary: {
+      main: '#ff6b4a', 
+      light: '#ff8f72',
+      dark: '#f24822',
+    },
     background: {
       default: '#f5f5f5',
     }

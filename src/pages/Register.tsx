@@ -1,89 +1,541 @@
 import React, { useState } from 'react';
-import { Box, Button, TextField, Typography, Alert, Paper } from '@mui/material';
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  Paper,
+  ToggleButton,
+  ToggleButtonGroup,
+  IconButton,
+  InputAdornment,
+  useTheme,
+  useMediaQuery,
+  Container,
+  Card,
+  Avatar,
+  Divider
+} from '@mui/material';
 import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import GoogleIcon from '@mui/icons-material/Google';
+import { useI18n } from '../i18n/I18nContext';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import SchoolIcon from '@mui/icons-material/School';
+import { MobileAuthLayout } from '../components/auth/MobileAuthLayout';
 
 export const Register: React.FC = () => {
+  const { t, setLanguage: setI18nLanguage } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const { signUp } = useAuth();
+  const [language, setLanguage] = useState('en');
+  const { signUp, signInWithGoogle } = useAuth(); 
   const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setError('');
+      setIsLoading(true);
+      await signInWithGoogle();
+      navigate('/');
+    } catch (err) {
+      setError(t('auth.errors.googleSignIn'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (!email || !password) return;
+
     if (password !== confirmPassword) {
-      return setError('Passwords do not match');
+      setError(t('auth.errors.passwordMatch'));
+      return;
     }
 
     try {
       setError('');
+      setIsLoading(true);
+      setIsExiting(true);
       await signUp(email, password);
+      await new Promise(resolve => setTimeout(resolve, 1200));
       navigate('/');
     } catch (err) {
-      setError('Failed to create an account');
+      setError(t('auth.errors.createAccount'));
+      setIsExiting(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleLanguageChange = (event: React.MouseEvent<HTMLElement>, newLang: string) => {
+    if (newLang) {
+      setLanguage(newLang);
+      setI18nLanguage(newLang as any);
+    }
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
+  if (isMobile) {
+    return (
+      <MobileAuthLayout>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          {/* Language Toggle */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <ToggleButtonGroup
+              value={language}
+              exclusive
+              onChange={handleLanguageChange}
+              aria-label="language"
+              size="small"
+              sx={{ 
+                transform: 'scale(0.9)',
+                '& .MuiToggleButton-root': {
+                  px: 1,
+                  py: 0.5,
+                  fontSize: '0.8rem'
+                }
+              }}
+            >
+              <ToggleButton value="en" aria-label="english">
+                🇺🇸 EN
+              </ToggleButton>
+              <ToggleButton value="zh-TW" aria-label="chinese">
+                🇹🇼 中文
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          <Box component="form" onSubmit={handleSubmit}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<GoogleIcon />}
+              onClick={handleGoogleSignIn}
+              disabled={isLoading}
+              sx={{ 
+                mb: 3, 
+                py: 1.5,
+                borderRadius: 2,
+                borderWidth: 2,
+                '&:hover': {
+                  borderWidth: 2
+                }
+              }}
+            >
+              {t('auth.googleSignIn')}
+            </Button>
+
+            <Divider sx={{ my: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                {t('auth.or')}
+              </Typography>
+            </Divider>
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label={t('auth.email')}
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
+              sx={{ mb: 2 }}
+            />
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label={t('auth.password')}
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
+            />
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label={t('auth.confirmPassword')}
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              disabled={isLoading}
+              sx={{ 
+                mt: 3, 
+                mb: 2,
+                py: 1.5,
+                borderRadius: 2,
+                bgcolor: 'secondary.main',
+                boxShadow: theme => `0 8px 24px -4px ${theme.palette.secondary.main}40`,
+                '&:hover': {
+                  bgcolor: 'secondary.dark'
+                }
+              }}
+            >
+              {t('auth.signUp')}
+            </Button>
+
+            <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+              {t('auth.haveAccount')}{' '}
+              <Link 
+                to="/login" 
+                style={{ 
+                  color: theme.palette.secondary.main,
+                  textDecoration: 'none',
+                  fontWeight: 500
+                }}
+              >
+                {t('auth.signInHere')}
+              </Link>
+            </Typography>
+          </Box>
+        </motion.div>
+      </MobileAuthLayout>
+    );
+  }
+
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '80vh' 
-    }}>
-      <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          Register
-        </Typography>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            label="Email Address"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            label="Password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            label="Confirm Password"
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+    <Container 
+      maxWidth={false}
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        p: { xs: 2, sm: 3 },
+        bgcolor: 'background.default'
+      }}
+    >
+      <Container
+        maxWidth="xl" 
+        disableGutters 
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          py: { xs: 2, sm: 3 },
+          px: { xs: 1, sm: 2 } 
+        }}
+      >
+        <Card
+          component={motion.div}
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          sx={{
+            display: 'flex',
+            width: '100%',
+            maxWidth: '95vw', 
+            minHeight: { xs: '85vh', sm: '90vh' },
+            borderRadius: 3,
+            overflow: 'hidden',
+            boxShadow: theme => `0 8px 40px -12px ${theme.palette.primary.main}20`
+          }}
+        >
+          {/* Left side - Branding */}
+          {!isMobile && (
+            <Box
+              sx={{
+                flex: 1,
+                background: theme => `linear-gradient(45deg, ${theme.palette.secondary.dark}, ${theme.palette.secondary.main})`,
+                p: 6,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                color: 'white',
+                textAlign: 'center',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+              >
+                <SchoolIcon sx={{ 
+                  fontSize: 80, 
+                  mb: 4,
+                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))'
+                }} />
+                <Typography variant="h4" fontWeight="bold" gutterBottom>
+                  {t('auth.branding.title')}
+                </Typography>
+                <Typography 
+                  variant="body1" 
+                  sx={{ 
+                    opacity: 0.9, 
+                    mb: 4,
+                    fontSize: '1.1rem',
+                    lineHeight: 1.6 
+                  }}
+                >
+                  {t('auth.branding.tagline')}
+                </Typography>
+              </motion.div>
+            </Box>
+          )}
+
+          {/* Right side - Registration Form */}
+          <Box
+            sx={{
+              flex: 1,
+              p: { xs: 3, sm: 6 },
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'white',
+              position: 'relative' // Add for language selector positioning
+            }}
           >
-            Sign Up
-          </Button>
-          <Typography variant="body2" align="center">
-            Already have an account?{' '}
-            <Link to="/login">Login here</Link>
-          </Typography>
-        </Box>
-      </Paper>
-    </Box>
+            <Box sx={{ 
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              mb: 3
+            }}>
+              <ToggleButtonGroup
+                value={language}
+                exclusive
+                onChange={handleLanguageChange}
+                aria-label="language"
+                size="small"
+                sx={{ 
+                  '& .MuiToggleButton-root': {
+                    px: 1.5,
+                    py: 0.5,
+                    fontSize: '0.85rem'
+                  }
+                }}
+              >
+                <ToggleButton value="en" aria-label="english">
+                  🇺🇸 EN
+                </ToggleButton>
+                <ToggleButton value="zh-TW" aria-label="chinese">
+                  🇹🇼 中文
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center',
+              mt: 2 
+            }}>
+              <Avatar 
+                sx={{ 
+                  bgcolor: 'secondary.main', 
+                  width: 48, 
+                  height: 48,
+                  mb: 2,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}
+              >
+                <PersonAddIcon />
+              </Avatar>
+
+              <Typography 
+                variant="h5" 
+                component="h1" 
+                gutterBottom 
+                fontWeight="500"
+                sx={{ mb: 4 }}
+              >
+                {t('auth.register')}
+              </Typography>
+            </Box>
+
+            {error && (
+              <Alert 
+                severity="error" 
+                sx={{ mb: 3, borderRadius: 2 }}
+                variant="filled"
+              >
+                {error}
+              </Alert>
+            )}
+
+            <Box component="form" onSubmit={handleSubmit}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GoogleIcon />}
+                onClick={handleGoogleSignIn}
+                disabled={isLoading}
+                sx={{ 
+                  mb: 3, 
+                  py: 1.5,
+                  borderRadius: 2,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2
+                  }
+                }}
+              >
+                {t('auth.googleSignIn')}
+              </Button>
+
+              <Divider sx={{ my: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('auth.or')}
+                </Typography>
+              </Divider>
+
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label={t('auth.email')}
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                sx={{ mb: 2 }}
+              />
+
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label={t('auth.password')}
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ mb: 2 }}
+              />
+
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label={t('auth.confirmPassword')}
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        edge="end"
+                      >
+                        {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={isLoading}
+                sx={{ 
+                  mt: 3, 
+                  mb: 2,
+                  py: 1.5,
+                  borderRadius: 2,
+                  bgcolor: 'secondary.main',
+                  boxShadow: theme => `0 8px 24px -4px ${theme.palette.secondary.main}40`,
+                  '&:hover': {
+                    bgcolor: 'secondary.dark'
+                  }
+                }}
+              >
+                {t('auth.signUp')}
+              </Button>
+
+              <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+                {t('auth.haveAccount')}{' '}
+                <Link 
+                  to="/login" 
+                  style={{ 
+                    color: theme.palette.secondary.main,
+                    textDecoration: 'none',
+                    fontWeight: 500
+                  }}
+                >
+                  {t('auth.signInHere')}
+                </Link>
+              </Typography>
+            </Box>
+          </Box>
+        </Card>
+      </Container>
+    </Container>
   );
 };

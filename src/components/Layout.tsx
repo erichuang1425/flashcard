@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Container, Toolbar, Paper, useMediaQuery, useTheme, IconButton, 
-  Collapse, Tooltip, SwipeableDrawer, Fab, Typography, Slider, FormControlLabel, Switch 
+  Collapse, Tooltip, SwipeableDrawer, Fab, Typography, Slider, FormControlLabel, Switch, Button 
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -16,12 +16,18 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import { useI18n } from '../i18n/I18nContext';
 import { useReadingMode } from '../context/ReadingModeContext';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
+import { getRandomArticle } from '../services/articleService';
+import { logger } from '../services/logging';
+import { useAuth } from '../context/AuthContext';
+import DarkModeIcon from '@mui/icons-material/DarkMode'; 
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { t } = useI18n();
   const { levelSystem } = useGamification();
   const { focusMode, toggleFocusMode } = useFocusMode();
   const theme = useTheme();
@@ -34,8 +40,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const [mobileGamePanelOpen, setMobileGamePanelOpen] = useState(false);
   const { preferences, setPreferences } = useUserPreferences();
-  const { t } = useI18n();
-  const { currentArticle } = useReadingMode();
+  const { currentArticle, setCurrentArticle } = useReadingMode();
+  const { user } = useAuth();
 
   const toggleGamePanel = () => {
     if (isMobile) {
@@ -60,7 +66,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     }));
   };
 
-  // Auto collapse panel on small screens
+  const handleRandomArticle = async () => {
+    if (!user) return;
+    try {
+      const article = await getRandomArticle(user.uid);
+      if (article) {
+        setCurrentArticle(article);
+        setMobileGamePanelOpen(false);
+      }
+    } catch (err) {
+      logger.error('Failed to get random article', err as Error);
+    }
+  };
+
+
   useEffect(() => {
     const handleResize = () => {
       const isSmall = window.innerWidth < 900;
@@ -69,7 +88,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     };
 
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
+    handleResize(); 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -86,32 +105,40 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
       transition: 'all 0.3s ease'
     }}>
-      <NavBar onTogglePanel={toggleGamePanel} showGamePanel={showGamePanel} focusMode={focusMode} onFocusChange={toggleFocusMode} />
-      <Toolbar />
+      {/* Only show NavBar if user is logged in */}
+      {user && (
+        <NavBar 
+          onTogglePanel={toggleGamePanel} 
+          showGamePanel={showGamePanel && !!user} 
+          focusMode={focusMode} 
+          onFocusChange={toggleFocusMode} 
+        />
+      )}
       
       <Box sx={{ 
         display: 'flex', 
         flex: 1,
         position: 'relative',
         overflow: 'hidden',
-        justifyContent: 'center', 
+        justifyContent: 'center',
+        pt: user ? { xs: 8, sm: 8 } : 0,
         pb: { 
-          xs: showGamePanel ? '64px' : 0, 
+          xs: showGamePanel && !!user ? '64px' : 0, 
           md: 0 
         },
         pr: { 
           xs: 0, 
-          md: !focusMode && showGamePanel ? (isPanelCollapsed ? '48px' : '324px') : 0 
+          md: !focusMode && showGamePanel && !!user ? (isPanelCollapsed ? '48px' : '324px') : 0 
         },
         transition: 'padding 0.3s ease'
       }}>
-        <Container maxWidth="lg" sx={{ flex: { xs: 1, md: 'none' } /* Remove flex:1 on desktop */ }}>
+        <Container maxWidth="lg" sx={{ flex: { xs: 1, md: 'none' } }}>
           {children}
         </Container>
 
-        {!focusMode && showGamePanel && (
+        {!focusMode && showGamePanel && user && (
           <>
-            {/* Desktop Panel - Keep original behavior */}
+            {/* Desktop Panel */}
             {!isMobile && (
               <>
                 <IconButton
@@ -235,6 +262,39 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     gap: 3,
                     mt: 2
                   }}>
+
+                    <Paper 
+                      elevation={0} 
+                      sx={{ 
+                        p: 2, 
+                        bgcolor: 'background.default',
+                        borderRadius: 2
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={focusMode}
+                            onChange={toggleFocusMode}
+                            name="focusMode"
+                            color="primary"
+                          />
+                        }
+                        label={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <DarkModeIcon fontSize="small" />
+                            <Typography variant="body2">{t('common.focusMode')}</Typography>
+                          </Box>
+                        }
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          width: '100%',
+                          m: 0
+                        }}
+                      />
+                    </Paper>
+
                     {levelSystem && (
                       <Paper 
                         elevation={0} 
@@ -258,42 +318,33 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       <PomodoroTimer compact />
                     </Paper>
                     
-                    {/* Add reading settings to mobile panel */}
-                    {location.pathname === '/reading' && currentArticle && (
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          p: 2,
-                          bgcolor: 'background.default',
-                          borderRadius: 2
-                        }}
-                      >
-                        <Box sx={{ mb: 2 }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            {t('reading.settings.fontSize')}
-                          </Typography>
-                          <Slider
-                            value={preferences.readingSettings.fontSize}
-                            onChange={(_, value) => updateReadingSettings('fontSize', value)}
-                            min={12}
-                            max={32}
-                            marks
-                            size="small"
-                            valueLabelDisplay="auto"
-                          />
-                        </Box>
 
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={preferences.readingSettings.focusModeEnabled}
-                              onChange={(e) => updateReadingSettings('focusModeEnabled', e.target.checked)}
-                              size="small"
-                            />
-                          }
-                          label={t('reading.settings.focusMode')}
-                        />
-                      </Paper>
+                    {location.pathname === '/reading' && currentArticle && (
+                      <>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 2,
+                            bgcolor: 'background.default', 
+                            borderRadius: 2
+                          }}
+                        >
+                          <Box sx={{ 
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: 2
+                          }}>
+                            <Button
+                              variant="contained"
+                              onClick={handleRandomArticle}
+                              startIcon={<ShuffleIcon />}
+                              fullWidth
+                            >
+                              {t('reading.actions.random')}
+                            </Button>
+                          </Box>
+                        </Paper>
+                      </>
                     )}
                   </Box>
                 </SwipeableDrawer>

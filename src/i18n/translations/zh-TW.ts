@@ -10,7 +10,8 @@ export const zhTW = {
     success: '成功',
     exit: '離開',
     finish: '完成',
-    next: '下一步'
+    next: '下一步',
+    focusMode: '專注模式',
   },
   settings: {
     title: '設定',
@@ -179,11 +180,22 @@ export const zhTW = {
     signIn: '登入',
     signUp: '註冊',
     googleSignIn: '使用 Google 登入',
+    or: '或',
+    noAccount: '還沒有帳號？',
+    createOne: '立即註冊',
+    haveAccount: '已經有帳號？',
+    signInHere: '立即登入',
     errors: {
       failed: '登入失敗',
       googleFailed: 'Google 登入失敗',
+      googleSignIn: 'Google 註冊失敗',
       passwordMatch: '密碼不一致',
-      createAccount: '建立帳號失敗'
+      createAccount: '註冊帳號失敗'
+    },
+    branding: {
+      title: '字卡 AI',
+      tagline: '您的智能學習夥伴，掌握語言學習的最佳助手。',
+      benefits: ['智能單字學習', '個人化學習進度', '多元學習模式'] as string[]
     }
   },
   study: {
@@ -504,37 +516,28 @@ export const zhTW = {
     library: {
       empty: '尚無文章。立即匯入新文章開始閱讀！',
       articleCount: '{{count}} 篇文章',
+      search: '搜尋文章...', 
       sortBy: {
         recent: '最新',
         title: '標題',
         readTime: '閱讀時間',
-        progress: '進度'
+        progress: '進度',
+        random: '隨機',
+        author: '作者',
+        category: '分類'
       },
       filter: {
         all: '所有文章',
         inProgress: '閱讀中',
         completed: '已完成',
-        unread: '未讀'
+        unread: '未讀',
+        placeholder: '搜尋標題、作者或標籤...',
+        noResults: '沒有符合的文章'
       },
-      search: '搜尋文章...',
-      categories: {
-        all: '所有分類',
-        manage: '管理分類'
-      },
-      stats: {
-        totalArticles: '共 {{count}} 篇文章',
-        avgReadTime: '平均閱讀時間：{{time}} 分鐘',
-        totalReadTime: '總閱讀時間：{{time}} 分鐘'
-      },
-      tools: {
-        import: '匯入新文章',
-        manage: '管理文章庫',
-        sync: '同步進度',
-        export: '匯出資料'
-      },
-      confirmations: {
-        deleteArticle: '確定要刪除這篇文章嗎？',
-        clearLibrary: '確定要清空文章庫嗎？'
+      loadingStatus: {
+        searching: '搜尋中...',
+        filtering: '篩選中...',
+        sorting: '排序中...'
       }
     },
     import: {
@@ -599,7 +602,7 @@ export const zhTW = {
       }
     },
     manage: {
-      title: '管理文章',
+      title: '管理文��',
       deleteSelected: '刪除已選擇 ({{count}})',
       never: '從未',
       confirmDelete: '刪除',

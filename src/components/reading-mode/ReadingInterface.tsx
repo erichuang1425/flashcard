@@ -33,11 +33,14 @@ import { getRandomArticle } from '../../services/articleService';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
+import { RandomArticleButton } from './RandomArticleButton';
+import { useFocusMode } from '../../context/FocusModeContext';
 
 export const ReadingInterface: React.FC = () => {
   const { user } = useAuth();
   const { currentArticle, readingProgress, updateProgress, isReading, setCurrentArticle } = useReadingMode();
   const { preferences } = useUserPreferences();
+  const { focusMode, toggleFocusMode } = useFocusMode();
   const [activeParagraph, setActiveParagraph] = useState<number>(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string>('');
@@ -75,8 +78,15 @@ export const ReadingInterface: React.FC = () => {
       lineHeight = 1.6,
       fontFamily = 'system-ui',
       enableTTS = false,
+      focusModeEnabled = false,
     } = {}
   } = preferences || {};
+
+  useEffect(() => {
+    if (focusModeEnabled !== focusMode) {
+      toggleFocusMode();
+    }
+  }, [focusModeEnabled, focusMode, toggleFocusMode]);
 
   const pageVariants = {
     initial: { opacity: 0, x: 20 },
@@ -137,7 +147,6 @@ export const ReadingInterface: React.FC = () => {
     const text = selection.toString().trim();
     if (!text || !isValidText(text)) return;
 
-    // For single word lookup only
     if (text.split(/\s+/).length === 1) {
       setSelectedWord(sanitizeText(text));
       const range = selection.getRangeAt(0);
@@ -151,10 +160,8 @@ export const ReadingInterface: React.FC = () => {
       setDictAnchorEl(fakeAnchor);
       setTimeout(() => document.body.removeChild(fakeAnchor), 100);
     }
-    // Remove automatic notes popup for text selection
   };
 
-  // Add keyboard shortcut handler for notes
   const handleKeyShortcut = useCallback((e: KeyboardEvent) => {
     if (e.ctrlKey && e.key === 'n') {
       e.preventDefault();
@@ -183,7 +190,6 @@ export const ReadingInterface: React.FC = () => {
     let mounted = true;
     
     const loadPage = async (pageNum: number) => {
-      // Prevent duplicate loading
       if (loadedPages[pageNum]) return;
       
       if (!currentArticle?.content) return;
@@ -198,7 +204,6 @@ export const ReadingInterface: React.FC = () => {
     let mounted = true;
     
     const loadPage = async (pageNum: number) => {
-      // Prevent duplicate loading
       if (loadedPages[pageNum]) return;
       
       if (!currentArticle?.content) return;
@@ -214,7 +219,6 @@ export const ReadingInterface: React.FC = () => {
       }
     };
 
-    // Load current page and preload next page
     loadPage(currentPage);
     loadPage(currentPage + 1);
 
@@ -273,7 +277,6 @@ export const ReadingInterface: React.FC = () => {
       if (!containerRef.current) return;
       const currentScroll = containerRef.current.scrollTop;
       
-      // Only update if scrolled more than 100px
       if (Math.abs(currentScroll - lastScrollPosition) > 100) {
         setLastScrollPosition(currentScroll);
         updateVisiblePages();
@@ -364,14 +367,16 @@ export const ReadingInterface: React.FC = () => {
         maxWidth="md" 
         sx={{ 
           py: { xs: 2, sm: 5, md: 6 },
-          px: { xs: 0, sm: 3, md: 4 }, // Remove horizontal padding on mobile
+          px: { xs: 0, sm: 3, md: 4 },
           maxWidth: { 
-            xs: '100% !important', // Full width on mobile
+            xs: '100% !important',
             sm: '95%', 
             md: '900px !important'
           },
           margin: '0 auto',
           WebkitOverflowScrolling: 'touch',
+          filter: focusMode ? 'grayscale(1)' : 'none',
+          transition: 'filter 0.3s ease',
         }}
       >
         <Box sx={{ mb: { xs: 3, sm: 4 } }}>
@@ -388,17 +393,17 @@ export const ReadingInterface: React.FC = () => {
           >
             <Box 
               sx={{
-                p: { xs: 2, sm: 4, md: 5 }, // Reduced padding on mobile
+                p: { xs: 2, sm: 4, md: 5 },
                 minHeight: '80vh',
-                borderRadius: { xs: 0, sm: 2 }, // Remove border radius on mobile
+                borderRadius: { xs: 0, sm: 2 },
                 position: 'relative',
                 bgcolor: theme => theme.palette.mode === 'dark' ? 'background.paper' : '#fff',
                 '& ::selection': {
                   backgroundColor: theme => theme.palette.primary.light + '40',
                   color: theme => theme.palette.primary.dark
                 },
-                overflowX: 'hidden', // Prevent horizontal scrolling
-                WebkitOverflowScrolling: 'touch', // For Safari momentum scrolling
+                overflowX: 'hidden',
+                WebkitOverflowScrolling: 'touch',
               }}
             >
               <motion.div
@@ -411,18 +416,18 @@ export const ReadingInterface: React.FC = () => {
                   borderBottom: 1,
                   borderColor: 'divider',
                   pb: 3,
-                  px: { xs: 1, sm: 3, md: 4 }, // Less horizontal padding on mobile
+                  px: { xs: 1, sm: 3, md: 4 },
                 }}>
                   <Typography 
                     variant="h3" 
                     gutterBottom
                     sx={{
-                      fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' }, // Adjusted font sizes
+                      fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' },
                       lineHeight: 1.2,
                       fontWeight: 500,
                       color: 'text.primary',
                       letterSpacing: '-0.01em',
-                      wordBreak: 'break-word', // Better word wrapping
+                      wordBreak: 'break-word',
                     }}
                   >
                     {currentArticle.title}
@@ -442,7 +447,6 @@ export const ReadingInterface: React.FC = () => {
                     </Typography>
                   )}
 
-                  {/* Add cover image if available */}
                   {currentArticle.coverImage && (
                     <Box
                       sx={{
@@ -491,8 +495,8 @@ export const ReadingInterface: React.FC = () => {
                     height: '100%',
                     overflowY: 'auto',
                     scrollBehavior: 'smooth',
-                    px: { xs: 1, sm: 3, md: 4 }, // Less horizontal padding on mobile
-                    WebkitUserSelect: 'text', // Enable text selection
+                    px: { xs: 1, sm: 3, md: 4 },
+                    WebkitUserSelect: 'text',
                     userSelect: 'text',
                     '& p:first-of-type::first-letter': {
                       fontSize: '4em',
@@ -547,7 +551,7 @@ export const ReadingInterface: React.FC = () => {
                         sx={{
                           opacity: isContentLoading ? 0 : 1,
                           transition: 'opacity 0.3s ease',
-                          fontSize: `${fontSize}px`, // Add base font size here
+                          fontSize: `${fontSize}px`,
                           lineHeight: lineHeight,
                           fontFamily: `${fontFamily}, system-ui, serif`,
                         }}
@@ -560,15 +564,14 @@ export const ReadingInterface: React.FC = () => {
                               paragraph
                               data-index={globalIndex}
                               sx={{
-                                fontSize: 'inherit', // Inherit from parent instead of setting directly
+                                fontSize: 'inherit',
                                 lineHeight: 'inherit',
                                 fontFamily: 'inherit',
-                                // ...rest of styles...
                                 transition: 'all 0.3s ease',
                                 backgroundColor: activeParagraph === globalIndex ? 
                                   'action.selected' : 'transparent',
-                                p: { xs: 1.5, sm: 2, md: 3 }, // Less padding on mobile
-                                mx: { xs: 0, sm: -2 }, // Remove margin on mobile
+                                p: { xs: 1.5, sm: 2, md: 3 },
+                                mx: { xs: 0, sm: -2 },
                                 my: 1,
                                 borderRadius: 1,
                                 cursor: 'pointer',
@@ -579,7 +582,7 @@ export const ReadingInterface: React.FC = () => {
                                 },
                                 WebkitUserSelect: 'text',
                                 userSelect: 'text',
-                                touchAction: 'pan-y', // Enable smooth scrolling on touch
+                                touchAction: 'pan-y',
                                 '&::selection': {
                                   backgroundColor: theme => `${theme.palette.primary.main}30`,
                                   color: 'inherit'
@@ -600,29 +603,6 @@ export const ReadingInterface: React.FC = () => {
           </motion.div>
         </Paper3D>
 
-        {isMobile ? (
-          <ReadingActionMenu 
-            onRandomArticle={handleRandomArticle}
-            onTakeNotes={handleNotes}
-          />
-        ) : (
-          <Tooltip title="Random Article">
-            <Fab
-              color="primary"
-              size="medium"
-              onClick={handleRandomArticle}
-              sx={{
-                position: 'fixed',
-                bottom: theme.spacing(3),
-                right: theme.spacing(3),
-                zIndex: theme.zIndex.speedDial,
-              }}
-            >
-              <ShuffleIcon />
-            </Fab>
-          </Tooltip>
-        )}
-
         <ReadingAchievementPopup 
           open={Boolean(achievement)}
           onClose={() => setAchievement(null)}
@@ -637,7 +617,6 @@ export const ReadingInterface: React.FC = () => {
             setSelectedWord('');
           }}
           onAddToFlashcards={async (word, definition) => {
-            // Implementation for adding to flashcards
           }}
         />
 

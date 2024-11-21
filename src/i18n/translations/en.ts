@@ -175,13 +175,28 @@ export const en = {
     password: 'Password',
     confirmPassword: 'Confirm Password',
     signIn: 'Sign In',
-    signUp: 'Sign Up',
+    signUp: 'Sign Up', 
     googleSignIn: 'Sign in with Google',
+    or: 'or',
+    noAccount: "Don't have an account?",
+    createOne: 'Create one here',
+    haveAccount: 'Already have an account?',
+    signInHere: 'Sign in here',
     errors: {
       failed: 'Failed to sign in',
       googleFailed: 'Failed to sign in with Google',
+      googleSignIn: 'Failed to sign up with Google',
       passwordMatch: 'Passwords do not match',
-      createAccount: 'Failed to create an account'
+      createAccount: 'Failed to create account'
+    },
+    branding: {
+      title: 'FlashCards AI',
+      tagline: 'Your intelligent study companion for mastering languages.',
+      benefits: [
+        'Smart Vocabulary Learning', 
+        'Personalized Progress', 
+        'Multiple Learning Modes'
+      ]
     }
   },
   study: {
@@ -496,22 +511,28 @@ export const en = {
     library: {
       empty: 'No articles yet. Import some to get started!',
       articleCount: '{{count}} articles',
+      search: 'Search articles...', 
       sortBy: {
         recent: 'Most Recent',
         title: 'Title',
         readTime: 'Reading Time',
-        progress: 'Progress'
+        progress: 'Progress',
+        random: 'Random',
+        author: 'Author',
+        category: 'Category'
       },
       filter: {
         all: 'All Articles',
         inProgress: 'In Progress',
         completed: 'Completed',
-        unread: 'Unread'
+        unread: 'Unread',
+        placeholder: 'Search by title, author, or tags...',
+        noResults: 'No matching articles found'
       },
-      search: 'Search articles...',
-      categories: {
-        all: 'All Categories',
-        manage: 'Manage Categories'
+      loadingStatus: {
+        searching: 'Searching...',
+        filtering: 'Filtering...',
+        sorting: 'Sorting...'
       },
       stats: {
         totalArticles: '{{count}} articles',
