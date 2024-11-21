@@ -6,10 +6,15 @@ import {
   Box,
   Tabs,
   Tab,
-  useTheme,
   Paper,
-  CircularProgress
+  CircularProgress,
+  TextField,
+  InputAdornment,
+  FormControl,
+  Select,
+  MenuItem
 } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import { useReadingMode } from '../context/ReadingModeContext';
 import { ArticleList } from '../components/reading-mode/ArticleList';
 import { ArticleImporter } from '../components/reading-mode/ArticleImporter';
@@ -24,6 +29,10 @@ import { logger } from '../services/logging';
 import { RandomArticleButton } from '../components/reading-mode/RandomArticleButton';
 import { ManageArticlesTab } from '../components/reading-mode/ManageArticlesTab';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+
+const ITEMS_PER_PAGE = 8;
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -58,9 +67,22 @@ export const Reading: React.FC = () => {
   const loadingRef = useRef(false);
   const mountedRef = useRef(true);
   const [error, setError] = useState<string | null>(null);
-  const ITEMS_PER_PAGE = 8;
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'recent' | 'title' | 'readTime' | 'progress' | 'random'>('recent');
+
+
+  const handleSearchSubmit = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      setSearchQuery(searchTerm);
+    }
+  };
+
 
   const initializeData = useCallback(async () => {
     if (!user || loadingRef.current) return;
@@ -74,7 +96,10 @@ export const Reading: React.FC = () => {
         limit: ITEMS_PER_PAGE,
         filters: {
           category: undefined,
-          searchTerm: undefined
+          searchTerm: searchQuery.trim() || undefined 
+        },
+        sort: {
+          sortBy: sortBy
         }
       });
 
@@ -85,7 +110,7 @@ export const Reading: React.FC = () => {
           lastUpdated: new Date().toISOString()
         });
 
-        // Initialize first page properly
+
         setPage(1);
       }
     } catch (err) {
@@ -99,9 +124,9 @@ export const Reading: React.FC = () => {
         loadingRef.current = false;
       }
     }
-  }, [user]);
+  }, [user, searchQuery, sortBy]); 
 
-  // Single effect for initialization
+
   useEffect(() => {
     mountedRef.current = true;
     
@@ -114,7 +139,7 @@ export const Reading: React.FC = () => {
     };
   }, [user, initializeData]);
 
-  // Remove the separate loadArticles callback and merge functionality into page change handler
+
   const handlePageChange = useCallback(async (newPage: number) => {
     if (!user || loadingRef.current) return;
     
@@ -127,7 +152,10 @@ export const Reading: React.FC = () => {
         limit: ITEMS_PER_PAGE,
         filters: {
           category: undefined,
-          searchTerm: undefined
+          searchTerm: searchQuery.trim() || undefined  
+        },
+        sort: {
+          sortBy: sortBy
         }
       });
 
@@ -150,7 +178,14 @@ export const Reading: React.FC = () => {
         loadingRef.current = false;
       }
     }
-  }, [user]);
+  }, [user, searchQuery, sortBy]);
+
+
+  useEffect(() => {
+    if (mountedRef.current) {
+      initializeData();
+    }
+  }, [searchQuery, sortBy, initializeData]);
 
   const handleArticleSelect = async (article: Article) => {
     if (!user) return;
@@ -163,7 +198,7 @@ export const Reading: React.FC = () => {
         throw new Error('Failed to load article content');
       }
       
-      // Push state with tab info for browser back button
+
       navigate('', { 
         state: { prevTab: activeTab },
         replace: true 
@@ -199,19 +234,18 @@ export const Reading: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [currentArticle]);
 
-  // If viewing an article, show the article interface
+ 
   if (currentArticle) {
     return (
       <Box 
         sx={{ 
           backgroundColor: 'background.default', 
           minHeight: '100vh',
-          pt: { xs: 2, sm: 3, md: 4 } // Add top padding for better spacing
+          pt: { xs: 2, sm: 3, md: 4 }
         }}
       >
         <ReadingNavigation />
         <ReadingInterface />
-        <RandomArticleButton />
       </Box>
     );
   }
@@ -228,19 +262,18 @@ export const Reading: React.FC = () => {
   }
 
   // Otherwise show the article library
-  const theme = useTheme();
   return (
     <Container 
       maxWidth="lg" 
       sx={{ 
-        py: { xs: 3, sm: 4, md: 5 }, // Increased vertical padding
-        px: { xs: 2, sm: 3, md: 4 }  // Increased horizontal padding
+        py: { xs: 3, sm: 4, md: 5 },
+        px: { xs: 2, sm: 3, md: 4 } 
       }}
     >
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
-        mb: { xs: 3, sm: 4 }, // Increased margin bottom
+        mb: { xs: 3, sm: 4 }, 
         gap: 2 
       }}>
         <ReadingNavigation />
@@ -270,6 +303,56 @@ export const Reading: React.FC = () => {
         </Tabs>
 
         <TabPanel value={activeTab} index={0}>
+          {/* Add new controls section */}
+          <Box sx={{ 
+            p: 2, 
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: { xs: 1, sm: 2 },
+            borderBottom: 1,
+            borderColor: 'divider'
+          }}>
+            <Box sx={{ flex: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder={t('reading.library.search')} 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleSearchSubmit}  
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Box>
+            <Box sx={{ 
+              display: 'flex', 
+              gap: { xs: 1, sm: 2 },
+              flexShrink: 0,
+              alignItems: 'center'
+            }}>
+              <FormControl size="small" sx={{ width: { xs: 90, sm: 120 } }}>
+                <Select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  displayEmpty
+                >
+                  <MenuItem value="recent">{t('reading.library.sortBy.recent')}</MenuItem>
+                  <MenuItem value="title">{t('reading.library.sortBy.title')}</MenuItem>
+                  <MenuItem value="readTime">{t('reading.library.sortBy.readTime')}</MenuItem>
+                  <MenuItem value="progress">{t('reading.library.sortBy.progress')}</MenuItem>
+                  <MenuItem value="random">{t('reading.library.sortBy.random')}</MenuItem>
+                </Select>
+              </FormControl>
+              <RandomArticleButton hideOnMobile={false} />
+            </Box>
+          </Box>
+
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
               <CircularProgress />
@@ -299,7 +382,7 @@ export const Reading: React.FC = () => {
           />
         </TabPanel>
       </Paper>
-      <RandomArticleButton />
+
     </Container>
   );
 };

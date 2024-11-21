@@ -54,7 +54,7 @@ export const ReadingNavigation: React.FC = () => {
       logger.info('Reading settings updated', {
         setting: key,
         value,
-        userId: user?.uid // Use user.uid instead of preferences.userId
+        userId: user?.uid
       });
     } catch (err) {
       logger.error('Failed to update reading settings', err as Error, {
@@ -67,9 +67,9 @@ export const ReadingNavigation: React.FC = () => {
 
   const handleBack = () => {
     if (currentArticle) {
-      setCurrentArticle(null); // This will return to article list view
+      setCurrentArticle(null);
     } else {
-      navigate('/reading'); // This will return to reading mode main page
+      navigate('/reading');
     }
   };
 
@@ -80,17 +80,17 @@ export const ReadingNavigation: React.FC = () => {
       elevation={0}
       sx={{
         background: 'transparent',
-        top: theme => theme.spacing(8), // Add this to position below main navbar
+        top: theme => theme.spacing(8),
         '& .MuiToolbar-root': {
           justifyContent: 'space-between',
-          position: 'relative', // Add this
-          zIndex: 1200 // Add this
+          position: 'relative',
+          zIndex: 1200
         },
         width: { 
           xs: '100%',
-          md: theme => `calc(100% - ${theme.spacing(8)})` // Adjust for collapsed panel
+          md: theme => `calc(100% - ${theme.spacing(8)})`
         },
-        transition: 'width 0.3s ease' // Smooth transition for panel
+        transition: 'width 0.3s ease'
       }}
     >
       <Toolbar>
@@ -104,7 +104,6 @@ export const ReadingNavigation: React.FC = () => {
           </IconButton>
         </Box>
 
-        {/* Settings button - visible on both mobile and desktop */}
         <IconButton 
           onClick={handleSettingsClick}
           sx={{ 

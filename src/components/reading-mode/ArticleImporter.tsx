@@ -100,7 +100,6 @@ export const ArticleImporter: React.FC = () => {
     setError(null);
     setSuccess(null);
 
-    // Initialize import queue
     setImportQueue(acceptedFiles.map(file => ({
       fileName: file.name,
       status: 'queued',
@@ -134,7 +133,6 @@ export const ArticleImporter: React.FC = () => {
           }
         });
 
-        // Update status to processing
         setImportQueue(prev => prev.map((item, index) => 
           index === i ? { ...item, status: 'processing' as const } : item
         ));
@@ -152,7 +150,6 @@ export const ArticleImporter: React.FC = () => {
           }
         });
 
-        // Update status to completed
         setImportQueue(prev => prev.map((item, index) => 
           index === i ? { ...item, status: 'completed' as const, progress: 100 } : item
         ));
@@ -167,7 +164,6 @@ export const ArticleImporter: React.FC = () => {
             total: acceptedFiles.length
           }
         });
-        // Update status to failed
         setImportQueue(prev => prev.map((item, index) => 
           index === i ? {
             ...item,

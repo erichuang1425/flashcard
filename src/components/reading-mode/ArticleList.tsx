@@ -44,7 +44,6 @@ export const ArticleList: React.FC<ArticleListProps> = ({
   const theme = useTheme();
   const ITEMS_PER_PAGE = 8;
 
-  // Remove local state management since it's now controlled by parent
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
     onPageChange(value);
   };

@@ -55,7 +55,6 @@ interface SearchFilters {
   searchTerm?: string;
 }
 
-// Add new cache functions
 const setCachedArticle = async (articleId: string, content: string): Promise<void> => {
   try {
     const cache = await localforage.getItem<Record<string, ArticleCache>>(ARTICLE_CACHE_KEY) || {};
@@ -270,7 +269,6 @@ export const batchDeleteArticles = async (userId: string, articleIds: string[]) 
     ...Object.fromEntries(articleIds.map(id => [`indexMap.${id}`, deleteField()]))
   });
 
-  // Fix the categories update logic
   interface CounterItem {
     id: string;
     category?: string;
@@ -672,60 +670,201 @@ export const getArticleMetadata = async (userId: string): Promise<ArticleCounter
   return metadata;
 };
 
+export interface SortOptions {
+  sortBy: 'recent' | 'title' | 'readTime' | 'progress' | 'random';
+  direction?: 'asc' | 'desc';
+}
+
+const sortArticles = (articles: Article[], options: SortOptions): Article[] => {
+  const { sortBy, direction = 'desc' } = options;
+  const sorted = [...articles];
+
+  switch (sortBy) {
+    case 'recent':
+      sorted.sort((a, b) => {
+        const dateA = a.lastRead || a.createdAt;
+        const dateB = b.lastRead || b.createdAt;
+        return direction === 'desc' 
+          ? new Date(dateB).getTime() - new Date(dateA).getTime()
+          : new Date(dateA).getTime() - new Date(dateB).getTime();
+      });
+      break;
+
+    case 'title':
+      sorted.sort((a, b) => {
+        return direction === 'desc'
+          ? b.title.localeCompare(a.title)
+          : a.title.localeCompare(b.title);
+      });
+      break;
+
+    case 'readTime':
+      sorted.sort((a, b) => {
+        return direction === 'desc'
+          ? (b.wordCount || 0) - (a.wordCount || 0)
+          : (a.wordCount || 0) - (b.wordCount || 0);
+      });
+      break;
+
+    case 'progress':
+      sorted.sort((a, b) => {
+        const progressA = (a.progress?.wordsRead || 0) / (a.wordCount || 1);
+        const progressB = (b.progress?.wordsRead || 0) / (b.wordCount || 1);
+        return direction === 'desc'
+          ? progressB - progressA
+          : progressA - progressB;
+      });
+      break;
+
+    case 'random':
+      for (let i = sorted.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+      }
+      break;
+  }
+
+  return sorted;
+};
+
 export const getArticlePage = async (
   userId: string,
   options: {
     page: number;
     limit: number;
     filters?: SearchFilters;
+    sort?: SortOptions;
   }
 ): Promise<{ articles: Article[]; totalCount: number; hasMore: boolean }> => {
   try {
-    const counterRef = doc(db, 'users', userId, 'counters', 'articles');
-    const counterDoc = await getDoc(counterRef);
-    
-    if (!counterDoc.exists()) {
+    // Get metadata from cache or Firestore
+    const metadata = await getArticleMetadata(userId);
+    if (!metadata) {
       return { articles: [], totalCount: 0, hasMore: false };
     }
 
-    const metadata = counterDoc.data();
-    let items = metadata.items || [];
-    const totalCount = items.length;
+    let filteredIds = metadata.items.map(item => item.id);
 
-    if (options.filters?.category) {
-      items = items.filter((item: { category?: string }) => item.category === options.filters?.category);
-    }
-
+    // Apply search filter
     if (options.filters?.searchTerm) {
       const searchLower = options.filters.searchTerm.toLowerCase();
-      items = items.filter((item: { title: string }) => item.title.toLowerCase().includes(searchLower));
+      filteredIds = metadata.items
+        .filter(item => item.title.toLowerCase().includes(searchLower))
+        .map(item => item.id);
+    }
+
+    // Apply category filter
+    if (options.filters?.category) {
+      filteredIds = metadata.items
+        .filter(item => item.category === options.filters?.category)
+        .map(item => item.id);
     }
 
     const startIndex = (options.page - 1) * options.limit;
-    const endIndex = Math.min(startIndex + options.limit, items.length);
-    const pageItems = items.slice(startIndex, endIndex);
+    const endIndex = startIndex + options.limit;
+    const pageIds = filteredIds.slice(startIndex, endIndex);
 
-    const articleIds = pageItems.map((item: { id: string }) => item.id);
-    const articles = await batchGetArticles(userId, articleIds);
+    // Fetch full articles for the page
+    let articles = await batchGetArticles(userId, pageIds);
 
-    const nextPageItems = items.slice(endIndex, endIndex + options.limit);
-    if (nextPageItems.length > 0) {
-      const nextPageIds = nextPageItems.map((item: { id: string }) => item.id);
+    // Apply sorting if specified
+    if (options.sort) {
+      articles = sortArticles(articles, options.sort);
+    }
+
+    // Prefetch next page
+    const nextPageIds = filteredIds.slice(endIndex, endIndex + options.limit);
+    if (nextPageIds.length > 0) {
       batchGetArticles(userId, nextPageIds).catch(err => 
         logger.warn('Failed to prefetch next page', err)
       );
     }
 
-    return { 
-      articles, 
-      totalCount: items.length,
-      hasMore: endIndex < items.length
+    return {
+      articles,
+      totalCount: filteredIds.length,
+      hasMore: endIndex < filteredIds.length
     };
 
   } catch (err) {
-    const error = new ArticleError('Failed to fetch article page');
+    const error = new ArticleError('Failed to fetch article page', {
+      userId,
+      page: options.page,
+      filters: options.filters,
+      sort: options.sort
+    });
     logger.error('Page fetch failed', error, { originalError: err });
     throw error;
+  }
+};
+
+export const searchArticles = async (
+  userId: string,
+  term: string,
+  options: SearchOptions & { sort?: SortOptions }
+): Promise<{ items: Article[]; hasMore: boolean }> => {
+  const metadata = await getArticleMetadata(userId);
+  if (!metadata) {
+    return { items: [], hasMore: false };
+  }
+
+  const searchLower = term.toLowerCase();
+  const matchingItems = metadata.items
+    .filter(item => item.title.toLowerCase().includes(searchLower));
+  
+  const startIndex = options.startAfter ? 
+    matchingItems.findIndex(item => item.id === options.startAfter) + 1 : 0;
+  const pageItems = matchingItems.slice(startIndex, startIndex + options.limit);
+
+  let articles = await batchGetArticles(userId, pageItems.map(item => item.id));
+
+  // Apply sorting if specified
+  if (options.sort) {
+    articles = sortArticles(articles, options.sort);
+  }
+
+  const nextPageItems = matchingItems.slice(
+    startIndex + options.limit, 
+    startIndex + options.limit * 2
+  );
+  if (nextPageItems.length > 0) {
+    batchGetArticles(userId, nextPageItems.map(item => item.id))
+      .catch(err => logger.warn('Failed to prefetch search results', err));
+  }
+
+  return {
+    items: articles,
+    hasMore: startIndex + options.limit < matchingItems.length
+  };
+};
+
+export const getRandomArticle = async (userId: string): Promise<Article | null> => {
+  try {
+    const counterRef = doc(db, 'users', userId, 'counters', 'articles');
+    const counterDoc = await getDoc(counterRef);
+    
+    if (!counterDoc.exists() || !counterDoc.data()?.items?.length) {
+      return null;
+    }
+
+    const items = counterDoc.data().items;
+    const randomIndex = Math.floor(Math.random() * items.length);
+    const randomItem = items[randomIndex];
+
+    const articleRef = doc(db, 'users', userId, 'articles', randomItem.id);
+    const articleDoc = await getDoc(articleRef);
+
+    if (!articleDoc.exists()) {
+      return null;
+    }
+
+    return {
+      id: articleDoc.id,
+      ...articleDoc.data()
+    } as Article;
+  } catch (err) {
+    logger.error('Failed to get random article', err as Error);
+    return null;
   }
 };
 
@@ -888,71 +1027,6 @@ export const getFullArticle = async (userId: string, articleId: string): Promise
   } catch (err) {
     logger.error('Failed to get full article', err as Error);
     throw err; // Rethrow to handle in component
-  }
-};
-
-export const searchArticles = async (
-  userId: string,
-  term: string,
-  options: SearchOptions
-): Promise<{ items: Article[]; hasMore: boolean }> => {
-  const metadata = await getArticleMetadata(userId);
-  if (!metadata) {
-    return { items: [], hasMore: false };
-  }
-
-  const searchLower = term.toLowerCase();
-  const matchingItems = metadata.items
-    .filter(item => item.title.toLowerCase().includes(searchLower));
-  
-  const startIndex = options.startAfter ? 
-    matchingItems.findIndex(item => item.id === options.startAfter) + 1 : 0;
-  const pageItems = matchingItems.slice(startIndex, startIndex + options.limit);
-
-  const articles = await batchGetArticles(userId, pageItems.map(item => item.id));
-
-  const nextPageItems = matchingItems.slice(
-    startIndex + options.limit, 
-    startIndex + options.limit * 2
-  );
-  if (nextPageItems.length > 0) {
-    batchGetArticles(userId, nextPageItems.map(item => item.id))
-      .catch(err => logger.warn('Failed to prefetch search results', err));
-  }
-
-  return {
-    items: articles,
-    hasMore: startIndex + options.limit < matchingItems.length
-  };
-};
-
-export const getRandomArticle = async (userId: string): Promise<Article | null> => {
-  try {
-    const counterRef = doc(db, 'users', userId, 'counters', 'articles');
-    const counterDoc = await getDoc(counterRef);
-    
-    if (!counterDoc.exists() || !counterDoc.data()?.items?.length) {
-      return null;
-    }
-
-    const items = counterDoc.data().items;
-    const randomIndex = Math.floor(Math.random() * items.length);
-    const randomItem = items[randomIndex];
-
-    const articleRef = doc(db, 'users', userId, 'articles', randomItem.id);
-    const articleDoc = await getDoc(articleRef);
-
-    if (!articleDoc.exists()) {
-      return null;
-    }
-
-    return {
-      id: articleDoc.id,
-      ...articleDoc.data()
-    } as Article;
-  } catch (err) {
-    logger.error('Failed to get random article', err as Error);
-    return null;
   }
 };
 

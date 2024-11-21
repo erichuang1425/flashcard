@@ -6,8 +6,8 @@ export interface Article {
   category: string;
   coverImage?: string;
   wordCount: number;
-  createdAt: string; // Changed from Date to string to match context
-  updatedAt: string; // Add this field
+  createdAt: string; 
+  updatedAt: string; 
   lastRead?: Date;
   readCount: number;
   readingTime: number;
@@ -62,4 +62,4 @@ export interface ArticleContentCache {
   };
 }
 
-export const PARAGRAPHS_PER_PAGE = 50; // Configuration constant
+export const PARAGRAPHS_PER_PAGE = 50;

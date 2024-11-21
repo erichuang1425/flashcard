@@ -33,67 +33,47 @@ const App: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <UserPreferencesProvider>
-      <I18nProvider>
-        <ThemeModeProvider>
-          <ThemeProvider>
+    <ThemeModeProvider>
+      <ThemeProvider>
+        <UserPreferencesProvider>
+          <I18nProvider>
             <SettingsProvider>
-              <ReadingModeProvider>
-                <GamificationProvider>
+              <GamificationProvider>
+                <ReadingModeProvider>
                   <FocusModeProvider>
                     <Layout>
                       <Routes>
-                        <Route path="/" element={
-                          user ? <Home /> : <Navigate to="/login" replace />
-                        } />
                         <Route path="/login" element={
                           !user ? <Login /> : <Navigate to="/" replace />
                         } />
                         <Route path="/register" element={
                           !user ? <Register /> : <Navigate to="/" replace />
                         } />
-                        <Route path="/study" element={
-                          <ProtectedRoute>
-                            <Study />
-                          </ProtectedRoute>
+                        {/* All other routes require authentication */}
+                        <Route path="/*" element={
+                          !user ? <Navigate to="/login" replace /> :
+                          <Routes>
+                            <Route path="/" element={<Home />} />
+                            <Route path="/study" element={<Study />} />
+                            <Route path="/import" element={<Import />} />
+                            <Route path="/worksheets" element={<Worksheets />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="/profile" element={<Profile />} />
+                            <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
+                            <Route path="/reading" element={<Reading />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                          </Routes>
                         } />
-                        <Route path="/import" element={
-                          <ProtectedRoute>
-                            <Import />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/worksheets" element={
-                          <ProtectedRoute>
-                            <Worksheets />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/settings" element={
-                          <ProtectedRoute>
-                            <Settings />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/profile" element={
-                          <ProtectedRoute>
-                            <Profile />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
-                        <Route path="/reading" element={
-                          <ProtectedRoute>
-                            <Reading />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="*" element={<Navigate to="/" replace />} />
                       </Routes>
                     </Layout>
                   </FocusModeProvider>
-                </GamificationProvider>
-              </ReadingModeProvider>
+                </ReadingModeProvider>
+              </GamificationProvider>
             </SettingsProvider>
-          </ThemeProvider>
-        </ThemeModeProvider>
-      </I18nProvider>
-    </UserPreferencesProvider>
+          </I18nProvider>
+        </UserPreferencesProvider>
+      </ThemeProvider>
+    </ThemeModeProvider>
   );
 };
 

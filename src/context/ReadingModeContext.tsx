@@ -21,7 +21,7 @@ export interface ReadingProgressMap {
 
 interface ReadingModeContextType {
   currentArticle: Article | null;
-  readingProgress: ReadingProgressMap;  // Changed from ReadingProgress | null
+  readingProgress: ReadingProgressMap;  
   isReading: boolean;
   setCurrentArticle: (article: Article | null) => void;
   updateProgress: (progress: Partial<ReadingProgress>) => Promise<void>;
@@ -41,7 +41,7 @@ export interface Article {
   id: string;
   title: string;
   subtitle?: string;
-  content?: string; // Make content optional since it's not always present
+  content?: string;
   category: string;
   coverImage?: string;
   readingTime: number;

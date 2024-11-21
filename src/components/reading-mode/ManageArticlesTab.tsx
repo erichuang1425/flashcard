@@ -63,7 +63,7 @@ export const ManageArticlesTab: React.FC<ManageArticlesTabProps> = ({ articles, 
     try {
       setIsDeleting(true);
       
-      // Delete articles and update counter
+
       await batchDeleteArticles(user.uid, selected);
 
       // Clear selection and update UI
