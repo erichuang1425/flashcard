@@ -1,5 +1,7 @@
-import type { Worksheet, WorksheetQuestion, QuestionType, VocabularyDefinition } from '../types';
-import { getVocabularyDefinitions, getRandomVocabularyWords } from '../services/firestore';
+import type { Worksheet, WorksheetQuestion, QuestionType, VocabularyDefinition, FlashcardMetadata } from '../types';
+import { getVocabularyDefinitions, batchGetFlashcards } from '../services/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 const capitalizeFirstWord = (text: string): string => {
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -8,7 +10,8 @@ const capitalizeFirstWord = (text: string): string => {
 interface Template {
   title: string;
   description: string;
-  generate: (words: string[], difficulty: string, definitions: VocabularyDefinition[]) => Promise<WorksheetQuestion[]>;
+  generate: (words: string[], difficulty: string, definitions: VocabularyDefinition[], metadata?: FlashcardMetadata[]) 
+    => Promise<WorksheetGenerationResult>;
 }
 
 const shuffleArray = <T>(array: T[]): T[] => {
@@ -26,6 +29,7 @@ export const templates: Record<string, Template> = {
     description: 'Practice vocabulary with multiple exercise types',
     generate: async (words: string[], difficulty: string, definitions: VocabularyDefinition[]) => {
       const questions: WorksheetQuestion[] = [];
+      const answers: WorksheetGenerationResult['answers'] = {};
       
       for (const word of words) {
         const def = definitions.find(d => d.word === word);
@@ -37,21 +41,31 @@ export const templates: Record<string, Template> = {
           ...otherDefs.map(d => d.englishDefinition)
         ]).slice(0, 4);
 
-        questions.push({
+        const mcQuestion: WorksheetQuestion = {
           type: 'multipleChoice',
           question: `What is the meaning of "${word}"?`,
-          correctAnswer: `Write a sentence using "${word}" correctly:`,
+          correctAnswer: def.englishDefinition,
           options,
           points: 5
-        });
+        };
+        questions.push(mcQuestion);
+        answers[`mc_${word}`] = {
+          correctAnswer: def.englishDefinition,
+          explanation: `The correct meaning of "${word}" is: ${def.englishDefinition}`
+        };
 
         if (def.chineseTranslation) {
-          questions.push({
+          const transQuestion: WorksheetQuestion = {
             type: 'translation',
             question: `Translate "${word}" to Chinese:`,
             correctAnswer: def.chineseTranslation,
             points: 5
-          });
+          };
+          questions.push(transQuestion);
+          answers[`trans_${word}`] = {
+            correctAnswer: def.chineseTranslation,
+            explanation: `The Chinese translation of "${word}" is: ${def.chineseTranslation}`
+          };
         }
 
         if (difficulty !== 'easy') {
@@ -65,20 +79,36 @@ export const templates: Record<string, Template> = {
         }
       }
 
-      return questions;
+      return { questions, answers };
     }
   },
   translationMastery: {
     title: 'Translation Mastery',
     description: 'Practice translating between languages with context',
     generate: async (words: string[], difficulty: string, definitions: VocabularyDefinition[]) => {
-      return words.map(word => ({
-        type: 'translation',
-        question: `Translate and use "${word}" in a sentence:`,
-        correctAnswer: '', 
-        explanation: 'Consider the context and usage',
-        points: 5
-      }));
+      const questions: WorksheetQuestion[] = [];
+      const answers: WorksheetGenerationResult['answers'] = {};
+
+      words.forEach((word, index) => {
+        const def = definitions.find(d => d.word === word);
+        if (!def) return;
+
+        const question: WorksheetQuestion = {
+          type: 'translation',
+          question: `Translate and use "${word}" in a sentence:`,
+          correctAnswer: def.chineseTranslation || '', 
+          explanation: 'Consider the context and usage',
+          points: 5
+        };
+        questions.push(question);
+        answers[`trans_${index}`] = {
+          correctAnswer: def.chineseTranslation || '',
+          explanation: 'Consider the context and usage',
+          examples: def.examples
+        };
+      });
+
+      return { questions, answers };
     }
   }
 };
@@ -99,82 +129,46 @@ const LETTERS = ['A', 'B', 'C', 'D'];
 export const generateWorksheet = async (
   words: string[], 
   templateId: string, 
-  difficulty: string
+  difficulty: string,
+  metadata?: FlashcardMetadata[]
 ): Promise<WorksheetGenerationResult> => {
+  // Input validation
+  if (!words?.length) {
+    throw new Error('No words provided');
+  }
+
   const template = templates[templateId];
   if (!template) {
     throw new Error('Invalid template');
   }
 
-  const allDefinitions = await getVocabularyDefinitions(words);
-  const answers: { [key: string]: any } = {};
-  const questions: WorksheetQuestion[] = [];
+  try {
+    // Get full flashcard data if metadata is provided
+    const allDefinitions = metadata && metadata[0] 
+      ? await batchGetFlashcards(
+          metadata[0].userId || '', // Ensure userId is available
+          metadata.map(m => m.id)
+        ).then(cards => cards.map(card => ({
+          word: card.word,
+          englishDefinition: card.englishDefinition,
+          chineseTranslation: card.chineseTranslation,
+          partOfSpeech: card.partOfSpeech,
+          examples: card.exampleSentence ? [card.exampleSentence] : []
+        })))
+      : await getVocabularyDefinitions(words);
 
-  words.forEach((word, wordIndex) => {
-    const def = allDefinitions.find(d => d.word === word);
-    if (!def) return;
-
-    if (difficulty !== 'easy') {
-      const questionId = `q${wordIndex}_mc`;
-      const otherDefs = allDefinitions.filter(d => d.word !== word);
-      const options = shuffleArray([
-        def.englishDefinition,
-        ...otherDefs.slice(0, 3).map(d => d.englishDefinition)
-      ]);
-
-      const correctAnswerIndex = options.indexOf(def.englishDefinition);
-      const letterAnswer = LETTERS[correctAnswerIndex];
-
-      questions.push({
-        id: questionId,
-        type: 'multipleChoice',
-        question: capitalizeFirstWord(`What is the meaning of "${word}"?`),
-        options: options.map((opt) => capitalizeFirstWord(opt)),
-        points: 5,
-        correctAnswer: letterAnswer
-      });
-
-      answers[questionId] = {
-        correctAnswer: capitalizeFirstWord(`${letterAnswer} ${def.englishDefinition}`),
-        explanation: capitalizeFirstWord(`"${word}" means ${def.englishDefinition}`)
-      };
+    if (!allDefinitions?.length) {
+      throw new Error('No definitions found for provided words');
     }
 
-    const transQuestionId = `q${wordIndex}_trans`;
-    questions.push({
-      id: transQuestionId,
-      type: 'translation',
-      question: `Translate "${word}" to Chinese:`,
-      points: 5,
-      correctAnswer: def.chineseTranslation || ''
-    });
+    // Generate questions using template
+    const { questions, answers } = await template.generate(words, difficulty, allDefinitions);
 
-    answers[transQuestionId] = {
-      correctAnswer: def.chineseTranslation || '',
-      explanation: `${word} = ${def.chineseTranslation}`
-    };
-
-    if (difficulty !== 'easy') {
-      const usageQuestionId = `q${wordIndex}_usage`;
-      const sampleAnswer = def.examples?.[0] || `Example: ${word} - ${def.englishDefinition}`;
-      
-      questions.push({
-        id: usageQuestionId,
-        type: 'writing',
-        question: `Write a sentence using "${word}" correctly:`,
-        points: difficulty === 'hard' ? 10 : 7,
-        correctAnswer: sampleAnswer
-      });
-
-      answers[usageQuestionId] = {
-        correctAnswer: sampleAnswer,
-        examples: def.examples || [`Example: ${def.englishDefinition}`],
-        explanation: `Use "${word}" in context with its meaning: ${def.englishDefinition}`
-      };
-    }
-  });
-
-  return { questions, answers };
+    return { questions, answers };
+  } catch (error) {
+    console.error('Error generating worksheet:', error);
+    throw new Error('Failed to generate worksheet');
+  }
 };
 
 export const exportWorksheet = async (worksheet: Worksheet, format: 'pdf' | 'docx') => {

@@ -29,12 +29,13 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
             width: '100%',
             marginBottom: '8px',
             fontSize: '16px',
-            padding: '12px 20px',
+            padding: '12px 16px',
             borderRadius: '12px',
-            minHeight: '48px',
+            minHeight: '44px', // iOS minimum tap target size
             '&:active': {
               transform: 'scale(0.98)',
-            },
+              backgroundColor: 'rgba(0,0,0,0.1)'
+            }
           },
         },
       },
@@ -81,6 +82,10 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
             margin: '0',
             boxShadow: 'none',
             background: 'transparent',
+            WebkitTouchCallout: 'none',
+            WebkitUserSelect: 'none',
+            touchAction: 'manipulation',
+            cursor: 'pointer'
           },
         },
       },
@@ -90,17 +95,6 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
         root: {
           '@media (max-width: 600px)': {
             padding: '12px',
-          },
-        },
-      },
-    },
-    MuiBottomNavigation: {
-      styleOverrides: {
-        root: {
-          height: '64px',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          '@supports not (padding: env(safe-area-inset-bottom))': {
-            paddingBottom: '16px',
           },
         },
       },

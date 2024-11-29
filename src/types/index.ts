@@ -1,16 +1,32 @@
-export interface Flashcard {
+export interface FlashcardStats {
+  reviews: number;
+  totalCorrect: number;
+  successRate: number;
+  mature: boolean;
+  position?: number;
+}
+
+export interface FlashcardSRS {
+  state: 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN';
+  nextReview: Date;
+  lastReviewed?: Date;
+  interval: number;
+  easeFactor: number;
+  position?: number;
+  srsType?: 'interval' | 'position';
+}
+
+export interface Flashcard extends FlashcardStats, FlashcardSRS {
   id: string;
   userId: string;
   word: string;
   partOfSpeech: string;
   englishDefinition: string;
   chineseTranslation?: string;
+  exampleSentence?: string;
   difficulty: number;
-  categories: string[];  
+  categories: Record<string, number>;
   created: Date;
-  lastReviewed?: Date;
-  nextReview: Date;
-  mastered: boolean;
 }
 
 export interface User {
@@ -43,7 +59,7 @@ export interface UserStudyStats {
 export type QuestionType = 'multipleChoice' | 'translation' | 'writing';
 
 export interface WorksheetQuestion {
-  id?: string; 
+  id?: string;
   type: QuestionType;
   question: string;
   correctAnswer: string;
@@ -72,8 +88,8 @@ export interface Worksheet {
   categories: string[];
   createdAt: Date;
   questions: WorksheetQuestion[];
-  content?: any; 
-  answers?: { 
+  content?: any;
+  answers?: {
     [questionId: string]: {
       correctAnswer: string;
       explanation?: string;
@@ -95,7 +111,7 @@ export interface StudySession {
 export interface StudyProgress {
   currentIndex: number;
   stats: {
-    correct: number;  
+    correct: number;
     incorrect: number;
     streak: number;
     cardsReviewed: number;
@@ -115,6 +131,7 @@ export interface StudyStats {
   totalSessions: number;
   longestStreak: number;
   todayCards: number;
+  categoryStats?: Record<string, number>;
   rewards: StudyReward[];
   streak: StudyStreak;
   level: number;
@@ -134,7 +151,7 @@ export interface VocabularyWord {
   id: string;
   word: string;
   englishDefinition: string;
-  chineseTranslation: string; 
+  chineseTranslation: string;
   partOfSpeech: string;
   categories?: string[];
   createdAt?: Date;
@@ -203,17 +220,187 @@ export interface StudyCardProgress {
   isCorrect: boolean;
   mode: StudyMode;
   timeSpent: number;
+  state?: 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN';
+  interval?: number;
+  easeFactor?: number;
+  nextReview?: Date;
+  position?: number;
+  srsType?: 'interval' | 'position';
 }
 
 export interface FlashcardCounter {
   count: number;
-  cardIds: string[];
+  items: FlashcardItem[];
+  categories: Record<string, number>;
+  indexMap: Record<string, number>;
   lastUpdated: Date;
-  categories?: { [key: string]: number };
-  items: Array<{
-    id: string;
-    title: string;
-    updatedAt: Date;
+  metadata: FlashcardCollectionMetadata;
+}
+
+export interface FlashcardItem {
+  id: string;
+  word: string;
+  updatedAt: Date;
+  categories: Record<string, number>;
+}
+
+export interface FlashcardCollectionMetadata {
+  totalMastered: number;
+  lastStudied: Date | null;
+  averageAccuracy: number;
+  reviewsDue: number;
+  categoriesCount: number;
+  vocabList: any[];
+  progressStats: {
+    new: number;
+    learning: number;
+    review: number;
+    relearn: number;
+  };
+  studyQueue: StudyQueue[];
+  queueLastUpdated: Date;
+}
+
+export interface StudyQueue {
+  cardId: string;
+  nextPosition: number;
+  state: 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN';
+  interval: number;
+  position?: number;
+  easeFactor: number;
+  difficulty?: number;
+  nextReview: Date;
+  lastReviewed?: Date;
+  srsType?: 'interval' | 'position';
+  performance?: QueueItemPerformance;
+  consecutive?: number;
+}
+
+export interface StudySessionMetadata {
+  totalCards: number;
+  loadedCards: number;
+  preloadedIds: string[];
+  currentIndex: number;
+  categoryDistribution: Record<string, number>;
+}
+
+export interface SearchMetadata {
+  query: string;
+  filters: {
+    categories?: string[];
+    difficulty?: number;
+    mastered?: boolean;
+    dueOnly?: boolean;
+  };
+  results: FlashcardMetadata[];
+}
+
+export interface FlashcardMetadata {
+  id: string;
+  word: string;
+  categories: Record<string, number>;
+  nextReview?: Date;
+  difficulty: number;
+  position?: number;
+  state?: 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN';
+  userId?: string;
+}
+
+export interface UserPreferences {
+  theme: 'system' | 'light' | 'dark';
+  notifications: boolean;
+  audioEnabled: boolean;
+  dailyGoal: number;
+  studySessionLength: number;
+  pomodoroSettings: {
+    workDuration: number;
+    breakDuration: number;
+    autoStartBreak: boolean;
+  };
+  studyVocabLimit: number;
+  language: string;
+  appMode: 'flashcards' | 'reading';
+  lastModeSwitch?: string;
+  lastUpdated?: string;
+  readingSettings: {
+    fontSize: number;
+    lineHeight: number;
+    fontFamily: string;
+    enableTTS: boolean;
+    autoScroll: boolean;
+    highlightColor: string;
+    focusModeEnabled: boolean;
+    readingSpeed?: number;
+    highlightCategories?: string[];
+    theme: 'light' | 'dark' | 'sepia';
+  };
+  preloadBatchSize: number;
+  cacheTimeout: number;
+  studySettings: {
+    srsType: 'interval' | 'position';
+    defaultNewCardsPerDay: number;
+    defaultReviewsPerDay: number;
+  };
+}
+
+export interface SRSStats {
+  newCards: number;
+  learningCards: number;
+  relearningCards: number;
+  reviewCards: number;
+  matureCards: number;
+  averageSuccessRate: number;
+  averageInterval: number;
+}
+
+export interface QueueItemPerformance {
+  totalAttempts: number;
+  correctAttempts: number;
+  lastAttempts: Array<{
+    timestamp: Date;
+    success: boolean;
   }>;
-  indexMap: { [key: string]: number };
+  averageInterval: number;
+  streakCount: number;
+  cardId?: string;
+}
+
+export interface QueueStats {
+  stateDistribution: {
+    new: number;
+    learning: number;
+    review: number;
+    relearn: number;
+  };
+  performanceMetrics: {
+    averageSuccessRate: number;
+    totalReviews: number;
+    averageInterval: number;
+  };
+  lastOptimized: Date;
+}
+
+export interface FlashcardReviewLog {
+  id: string;
+  cardId: string;
+  userId: string;
+  timestamp: Date;
+  rating: number;
+  state: 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN';
+  interval: number;
+  easeFactor: number;
+  timeSpent: number;
+  reviewType: 'interval' | 'position';
+  performance?: {
+    responseTime: number;
+    accuracy: number;
+    reviewTimeOfDay: number;
+  };
+}
+
+export interface LearningCurveData {
+  intervals: number[];
+  accuracyRates: number[];
+  retentionScores: number[];
+  reviewCounts: number[];
 }

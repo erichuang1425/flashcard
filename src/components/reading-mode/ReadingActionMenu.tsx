@@ -6,15 +6,28 @@ import CloseIcon from '@mui/icons-material/Close';
 import NotesIcon from '@mui/icons-material/Notes';
 import { useTheme } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
+import TranslateIcon from '@mui/icons-material/Translate';
+import FormatLineSpacingIcon from '@mui/icons-material/FormatLineSpacing';
 
 interface ReadingActionMenuProps {
   onRandomArticle: () => void;
   onTakeNotes: () => void;
+  onFullscreen: () => void;
+  isFullscreen: boolean;
+  onOpenTextSettings: () => void;
+  onOpenDictionary: () => void;
 }
 
 export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
   onRandomArticle,
-  onTakeNotes
+  onTakeNotes,
+  onFullscreen,
+  isFullscreen,
+  onOpenTextSettings,
+  onOpenDictionary
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const theme = useTheme();
@@ -78,6 +91,40 @@ export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
               size="medium"
               color="primary"
               onClick={() => {
+                onFullscreen();
+                setIsOpen(false);
+              }}
+              component={motion.button}
+              variants={buttonVariants}
+              sx={{ 
+                width: 48, 
+                height: 48,
+                boxShadow: theme => `0 4px 12px ${theme.palette.primary.main}40`
+              }}
+            >
+              {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+            </Fab>
+            <Fab
+              size="medium"
+              color="primary" 
+              onClick={() => {
+                onOpenTextSettings();
+                setIsOpen(false);
+              }}
+              component={motion.button}
+              variants={buttonVariants}
+              sx={{ 
+                width: 48, 
+                height: 48,
+                boxShadow: theme => `0 4px 12px ${theme.palette.primary.main}40`
+              }}
+            >
+              <TextFieldsIcon />
+            </Fab>
+            <Fab
+              size="medium"
+              color="primary"
+              onClick={() => {
                 onTakeNotes();
                 setIsOpen(false);
               }}
@@ -90,6 +137,23 @@ export const ReadingActionMenu: React.FC<ReadingActionMenuProps> = ({
               }}
             >
               <NotesIcon />
+            </Fab>
+            <Fab
+              size="medium"
+              color="primary"
+              onClick={() => {
+                onOpenDictionary();
+                setIsOpen(false);
+              }}
+              component={motion.button}
+              variants={buttonVariants}
+              sx={{ 
+                width: 48, 
+                height: 48,
+                boxShadow: theme => `0 4px 12px ${theme.palette.primary.main}40`
+              }}
+            >
+              <TranslateIcon />
             </Fab>
           </Stack>
         )}

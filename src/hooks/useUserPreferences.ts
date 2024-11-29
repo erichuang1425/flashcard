@@ -2,22 +2,9 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
+import { UserPreferences } from '../types';
 
-export interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  studySessionLength: number;
-  dailyGoal: number;
-  notifications: boolean;
-  audioEnabled: boolean;
-  autoPlayAudio: boolean;
-  language: 'en' | 'zh';
-  pomodoroSettings: {
-    workDuration: number;
-    breakDuration: number;
-    longBreakDuration: number;
-    sessionsUntilLongBreak: number;
-  };
-}
+export type { UserPreferences };
 
 export const useUserPreferences = () => {
   const { user } = useAuth();
@@ -37,20 +24,36 @@ export const useUserPreferences = () => {
         if (prefsDoc.exists()) {
           setPreferences(prefsDoc.data() as UserPreferences);
         } else {
-          // Set default preferences
           const defaultPrefs: UserPreferences = {
             theme: 'system',
-            studySessionLength: 20,
-            dailyGoal: 30,
             notifications: true,
             audioEnabled: true,
-            autoPlayAudio: false,
+            dailyGoal: 30,
+            studySessionLength: 20,
+            studyVocabLimit: 20,
             language: 'en',
+            appMode: 'flashcards',
+            readingSettings: {
+              fontSize: 16,
+              lineHeight: 1.5,
+              fontFamily: 'system-ui',
+              enableTTS: false,
+              autoScroll: false,
+              highlightColor: '#ffeb3b',
+              focusModeEnabled: false,
+              theme: 'light'
+            },
             pomodoroSettings: {
               workDuration: 25,
               breakDuration: 5,
-              longBreakDuration: 15,
-              sessionsUntilLongBreak: 4
+              autoStartBreak: false
+            },
+            preloadBatchSize: 5,
+            cacheTimeout: 5,
+            studySettings: {
+              srsType: 'interval',
+              defaultNewCardsPerDay: 30,
+              defaultReviewsPerDay: 50
             }
           };
           await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), defaultPrefs);

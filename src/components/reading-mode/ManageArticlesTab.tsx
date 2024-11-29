@@ -21,6 +21,7 @@ import {
   LinearProgress
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../../context/AuthContext';
 import { useI18n } from '../../i18n/I18nContext';
 import { batchDeleteArticles } from '../../services/articleService';
@@ -144,7 +145,20 @@ export const ManageArticlesTab: React.FC<ManageArticlesTabProps> = ({ articles, 
                     : t('reading.manage.never')}
                 </TableCell>
                 <TableCell>
-                  {`${Math.round((article.progress.wordsRead / article.wordCount) * 100)}%`}
+                  {article.progress.completed ? (
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      color: 'success.main',
+                      gap: 1 
+                    }}>
+                      <CheckCircleIcon fontSize="small" />
+                      {/* Access wordsRead/wordCount instead of progress property */}
+                      {`${Math.round((article.progress.wordsRead / article.wordCount) * 100)}%`}
+                    </Box>
+                  ) : (
+                    `${Math.round((article.progress.wordsRead / article.wordCount) * 100)}%`
+                  )}
                 </TableCell>
               </TableRow>
             ))}

@@ -4,6 +4,7 @@ import { getUserFlashcards, saveStudyProgress } from '../../services/firestore';
 import type { Flashcard } from '../../types';
 import { capitalizeFirstWord } from '../../utils/text';
 import { useI18n } from '../../i18n/I18nContext';
+import { useAudio } from '../../hooks/useAudio';
 
 interface Props {
   card: Flashcard;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element => {
+  const { playSound } = useAudio();
   const [selected, setSelected] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
     setIsCorrect(correct);
     setShowResult(true);
     
+    playSound(correct ? 'CORRECT_ANSWER' : 'WRONG_ANSWER');
 
     await saveStudyProgress(card.userId, {
       cardId: card.id,

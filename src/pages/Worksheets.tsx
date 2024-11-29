@@ -164,7 +164,35 @@ export const Worksheets: React.FC = () => {
 
   const formatLastAttempted = (worksheet: Worksheet) => {
     if (!worksheet.stats?.lastAttempted) return 'Never';
-    return format(new Date(worksheet.stats.lastAttempted), 'PPp');
+    
+    try {
+      // Handle different timestamp formats
+      const timestamp = worksheet.stats.lastAttempted;
+      let date: Date;
+  
+      if (timestamp instanceof Date) {
+        date = timestamp;
+      } else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+      } else if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+        // Handle Firestore Timestamp
+        date = (timestamp as { toDate(): Date }).toDate();
+      } else {
+        return 'Invalid date';
+      }
+  
+      // Validate the date
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+  
+      return format(date, 'PPp');
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
   };
 
   return (

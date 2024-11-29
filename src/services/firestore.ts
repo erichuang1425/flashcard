@@ -1,16 +1,28 @@
 import { auth, db } from './firebase';
+import {saveQueueSnapshot, restoreQueueState} from './studyQueuePersistence';
 import { 
   collection, addDoc, getDocs, query, where, orderBy, 
-  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc, startAfter, getCountFromServer, serverTimestamp, arrayUnion, arrayRemove, deleteField 
+  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc, startAfter, getCountFromServer, serverTimestamp, arrayUnion, arrayRemove, deleteField, documentId 
 }  from 'firebase/firestore';
 import { 
   Flashcard, StudySessionSummary, StudyStats, Worksheet, 
   VocabularyWord, WorksheetStats, VocabularyDefinition, 
-  StudyProgress, StudyCardProgress, FlashcardCounter 
+  StudyProgress, StudyCardProgress, FlashcardCounter,
+  FlashcardCollectionMetadata, FlashcardMetadata, SearchMetadata, 
+  FlashcardItem,
+  StudyQueue,
+  QueueItemPerformance
 } from '../types';
 import { flashcardCache, categoryCache, worksheetCache, studyStatsCache, userWorksheetCache, analyticsCache } from '../utils/Cache';
 import type { FlashcardsResponse } from '../types/responses';
-import { calculateNextReview } from '../utils/spaced-repetition';
+import { 
+  calculateNextReview, DEFAULT_CONFIG, 
+  calculateSuccessRate, shouldResetLearningProgress, isCardMature, 
+  ReviewResult, getNextCardState
+} from '../utils/spaced-repetition';
+import { FlashcardReviewLog } from '../types/flashcard';
+import { calculateNewQueuePositionWithPerformance, cleanupQueue, rebalanceQueue, sortStudyQueueWithPerformance, validateQueue } from '../utils/queue-utils';
+import { logger } from './logging';
 
 interface FlashcardDocument {
   id: string;
@@ -18,12 +30,14 @@ interface FlashcardDocument {
   englishDefinition: string;
   partOfSpeech: string;
   categories: string[];
+  exampleSentence?: string | null;  
   [key: string]: any; 
 }
 
 interface CollectionItem {
   id: string;
-  title: string;
+  word: string; 
+  category?: string;
   updatedAt: Date;
 }
 
@@ -32,7 +46,7 @@ interface CollectionCounter {
   lastUpdated: Date;
   items: CollectionItem[];
   categories: Record<string, number>;
-  indexMap: Record<string, number>; // For quick lookups
+  indexMap: Record<string, number>;
 }
 
 const updateCollectionCounter = async (
@@ -70,11 +84,26 @@ export const initializeFlashcardCounter = async (userId: string) => {
   
   try {
     await setDoc(counterRef, {
-      count: 0,
       items: [],
-      lastUpdated: new Date(),
       categories: {},
-      indexMap: {}
+      indexMap: {},
+      lastUpdated: new Date(),
+      metadata: {
+        totalMastered: 0,
+        lastStudied: null,
+        averageAccuracy: 0,
+        reviewsDue: 0,
+        categoriesCount: 0,
+        vocabList: [],
+        progressStats: {
+          new: 0,
+          learning: 0,
+          review: 0,
+          relearn: 0
+        },
+        studyQueue: [],
+        queueLastUpdated: new Date()
+      }
     });
   } catch (error) {
     console.error('Error initializing flashcard counter:', error);
@@ -103,64 +132,49 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
   const batch = writeBatch(db);
   
   try {
+    const settingsDoc = await getDoc(doc(db, 'users', flashcard.userId, 'preferences', 'settings'));
+    const srsType = settingsDoc.data()?.studySettings?.srsType || 'interval';
 
     const flashcardRef = doc(collection(db, 'users', flashcard.userId, 'flashcards'));
     batch.set(flashcardRef, {
-      ...flashcard,
+      word: flashcard.word,
+      englishDefinition: flashcard.englishDefinition,
+      partOfSpeech: flashcard.partOfSpeech,
+      chineseTranslation: flashcard.chineseTranslation,
+      exampleSentence: flashcard.exampleSentence || null,
       categories: flashcard.categories || [],
+      reviews: 0,
+      totalCorrect: 0,
+      successRate: 100,
+      state: 'NEW',
+      nextReview: new Date(),
       lastReviewed: null,
-      nextReview: new Date()
+      created: new Date(),
+      interval: 0,
+      easeFactor: DEFAULT_CONFIG.startingEase,
+      position: 0,
+      srsType,
     });
 
-    // Update counter document with new item
-    const counterRef = doc(db, 'users', flashcard.userId, 'counters', 'flashcards');
-    const counterDoc = await getDoc(counterRef);
-    
-    if (!counterDoc.exists()) {
-      await initializeFlashcardCounter(flashcard.userId);
-    }
-
-    const newItem: CollectionItem = {
-      id: flashcardRef.id,
-      title: flashcard.word,
-      updatedAt: new Date()
+    const queueItem: StudyQueue = {
+      cardId: flashcardRef.id,
+      nextPosition: 0,
+      position: 0,
+      state: 'NEW',
+      interval: 0,
+      easeFactor: DEFAULT_CONFIG.startingEase,
+      nextReview: new Date(),
+      srsType
     };
 
+    const counterRef = doc(db, 'users', flashcard.userId, 'counters', 'flashcards');
     batch.update(counterRef, {
       count: increment(1),
-      items: arrayUnion(newItem),
-      lastUpdated: new Date(),
-      [`categories.${flashcard.categories[0] || 'uncategorized'}`]: increment(1),
-      [`indexMap.${flashcardRef.id}`]: counterDoc.data()?.count || 0
+      'metadata.studyQueue': arrayUnion(queueItem),
+      'metadata.queueLastUpdated': new Date()
     });
 
-    if (flashcard.categories?.length) {
-      const categoryPromises = flashcard.categories.map(async (categoryName) => {
-        const encodedId = encodeURIComponent(categoryName.toLowerCase().trim());
-        const categoryRef = doc(db, 'categories', encodedId);
-        
-
-        try {
-          await setDoc(categoryRef, {
-            name: categoryName,
-            userId: flashcard.userId,
-            count: 1,
-            createdAt: new Date()
-          }, { merge: true });
-        } catch (e) {
-          await updateDoc(categoryRef, {
-            count: increment(1)
-          });
-        }
-        return encodedId;
-      });
-
-      await Promise.all(categoryPromises);
-    }
-
     await batch.commit();
-    flashcardCache.delete(`flashcards-${flashcard.userId}`);
-    categoryCache.clear();
     return flashcardRef.id;
   } catch (error) {
     console.error('Error adding flashcard:', error);
@@ -169,35 +183,53 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
 };
 
 export const batchGetFlashcards = async (userId: string, cardIds: string[]): Promise<Flashcard[]> => {
-  const cacheKey = `flashcards_batch_${userId}_${cardIds.sort().join('_')}`;
-  const cachedCards = flashcardCache.get(cacheKey);
-  if (cachedCards) return cachedCards;
+  if (!cardIds.length) return [];
 
-  const cards: Flashcard[] = [];
-  for (let i = 0; i < cardIds.length; i += 10) {
-    const batch = cardIds.slice(i, i + 10);
-    const q = query(
-      collection(db, 'users', userId, 'flashcards'),
-      where('id', 'in', batch)
+  const cachedCards = cardIds
+    .map(id => flashcardCache.get(`flashcard_${userId}_${id}`))
+    .filter(Boolean) as Flashcard[];
+
+  const missingIds = cardIds.filter(id => 
+    !flashcardCache.get(`flashcard_${userId}_${id}`)
+  );
+
+  if (!missingIds.length) {
+    return cardIds.map(id => 
+      flashcardCache.get(`flashcard_${userId}_${id}`)!
     );
-    const snapshot = await getDocs(q);
-      cards.push(...snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      nextReview: doc.data().nextReview?.toDate(),
-      lastReviewed: doc.data().lastReviewed?.toDate(),
-      created: doc.data().created?.toDate(),
-      userId: doc.data().userId,
-      word: doc.data().word,
-      partOfSpeech: doc.data().partOfSpeech,
-      englishDefinition: doc.data().englishDefinition,
-      difficulty: doc.data().difficulty,
-      categories: doc.data().categories || []
-    } as Flashcard)));
   }
 
-  flashcardCache.set(cacheKey, cards);
-  return cards;
+  const chunks = [];
+  for (let i = 0; i < missingIds.length; i += 10) {
+    chunks.push(missingIds.slice(i, i + 10));
+  }
+
+  const fetchedCards = await Promise.all(chunks.map(async (chunk) => {
+    const q = query(
+      collection(db, 'users', userId, 'flashcards'),
+      where(documentId(), 'in', chunk)
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const card = {
+        id: doc.id,
+        ...doc.data(),
+        nextReview: doc.data().nextReview?.toDate(),
+        lastReviewed: doc.data().lastReviewed?.toDate(),
+        created: doc.data().created?.toDate()
+      } as Flashcard;
+      
+      flashcardCache.set(`flashcard_${userId}_${doc.id}`, card);
+      return card;
+    });
+  }));
+
+  const allCards = cardIds.map(id => 
+    flashcardCache.get(`flashcard_${userId}_${id}`)!
+  );
+
+  return allCards;
 };
 
 export const getUserFlashcards = async (
@@ -252,25 +284,53 @@ export const updateCardReview = async (
 };
 
 export const addWorksheet = async (worksheetData: Omit<Worksheet, 'id'>) => {
+  const batch = writeBatch(db);
+  
   try {
     if (!auth.currentUser) {
       throw new Error('User not authenticated');
     }
 
-    const worksheet = {
+    const counterRef = doc(db, 'users', auth.currentUser.uid, 'counters', 'worksheets');
+    const counterDoc = await getDoc(counterRef);
+    
+    if (!counterDoc.exists()) {
+      batch.set(counterRef, {
+        count: 1,
+        items: [],
+        lastUpdated: serverTimestamp(),
+        categories: {},
+        indexMap: {}
+      });
+    } else {
+      batch.update(counterRef, {
+        count: increment(1),
+        lastUpdated: serverTimestamp()
+      });
+    }
+
+    const worksheetRef = doc(collection(db, 'users', auth.currentUser.uid, 'worksheets'));
+    
+    batch.set(worksheetRef, {
       ...worksheetData,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      type: 'worksheet',
       userId: auth.currentUser.uid,
       content: worksheetData.content || null,
-      questions: worksheetData.questions || []
-    };
+      questions: worksheetData.questions || [],
+      stats: {
+        ...worksheetData.stats,
+        completed: 0,
+        total: worksheetData.questions?.length || 0,
+        accuracy: 0,
+        lastAttempted: null
+      }
+    });
+
+    await batch.commit();
+    worksheetCache.delete(`worksheets-${auth.currentUser.uid}`);
     
-    const worksheetRef = await addDoc(
-      collection(db, 'users', auth.currentUser.uid, 'worksheets'), 
-      worksheet
-    );
-    
-    await updateCollectionCounter(auth.currentUser.uid, 'worksheets', 1);
     return worksheetRef.id;
   } catch (error) {
     console.error('Error adding worksheet:', error);
@@ -290,150 +350,23 @@ export const getUserWorksheets = async (userId: string) => {
   return worksheets;
 };
 
-export const getVocabularyWords = async (pageLimit?: number): Promise<VocabularyWord[]> => {
-  try {
-    if (!auth.currentUser) throw new Error('User not authenticated');
 
-    let q = query(
-      collection(db, 'users', auth.currentUser.uid, 'flashcards'),
-      orderBy('word'),
-      where('isPublic', '==', true)
-    );
-    
-    if (pageLimit) {
-      q = query(q, limit(pageLimit));
-    }
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as VocabularyWord[];
-  } catch (error) {
-    console.error('Error fetching vocabulary:', error);
-    throw error;
-  }
-};
 
-export const searchVocabulary = async (term: string): Promise<VocabularyWord[]> => {
-  try {
-    if (!auth.currentUser) throw new Error('User not authenticated');
-
-    const q = query(
-      collection(db, 'users', auth.currentUser.uid, 'flashcards'),
-      where('word', '>=', term),
-      where('word', '<=', term + '\uf8ff'),
-      where('isPublic', '==', true),
-      limit(10)
-    );
-    
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as VocabularyWord[];
-  } catch (error) {
-    console.error('Error searching vocabulary:', error);
-    throw error;
-  }
-};
-
-export const importVocabularyBatch = async (words: VocabularyWord[]) => {
-  const batch = writeBatch(db);
-  const vocabRef = collection(db, 'vocabulary');
-
-  for (const word of words) {
-    const docRef = doc(vocabRef);
-    batch.set(docRef, {
-      ...word,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-  }
-
-  await batch.commit();
-};
-
-export const searchVocabularyAdvanced = async (
-  options: {
-    searchTerm?: string;
-    partOfSpeech?: string;
-    limit?: number;
-  }
-) => {
-  let q = query(collection(db, 'vocabulary'));
-
-  if (options.searchTerm) {
-    q = query(
-      q,
-      orderBy('word'),
-      startAt(options.searchTerm),
-      endAt(options.searchTerm + '\uf8ff')
-    );
-  }
-
-  if (options.partOfSpeech) {
-    q = query(q, where('partOfSpeech', '==', options.partOfSpeech));
-  }
-
-  if (options.limit) {
-    q = query(q, limit(options.limit));
-  }
-
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as (VocabularyWord & { id: string })[];
-};
-
-export const getVocabularyByInitial = async (initial: string) => {
-  const q = query(
-    collection(db, 'vocabulary'),
-    orderBy('word'),
-    startAt(initial),
-    endAt(initial + '\uf8ff'),
-    limit(50)
-  );
+export const getFlashcard = async (userId: string, cardId: string): Promise<Flashcard> => {
+  const docRef = doc(db, 'users', userId, 'flashcards', cardId);
+  const docSnap = await getDoc(docRef);
   
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as (VocabularyWord & { id: string })[];
-};
+  if (!docSnap.exists()) {
+    throw new Error('Flashcard not found');
+  }
 
-export const getVocabularyStats = async () => {
-  const vocabRef = collection(db, 'vocabulary');
-  const totalQuery = await getCountFromServer(vocabRef);
-  
-  const stats = {
-    total: totalQuery.data().count,
-    byPartOfSpeech: {} as Record<string, number>
-  };
-
-  const snapshot = await getDocs(vocabRef);
-  snapshot.forEach(doc => {
-    const pos = doc.data().partOfSpeech;
-    stats.byPartOfSpeech[pos] = (stats.byPartOfSpeech[pos] || 0) + 1;
-  });
-
-  return stats;
-};
-
-export const getRandomVocabularyWords = async (count: number = 3): Promise<VocabularyWord[]> => {
-  const q = query(
-    collection(db, 'vocabulary'),
-    orderBy('word'),
-    limit(count * 2)
-  );
-  const querySnapshot = await getDocs(q);
-  const words = querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  })) as (VocabularyWord & { id: string })[];
-  
-  return words.sort(() => Math.random() - 0.5).slice(0, count);
+  return {
+    id: docSnap.id,
+    ...docSnap.data(),
+    nextReview: docSnap.data().nextReview?.toDate(),
+    lastReviewed: docSnap.data().lastReviewed?.toDate(),
+    created: docSnap.data().created?.toDate()
+  } as Flashcard;
 };
 
 export const getVocabularyDefinitions = async (words: string[]): Promise<VocabularyDefinition[]> => {
@@ -472,13 +405,40 @@ export const getVocabularyDefinitions = async (words: string[]): Promise<Vocabul
   }
 };
 
-export const updateStudyStats = async (userId: string, sessionSummary: StudySessionSummary) => {
+export const updateStudyStats = async (
+  userId: string, 
+  sessionSummary: StudySessionSummary,
+  queuePerformance: QueueItemPerformance[]
+) => {
   const statsRef = doc(db, 'users', userId, 'stats', 'study');
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
   
   try {
     await runTransaction(db, async (transaction) => {
       const statsDoc = await transaction.get(statsRef);
+      const counterDoc = await transaction.get(counterRef);
       
+      const metadata = counterDoc.data()?.metadata || {};
+      const queue = metadata.studyQueue || [];
+      
+      queuePerformance.forEach(perf => {
+        const cardIndex = queue.findIndex((item: StudyQueue) => item.cardId === perf.cardId);
+        if (cardIndex >= 0) {
+          queue[cardIndex].performance = {
+            ...queue[cardIndex].performance,
+            ...perf
+          };
+        }
+      });
+
+      const queueStats = calculateQueueStats(queue);
+
+      transaction.update(counterRef, {
+        'metadata.studyQueue': queue,
+        'metadata.queueStats': queueStats,
+        'metadata.queueLastUpdated': new Date()
+      });
+
       if (!statsDoc.exists()) {
         transaction.set(statsRef, {
           lastStudied: new Date(),
@@ -486,23 +446,16 @@ export const updateStudyStats = async (userId: string, sessionSummary: StudySess
           masteredCards: sessionSummary.masteredCards,
           averageAccuracy: sessionSummary.accuracy,
           totalSessions: 1,
-          longestStreak: sessionSummary.streak,
-          todayCards: sessionSummary.cardsStudied
+          streak: 1,
+          lastStudyDate: new Date().toISOString().split('T')[0],
+          totalStudyMinutes: sessionSummary.duration,
+          weeklyStudyMinutes: sessionSummary.duration,
+          weekStart: getWeekStart()
         });
       } else {
-        const currentStats = statsDoc.data() as StudyStats;
-        const lastStudied = currentStats.lastStudied;
-        const isNewDay = new Date().toDateString() !== lastStudied.toDateString();
-        
-        transaction.update(statsRef, {
-          lastStudied: new Date(),
-          totalCards: currentStats.totalCards + sessionSummary.cardsStudied,
-          masteredCards: currentStats.masteredCards + sessionSummary.masteredCards,
-          averageAccuracy: (currentStats.averageAccuracy * currentStats.totalSessions + sessionSummary.accuracy) / (currentStats.totalSessions + 1),
-          totalSessions: currentStats.totalSessions + 1,
-          longestStreak: Math.max(currentStats.longestStreak, sessionSummary.streak),
-          todayCards: isNewDay ? sessionSummary.cardsStudied : currentStats.todayCards + sessionSummary.cardsStudied
-        });
+        const currentStats = statsDoc.data();
+        const newStats = calculateUpdatedStats(currentStats, sessionSummary);
+        transaction.update(statsRef, newStats);
       }
     });
   } catch (error) {
@@ -596,6 +549,25 @@ export interface UserStudyStats {
   createdAt: Date;
   totalStudyDays: number;
 }
+
+const calculateUpdatedStats = (
+  currentStats: any,
+  sessionSummary: StudySessionSummary
+): Partial<UserStudyStats> => {
+  const today = new Date().toISOString().split('T')[0];
+  const isNewDay = currentStats.lastStudyDate !== today;
+
+  return {
+    lastStudied: new Date(),
+    totalCards: currentStats.totalCards + sessionSummary.cardsStudied,
+    masteredCards: currentStats.masteredCards + sessionSummary.masteredCards,
+    averageAccuracy: ((currentStats.averageAccuracy * currentStats.totalSessions) + sessionSummary.accuracy) / (currentStats.totalSessions + 1),
+    totalStudySessions: currentStats.totalSessions + 1,
+    totalStudyMinutes: currentStats.totalStudyMinutes + sessionSummary.duration,
+    weeklyStudyMinutes: isNewDay ? sessionSummary.duration : currentStats.weeklyStudyMinutes + sessionSummary.duration,
+    lastStudyDate: today
+  };
+};
 
 const getUserStudyStats = async (userId: string): Promise<UserStudyStats> => {
   const cacheKey = `stats-${userId}`;
@@ -774,25 +746,6 @@ const getWeekStart = (): Date => {
   return date;
 };
 
-export const updateWeeklyStudyGoal = async (userId: string) => {
-  try {
-    const { cards } = await getUserFlashcards(userId);
-    const totalCards = cards.length;
-    
-    const recommendedWeeklyMinutes = Math.max(60, Math.ceil(totalCards * 0.5));
-    
-    const statsRef = doc(db, 'studyStats', userId);
-    await setDoc(statsRef, {
-      weeklyStudyGoal: recommendedWeeklyMinutes
-    }, { merge: true });
-    
-    return recommendedWeeklyMinutes;
-  } catch (error) {
-    console.error('Error updating weekly study goal:', error);
-    throw error;
-  }
-};
-
 const getTotalCardsCount = async (userId: string) => {
   const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
   const studiedQuery = query(
@@ -817,15 +770,15 @@ const getTotalCardsCount = async (userId: string) => {
 
 const getMasteryCount = async (userId: string): Promise<number> => {
   const flashcardsRef = collection(db, 'users', userId, 'flashcards');
-  const masteredQuery = await getCountFromServer(
+  const reviewQuery = await getCountFromServer(
     query(
       flashcardsRef,
-      where('difficulty', '<=', 2),
-      where('lastReviewed', '!=', null)
+      where('state', '==', 'REVIEW'),
+      where('difficulty', '<=', 2)
     )
   );
   
-  return masteredQuery.data().count;
+  return reviewQuery.data().count;
 };
 
 export const getWordsByCategory = async (userId: string, category: string): Promise<VocabularyWord[]> => {
@@ -885,20 +838,23 @@ export const getWorksheet = async (userId: string, worksheetId: string): Promise
       id: docSnap.id,
       title: data.title || 'Untitled Worksheet',
       description: data.description || '',
-      questions: shuffleArray(data.questions || []),
+      questions: data.questions ? shuffleArray(data.questions) : [],
       content: data.content || '',
       createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
       userId: data.userId,
       type: data.type || 'general',
-      difficulty: data.difficulty || 'medium',
+      difficulty: data.difficulty || 'medium', 
       timeLimit: data.timeLimit || 0,
       templateId: data.templateId || '',
       words: data.words || [],
       categories: data.categories || [],
-      stats: data.stats || {
-        attempts: 0,
-        avgScore: 0,
-        lastAttempt: null
+      stats: {
+        completed: 0,
+        accuracy: 0,
+        lastAttempted: data.stats?.lastAttempted?.toDate() || null,
+        ...data.stats,
+        total: data.questions?.length || data.stats?.total || 0
       }
     } as Worksheet;
 
@@ -935,17 +891,69 @@ export const updateWorksheetProgress = async (
   stats: WorksheetStats
 ) => {
   try {
-    const worksheetRef = doc(db, 'users', userId, 'worksheets', worksheetId);
-    await updateDoc(worksheetRef, { stats });
-    worksheetCache.delete(`worksheet-${userId}-${worksheetId}`);
-    userWorksheetCache.delete(`worksheets-${userId}`);
+    return await runTransaction(db, async (transaction) => {
+      const worksheetRef = doc(db, 'users', userId, 'worksheets', worksheetId);
+      const worksheetDoc = await transaction.get(worksheetRef);
+
+      if (!worksheetDoc.exists()) {
+        throw new Error('Worksheet not found');
+      }
+
+      transaction.update(worksheetRef, { 
+        stats: {
+          ...stats,
+          lastAttempted: serverTimestamp()
+        },
+        updatedAt: serverTimestamp()
+      });
+
+      worksheetCache.delete(`worksheet-${userId}-${worksheetId}`);
+      userWorksheetCache.delete(`worksheets-${userId}`);
+    });
   } catch (error) {
     console.error('Error updating worksheet progress:', error);
     throw error;
   }
 };
 
-export const deleteFlashcard = async (userId: string, cardId: string, category?: string) => {
+export const updateFlashcard = async (userId: string, cardId: string, updates: Partial<Flashcard>): Promise<void> => {
+  const cardRef = doc(db, 'users', userId, 'flashcards', cardId);
+  const batch = writeBatch(db);
+  
+  try {
+    batch.update(cardRef, {
+      ...updates,
+      updatedAt: new Date()
+    });
+
+    if (updates.categories) {
+      const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+      const counterDoc = await getDoc(counterRef);
+      const currentData = counterDoc.data();
+      
+      if (currentData?.categories) {
+        const currentCategories = currentData.categories as Record<string, number>;
+        const newCategories = Array.isArray(updates.categories) 
+          ? updates.categories.reduce((acc, cat) => ({...acc, [cat]: (acc[cat] || 0) + 1}), {})
+          : updates.categories;
+
+        batch.update(counterRef, {
+          categories: newCategories,
+          lastUpdated: new Date()
+        });
+      }
+    }
+
+    await batch.commit();
+    flashcardCache.delete(`flashcards-${userId}`);
+    studyStatsCache.delete(`stats-${userId}`);
+  } catch (error) {
+    console.error('Error updating flashcard:', error);
+    throw error;
+  }
+};
+
+export const deleteFlashcard = async (userId: string, cardId: string, categories?: string[]) => {
   const batch = writeBatch(db);
   
   try {
@@ -953,15 +961,23 @@ export const deleteFlashcard = async (userId: string, cardId: string, category?:
     batch.delete(cardRef);
 
     const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
-    batch.update(counterRef, {
+    
+    const updates: any = {
       count: increment(-1),
       items: arrayRemove(cardId),
       lastUpdated: new Date(),
       [`indexMap.${cardId}`]: deleteField(),
-      ...(category ? { [`categories.${category}`]: increment(-1) } : {})
-    });
+    };
 
+    if (categories) {
+      categories.forEach(category => {
+        updates[`categories.${category}`] = increment(-1);
+      });
+    }
+
+    batch.update(counterRef, updates);
     await batch.commit();
+    
     flashcardCache.delete(`flashcards-${userId}`);
     studyStatsCache.delete(`stats-${userId}`);
   } catch (error) {
@@ -990,45 +1006,102 @@ const getCollectionCount = async (userId: string, collectionName: string): Promi
   return counterDoc.exists() ? counterDoc.data().count : 0;
 };
 
-export const saveStudyProgress = async (
-  userId: string,
-  progress: StudyCardProgress
-) => {
-  const batch = writeBatch(db);
+
+export const saveStudyProgress = async (userId: string, cardProgress: StudyCardProgress) => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const MAX_RETRIES = 5;
+  let retryCount = 0;
   
-  try {
-    const cardRef = doc(db, 'users', userId, 'flashcards', progress.cardId);
-    const cardSnap = await getDoc(cardRef);
-    const currentDifficulty = cardSnap.exists() ? cardSnap.data().difficulty : 0;
-    const rating = Math.min(Math.max(1, progress.rating), 5) as 1 | 2 | 3 | 4 | 5;
-    const { nextReview, newDifficulty } = calculateNextReview(rating, currentDifficulty);
-    
-    batch.update(cardRef, {
-      nextReview,
-      difficulty: newDifficulty,
-      mastered: progress.rating >= 4,
-      lastReviewed: serverTimestamp()
-    });
+  const saveWithRetry = async (): Promise<void> => {
+    try {
+      await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        if (!counterDoc.exists()) {
+          throw new Error('Counter document not found');
+        }
+        
+        const metadata = counterDoc.data()?.metadata || {};
+        let queue = [...(metadata.studyQueue || [])];
+        
+        const cardIndex = queue.findIndex((item: StudyQueue) => item.cardId === cardProgress.cardId);
+        if (cardIndex === -1) return;
 
-    const statsRef = doc(db, 'users', userId, 'stats', 'study');
-    batch.set(statsRef, {
-      lastStudied: serverTimestamp(),
-      totalCards: increment(1),
-      masteredCards: increment(progress.rating >= 4 ? 1 : 0),
-      totalStudyMinutes: increment(Math.round(progress.timeSpent / 60000)),
-      [`${progress.mode}Completed`]: increment(1),
-      [`${progress.mode}Correct`]: increment(progress.isCorrect ? 1 : 0),
-      streak: increment(progress.isCorrect ? 1 : 0)
-    }, { merge: true });
+        const currentItem = queue[cardIndex];
 
-    await batch.commit();
-    
-    flashcardCache.clear();
-    studyStatsCache.delete(`stats-${userId}`);
-  } catch (error) {
-    console.error('Error saving study progress:', error);
-    throw error;
-  }
+        queue = queue.filter((item: StudyQueue) => item.cardId !== cardProgress.cardId);
+
+        const nextReviewDate = cardProgress.nextReview || new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        const queueItem: StudyQueue = {
+          cardId: cardProgress.cardId,
+          nextReview: nextReviewDate,
+          state: cardProgress.state || currentItem.state || 'NEW',
+          interval: cardProgress.interval || 0,
+          easeFactor: cardProgress.easeFactor || DEFAULT_CONFIG.startingEase,
+          position: currentItem.position || 0,
+          nextPosition: currentItem.nextPosition || 0,
+          srsType: currentItem.srsType || 'interval',
+          performance: currentItem.performance || {
+            totalAttempts: 0,
+            correctAttempts: 0,
+            lastAttempts: [],
+            averageInterval: 0,
+            streakCount: 0
+          },
+          lastReviewed: new Date() 
+        };
+
+        queue.push(queueItem);
+        
+        queue = sortStudyQueueWithPerformance(queue);
+        queue = cleanupQueue(queue);
+
+        const sanitizedQueue = queue.map(item => ({
+          ...item,
+          nextReview: item.nextReview || new Date(),
+          state: item.state || 'NEW',
+          interval: item.interval || 0,
+          easeFactor: item.easeFactor || DEFAULT_CONFIG.startingEase,
+          position: item.position || 0,
+          nextPosition: item.nextPosition || 0,
+          srsType: item.srsType || 'interval',
+          lastReviewed: item.lastReviewed || new Date(),
+          performance: item.performance || {
+            totalAttempts: 0,
+            correctAttempts: 0,
+            lastAttempts: [],
+            averageInterval: 0,
+            streakCount: 0
+          }
+        }));
+
+        transaction.update(counterRef, {
+          'metadata.studyQueue': sanitizedQueue,
+          'metadata.queueLastUpdated': new Date()
+        });
+      });
+    } catch (error) {
+      if (retryCount < MAX_RETRIES) {
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        return saveWithRetry();
+      }
+      console.error('Error saving study progress:', error);
+      throw error;
+    }
+  };
+
+  await saveWithRetry();
+};
+
+export const restoreStudyQueue = async (userId: string): Promise<StudyQueue[]> => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const counterDoc = await getDoc(counterRef);
+  
+  if (!counterDoc.exists()) return [];
+  
+  const queue = counterDoc.data()?.metadata?.studyQueue || [];
+  return queue;
 };
 
 export const loadStudyProgress = async (userId: string): Promise<StudyProgress | null> => {
@@ -1076,14 +1149,141 @@ export const getFlashcardCount = async (userId: string): Promise<FlashcardCounte
     return {
       count: 0,
       items: [],
-      cardIds: [], // Add missing cardIds property
       lastUpdated: new Date(),
       categories: {},
-      indexMap: {}
+      indexMap: {},
+      metadata: {
+        totalMastered: 0,
+        lastStudied: null,
+        averageAccuracy: 0,
+        reviewsDue: 0,
+        categoriesCount: 0,
+        vocabList: [],
+        progressStats: {
+          new: 0,
+          learning: 0,
+          review: 0,
+          relearn: 0
+        },
+        studyQueue: [],
+        queueLastUpdated: new Date()
+      }
     };
   }
   
   return counterDoc.data() as FlashcardCounter;
+};
+
+export const getFlashcardMetadata = async (userId: string): Promise<FlashcardCounter> => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const counterDoc = await getDoc(counterRef);
+  
+  if (!counterDoc.exists()) {
+    const defaultCounter: FlashcardCounter = {
+      count: 0,
+      items: [],
+      categories: {},
+      indexMap: {},
+      lastUpdated: new Date(),
+      metadata: {
+        totalMastered: 0,
+        lastStudied: null,
+        averageAccuracy: 0,
+        reviewsDue: 0,
+        categoriesCount: 0,
+        vocabList: [],
+        progressStats: {
+          new: 0,
+          learning: 0,
+          review: 0,
+          relearn: 0
+        },
+        studyQueue: [],
+        queueLastUpdated: new Date()
+      }
+    };
+
+    await setDoc(counterRef, defaultCounter);
+    return defaultCounter;
+  }
+
+  const data = counterDoc.data();
+  const now = new Date();
+
+  const metadata = data.metadata || {};
+  
+  if (metadata.vocabList) {
+    metadata.vocabList = metadata.vocabList.map((item: any) => ({
+      ...item,
+      lastReviewed: item.lastReviewed?.toDate() || null,
+      nextReview: item.nextReview?.toDate() || now
+    }));
+  }
+
+  return {
+    count: data.count || 0,
+    items: data.items || [],
+    categories: data.categories || {},
+    indexMap: data.indexMap || {},
+    lastUpdated: data.lastUpdated?.toDate() || now,
+    metadata: {
+      ...metadata,
+      queueLastUpdated: metadata.queueLastUpdated?.toDate() || now,
+      lastStudied: metadata.lastStudied?.toDate() || null
+    }
+  };
+};
+
+export const saveFillInBlanksPreference = async (userId: string, useWordAsQuestion: boolean) => {
+  try {
+    const userPrefsRef = doc(db, 'users', userId, 'preferences', 'study');
+    await setDoc(userPrefsRef, {
+      fillInBlanksUseWord: useWordAsQuestion
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error saving fill in blanks preference:', error);
+    throw error;
+  }
+};
+
+export const getFillInBlanksPreference = async (userId: string): Promise<boolean> => {
+  try {
+    const userPrefsRef = doc(db, 'users', userId, 'preferences', 'study');
+    const prefs = await getDoc(userPrefsRef);
+    return prefs.exists() ? prefs.data().fillInBlanksUseWord ?? false : false;
+  } catch (error) {
+    console.error('Error getting fill in blanks preference:', error);
+    return false;
+  }
+};
+
+export const searchFlashcards = async (
+  userId: string,
+  query: string,
+  filters: SearchMetadata['filters']
+): Promise<FlashcardMetadata[]> => {
+  const counter = await getFlashcardMetadata(userId);
+  
+  const flashcardItems = counter.items.map(item => ({
+    id: item.id,
+    word: item.word,
+    categories: item.categories || [],
+    nextReview: counter.metadata.studyQueue?.find(q => q.cardId === item.id)?.nextReview || new Date(),
+    difficulty: 0, 
+    state: counter.metadata.studyQueue?.find(q => q.cardId === item.id)?.state || 'NEW',
+  }));
+  
+  return flashcardItems.filter(card => {
+    if (query && !card.word.toLowerCase().includes(query.toLowerCase())) return false;
+    if (filters.categories?.length && (!Array.isArray(card.categories) || !filters.categories.some(c => Array.isArray(card.categories) && card.categories.includes(c)))) return false;
+    if (filters.difficulty !== undefined && card.difficulty !== filters.difficulty) return false;
+    if (filters.mastered !== undefined) {
+      const isReview = card.state === 'REVIEW';
+      if (filters.mastered !== isReview) return false;
+    }
+    if (filters.dueOnly && card.nextReview > new Date()) return false;
+    return true;
+  });
 };
 
 export { 
@@ -1091,4 +1291,345 @@ export {
   updateDailyStreak, 
   getTotalCardsCount,
   getMasteryCount
+};
+
+export const migrateFillInBlanks = async (userId: string) => {
+  const batch = writeBatch(db);
+  const flashcardsRef = collection(db, 'users', userId, 'flashcards');
+  const snapshot = await getDocs(flashcardsRef);
+
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    if (!data.exampleSentence) {
+      batch.update(doc.ref, {
+        exampleSentence: null
+      });
+    }
+  });
+
+  await batch.commit();
+};
+
+
+// Core comment: Primary SRS queue management
+export const updateStudyQueue = async (
+  userId: string, 
+  cardId: string, 
+  review: ReviewResult
+) => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  let retryCount = 0;
+  
+  const saveWithRetry = async (): Promise<void> => {
+    try {
+      await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        if (!counterDoc.exists()) {
+          throw new Error('Counter document not found');
+        }
+
+        const metadata = counterDoc.data()?.metadata || {};
+        let queue = metadata.studyQueue || [];
+        
+        const cardIndex = queue.findIndex((item: StudyQueue) => item.cardId === cardId);
+        if (cardIndex === -1) return;
+
+        const existingItem = queue.find((item: StudyQueue) => item.cardId === cardId);
+        
+        queue = queue.filter((item: StudyQueue) => item.cardId !== cardId);
+        
+        const queueItem: StudyQueue = {
+          cardId,
+          state: review.state,
+          interval: review.interval,
+          easeFactor: review.easeFactor,
+          nextReview: review.nextReview,
+          lastReviewed: new Date(),
+          position: existingItem?.position || 0,
+          nextPosition: existingItem?.nextPosition || 0,
+          srsType: existingItem?.srsType || 'interval', 
+          performance: calculateQueuePerformance({
+            cardId,
+            state: review.state,
+            interval: review.interval,
+            easeFactor: review.easeFactor,
+            nextReview: review.nextReview,
+            position: existingItem?.position || 0,
+            nextPosition: existingItem?.nextPosition || 0,
+            srsType: existingItem?.srsType || 'interval',
+            performance: existingItem?.performance || []
+          }, review)
+        };
+
+        const newPosition = calculateNewQueuePositionWithPerformance(queue, queueItem, review);
+        queue.splice(newPosition, 0, queueItem);
+
+        const validation = validateQueue(queue);
+        if (!validation.isValid) {
+          queue = cleanupQueue(queue);
+        }
+
+        transaction.update(counterRef, {
+          'metadata.studyQueue': queue,
+          'metadata.queueLastUpdated': new Date()
+        });
+      });
+    } catch (error) {
+      if (retryCount < 3) {
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        return saveWithRetry();
+      }
+      throw error;
+    }
+  };
+
+  await saveWithRetry();
+};
+
+const calculateIntervalWithBackoff = (
+  queueItem: StudyQueue, 
+  review: ReviewResult
+): number => {
+  const performance = queueItem.performance;
+  const failureRate = performance
+    ? (performance.totalAttempts - performance.correctAttempts) / performance.totalAttempts
+    : 0;
+  
+  if (failureRate > 0.3) {
+    const backoffFactor = Math.min(1 + failureRate, 2);
+    return Math.ceil(review.interval * backoffFactor);
+  }
+  
+  return review.interval;
+};
+
+const calculateQueueStats = (queue: StudyQueue[]) => {
+  const stats = {
+    stateDistribution: {
+      new: 0,
+      learning: 0,
+      review: 0,
+      relearn: 0
+    },
+    performanceMetrics: {
+      averageSuccessRate: 0,
+      totalReviews: 0,
+      averageInterval: 0
+    },
+    lastOptimized: new Date()
+  };
+
+  let totalSuccessRate = 0;
+  let totalInterval = 0;
+  let reviewCount = 0;
+
+  queue.forEach(item => {
+    stats.stateDistribution[item.state.toLowerCase() as 'new' | 'learning' | 'review' | 'relearn']++;
+
+    if (item.performance) {
+      const successRate = item.performance.correctAttempts / item.performance.totalAttempts;
+      totalSuccessRate += successRate;
+      totalInterval += item.performance.averageInterval;
+      reviewCount++;
+    }
+  });
+
+  if (reviewCount > 0) {
+    stats.performanceMetrics = {
+      averageSuccessRate: totalSuccessRate / reviewCount,
+      totalReviews: reviewCount,
+      averageInterval: totalInterval / reviewCount
+    };
+  }
+
+  return stats;
+};
+
+const calculateQueuePerformance = (
+  queueItem: StudyQueue,
+  review: ReviewResult
+): QueueItemPerformance => {
+  const currentPerformance = queueItem.performance || {
+    totalAttempts: 0,
+    correctAttempts: 0,
+    lastAttempts: [],
+    averageInterval: 0,
+    streakCount: 0
+  };
+
+  const success = (review.rating ?? 0) >= 3;
+  const lastAttempt = {
+    timestamp: new Date(),
+    success
+  };
+
+  const lastAttempts = [lastAttempt, ...currentPerformance.lastAttempts].slice(0, 5);
+  
+  const streakCount = success 
+    ? currentPerformance.streakCount + 1
+    : 0;
+
+  const totalIntervals = currentPerformance.averageInterval * currentPerformance.totalAttempts;
+  const newAverageInterval = (totalIntervals + review.interval) / (currentPerformance.totalAttempts + 1);
+
+  return {
+    totalAttempts: currentPerformance.totalAttempts + 1,
+    correctAttempts: currentPerformance.correctAttempts + (success ? 1 : 0),
+    lastAttempts,
+    averageInterval: newAverageInterval,
+    streakCount
+  };
+};
+
+const findLastIndexByState = (queue: StudyQueue[], state: string): number => {
+  for (let i = queue.length - 1; i > 0; i--) {
+    if (queue[i].state === state) return i;
+  }
+  return -1;
+};
+
+const findFirstIndexByState = (queue: StudyQueue[], state: string): number => {
+  const index = queue.findIndex(item => item.state === state);
+  return index === -1 ? queue.length : index;
+};
+
+const findPositionByDueDate = (queue: StudyQueue[], dueDate: Date): number => {
+  return queue.findIndex(item => item.nextReview > dueDate);
+};
+
+export const getStudyQueue = async (userId: string): Promise<StudyQueue[]> => {
+  try {
+    const restoredQueue = await restoreQueueState(userId);
+    if (restoredQueue.length > 0) {
+      return restoredQueue;
+    }
+    
+    const counterDoc = await getDoc(doc(db, 'users', userId, 'counters', 'flashcards'));
+    const queue = counterDoc.data()?.metadata?.studyQueue || [];
+    
+    const now = new Date();
+    return queue
+      .filter((item: StudyQueue) => {
+        if (item.state === 'REVIEW') {
+          return item.nextReview <= now;
+        }
+        return true;
+      })
+      .sort((a: StudyQueue, b: StudyQueue) => {
+        if (a.state === 'RELEARN' && b.state !== 'RELEARN') return -1;
+        if (b.state === 'RELEARN' && a.state !== 'RELEARN') return 1;
+
+        if (a.state === 'LEARNING' && b.state !== 'LEARNING') return -1;
+        if (b.state === 'LEARNING' && a.state !== 'LEARNING') return 1;
+
+        if (a.state === 'LEARNING' && b.state === 'LEARNING') {
+          return (a.position || 0) - (b.position || 0);
+        }
+
+        const aOverdue = a.state === 'REVIEW' && a.nextReview < now;
+        const bOverdue = b.state === 'REVIEW' && a.nextReview < now;
+        if (aOverdue && !bOverdue) return -1;
+        if (bOverdue && !aOverdue) return 1;
+        
+        if (aOverdue && bOverdue) {
+          return a.nextReview.getTime() - b.nextReview.getTime();
+        }
+
+        if (a.state === 'REVIEW' && b.state === 'REVIEW') {
+          return a.nextReview.getTime() - b.nextReview.getTime();
+        }
+
+        if (a.state === 'NEW' && b.state !== 'NEW') return -1;
+        if (b.state === 'NEW' && a.state !== 'NEW') return 1;
+
+        return (a.position || 0) - (b.position || 0);
+      });
+  } catch (error) {
+    console.error('Error getting study queue:', error);
+    return [];
+  }
+};
+
+export const getFlashcardsForStudy = async (userId: string, limit: number = 20): Promise<FlashcardMetadata[]> => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  const counterDoc = await getDoc(counterRef);
+  
+  if (!counterDoc.exists()) return [];
+
+  const queue = counterDoc.data()?.metadata?.studyQueue || [];
+  return queue
+    .slice(0, limit)
+    .map((item: any) => ({
+      id: item.cardId,
+      position: item.position,
+      state: item.state,
+      nextReview: item.nextReview
+    }));
+};
+
+export const getMinimalCardData = async (userId: string, cardIds: string[]): Promise<Record<string, FlashcardMetadata>> => {
+  const cacheKey = `minimal-cards-${userId}-${cardIds.join(',')}`;
+  const cached = flashcardCache.get(cacheKey);
+  if (cached) return cached;
+
+  const chunks = [];
+  for (let i = 0; i < cardIds.length; i += 10) {
+    chunks.push(cardIds.slice(i, i + 10));
+  }
+
+  const cards = await Promise.all(
+    chunks.map(async chunk => {
+      const q = query(
+        collection(db, 'users', userId, 'flashcards'),
+        where(documentId(), 'in', chunk)
+      );
+      
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        word: doc.data().word,
+        categories: doc.data().categories || []
+      } as FlashcardMetadata)); 
+    })
+  );
+
+  const result = cards.flat().reduce((acc: Record<string, FlashcardMetadata>, card) => {
+    acc[card.id] = card;
+    return acc;
+  }, {});
+
+  flashcardCache.set(cacheKey, result);
+  return result;
+};
+
+export const performQueueMaintenance = async (userId: string): Promise<void> => {
+  const counterRef = doc(db, 'users', userId, 'counters', 'flashcards');
+  
+  try {
+    await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      let queue = counterDoc.data()?.metadata?.studyQueue || [];
+      
+      queue = cleanupQueue(queue);
+      
+      const validation = validateQueue(queue);
+      if (!validation.isValid) {
+        logger.warn('Queue validation failed:', validation.errors);
+        queue = cleanupQueue(queue);
+      }
+      
+      queue = rebalanceQueue(queue);
+      
+      transaction.update(counterRef, {
+        'metadata.studyQueue': queue,
+        'metadata.queueLastUpdated': new Date(),
+        'metadata.queueStats': calculateQueueStats(queue),
+        'metadata.lastMaintenance': new Date()
+      });
+    });
+  } catch (error) {
+    console.error('Error performing queue maintenance:', error);
+    throw error;
+  }
 };

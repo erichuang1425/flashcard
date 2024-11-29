@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Dialog,
@@ -37,7 +36,8 @@ export const ReadingAchievementPopup: React.FC<ReadingAchievementPopupProps> = (
           borderRadius: 3,
           backgroundColor: 'transparent',
           boxShadow: 'none',
-          overflow: 'visible'
+          overflow: 'visible',
+          maxWidth: { xs: '90%', sm: '400px' }
         }
       }}
     >
@@ -45,6 +45,7 @@ export const ReadingAchievementPopup: React.FC<ReadingAchievementPopupProps> = (
         <motion.div
           initial={{ scale: 0.5, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.5, opacity: 0 }}
           transition={{
             type: "spring",
             stiffness: 260,
@@ -56,9 +57,9 @@ export const ReadingAchievementPopup: React.FC<ReadingAchievementPopupProps> = (
             bgcolor: 'background.paper',
             borderRadius: 3,
             p: 3,
-            minWidth: 300,
             textAlign: 'center',
-            boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}30`
+            boxShadow: theme => `0 8px 32px ${theme.palette.success.main}30`,
+            border: theme => `1px solid ${theme.palette.success.main}20`
           }}>
             <IconButton
               onClick={onClose}
@@ -89,9 +90,10 @@ export const ReadingAchievementPopup: React.FC<ReadingAchievementPopupProps> = (
               variant="h6"
               gutterBottom
               sx={{
-                background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                background: theme => `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.success.light})`,
                 WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
+                WebkitTextFillColor: 'transparent',
+                fontWeight: 'bold'
               }}
             >
               Reading Achievement!

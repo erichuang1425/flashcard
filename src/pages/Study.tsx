@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Container, Typography, Box, Button, Paper, Alert, AlertTitle } from '@mui/material';
+import React, { useEffect, useState, useRef } from 'react';
+import { Container, Typography, Box, Button, Paper, Alert, AlertTitle, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getUserFlashcards, updateCardReview, saveStudyProgress, loadStudyProgress, clearStudyProgress } from '../services/firestore';
-import  FlashCard  from '../components/FlashCard';
+import { getUserFlashcards, updateCardReview, saveStudyProgress, loadStudyProgress, clearStudyProgress, getFlashcardMetadata, batchGetFlashcards, getFillInBlanksPreference, updateFlashcard } from '../services/firestore';
+import FlashCard from '../components/FlashCard';
 import { StudyProgress } from '../components/StudyProgress';
 import { StudyFeedback } from '../components/StudyFeedback';
-import { calculateNextReview } from '../utils/spaced-repetition';
-import type { Flashcard, StudyProgress as StudyProgressType } from '../types';
+import { calculateNextReview, DEFAULT_CONFIG, ReviewResult } from '../utils/spaced-repetition';
+import type { Flashcard, StudyProgress as StudyProgressType, FlashcardMetadata } from '../types';
 import { StudyModeSelector } from '../components/study-modes/StudyModeSelector';
 import type { StudyMode } from '../types';
 import { FillInBlanks } from '../components/study-modes/FillInBlanks';
@@ -17,8 +17,9 @@ import { updateUserXP } from '../services/gamification';
 import { useI18n } from '../i18n/I18nContext';
 import type { FlashcardsResponse } from '../types/responses';
 import { useUserPreferences } from '../context/UserPreferencesContext';
-import { db } from '../services/firebase';
-import { setDoc, doc } from '@firebase/firestore';
+import { auth, db } from '../services/firebase';
+import { setDoc, doc, collection, getDocs, getDoc } from '@firebase/firestore';
+import { CategorySelector } from '../components/CategorySelector';
 
 export const Study: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ export const Study: React.FC = () => {
     currentIndex: 0,
     stats: {
       correct: 0,
-      incorrect: 0, 
+      incorrect: 0,
       streak: 0,
       cardsReviewed: 0,
       timeSpent: 0
@@ -47,10 +48,33 @@ export const Study: React.FC = () => {
   const [hasExistingSession, setHasExistingSession] = useState(false);
 
   const studyStartTime = React.useRef(Date.now());
-
-
   const cardAnswered = React.useRef(false);
 
+  const [metadata, setMetadata] = useState<FlashcardMetadata[]>([]);
+  const preloadQueue = useRef<string[]>([]);
+  const cardCache = useRef<Map<string, Flashcard>>(new Map());
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentCards, setCurrentCards] = useState<Flashcard[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [totalFilteredCards, setTotalFilteredCards] = useState<number>(0);
+  const [fillBlanksPreference, setFillBlanksPreference] = useState(false);
+  
+  useEffect(() => {
+    const loadPreference = async () => {
+      if (auth.currentUser) {
+        const pref = await getFillInBlanksPreference(auth.currentUser.uid);
+        setFillBlanksPreference(pref);
+      }
+    };
+    loadPreference();
+  }, []);
+
+  const handleFillBlanksPreferenceChange = (newPreference: boolean) => {
+    setFillBlanksPreference(newPreference);
+    cardAnswered.current = false;
+    setCurrentIndex(prev => prev);
+  };
 
   useEffect(() => {
     cardAnswered.current = false;
@@ -59,36 +83,92 @@ export const Study: React.FC = () => {
   const loadCards = async () => {
     if (user) {
       try {
-        const response: FlashcardsResponse = await getUserFlashcards(user.uid);
+        setIsLoading(true);
+        const flashcardsRef = collection(db, 'users', user.uid, 'flashcards');
+        const snapshot = await getDocs(flashcardsRef);
+        
+        const userSettings = await getDoc(doc(db, 'users', user.uid, 'preferences', 'settings'));
+        const srsType = userSettings.data()?.studySettings?.srsType || 'position';
+        const newCardsPerDay = userSettings.data()?.studySettings?.defaultNewCardsPerDay || 20;
+        const reviewsPerDay = userSettings.data()?.studySettings?.defaultReviewsPerDay || 100;
+
         const now = new Date();
-        
-        const dueCards = response.cards
-          .filter((card: Flashcard) => {
-            if (!card.nextReview) return true;
-            const reviewDate = card.nextReview instanceof Date 
-              ? card.nextReview 
-              : new Date(card.nextReview);
-            return reviewDate <= now;
+        const flashcardMeta = snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            nextReview: doc.data().nextReview?.toDate() || now,
+            state: doc.data().state as 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN',
+            position: doc.data().position as number | undefined,
+            word: doc.data().word || '',
+            categories: doc.data().categories || [],
+            difficulty: doc.data().difficulty || 0
+          }))
+          .filter(card => {
+            if (card.state === 'NEW') {
+              return true;
+            }
+            return card.nextReview <= now;
           })
-          // Limit cards based on preference
-          .slice(0, preferences.studyVocabLimit);
+          .sort((a, b) => {
+            if (a.state === 'RELEARN' && b.state !== 'RELEARN') return -1;
+            if (b.state === 'RELEARN' && a.state !== 'RELEARN') return 1;
+            if (a.state === 'NEW' && b.state !== 'NEW') return -1;
+            if (b.state === 'NEW' && a.state !== 'NEW') return 1;
+            return srsType === 'interval' 
+              ? a.nextReview.getTime() - b.nextReview.getTime()
+              : (a.position || 0) - (b.position || 0);
+          });
+
+        const newCards = flashcardMeta.filter(card => card.state === 'NEW').slice(0, newCardsPerDay);
+        const reviewCards = flashcardMeta.filter(card => card.state !== 'NEW').slice(0, reviewsPerDay);
         
-        if (dueCards.length > 0) {
-          setCards(dueCards);
-          setError(null);
-        } else {
-          setError('No cards due for review');
+        const todaysCards = [...newCards, ...reviewCards];
+
+        flashcardMeta.sort((a, b) => {
+          if (a.state === 'RELEARN' && b.state !== 'RELEARN') return -1;
+          if (b.state === 'RELEARN' && a.state !== 'RELEARN') return 1;
+          if (a.state === 'NEW' && b.state !== 'NEW') return -1;
+          if (b.state === 'NEW' && a.state !== 'NEW') return 1;
+          return (a.position || 0) - (b.position || 0);
+        });
+
+        setMetadata(flashcardMeta);
+        setTotalFilteredCards(flashcardMeta.length);
+        
+        cardCache.current.clear();
+        preloadQueue.current = [];
+        
+        if (flashcardMeta.length === 0) {
+          setCards([]);
+          setIsLoading(false);
+          return;
         }
+
+        const INITIAL_BATCH = studyMode === 'matching' ? 12 : 5;
+        const firstBatchIds = flashcardMeta.slice(0, INITIAL_BATCH).map(m => m.id);
+        const firstBatch = await batchGetFlashcards(user.uid, firstBatchIds);
+        
+        preloadQueue.current = flashcardMeta
+          .slice(INITIAL_BATCH)
+          .map(m => m.id);
+        
+        firstBatch.forEach(card => cardCache.current.set(card.id, card));
+        setCards(firstBatch);
+        setCurrentIndex(0);
+        setError(null);
       } catch (err) {
         console.error('Error loading cards:', err);
-        setError('Failed to load flashcards. Please check your connection and try again.');
+        setError('Failed to load flashcards. Please checkk your connection and try again.');
+      } finally {
+        setIsLoading(false);
       }
     }
   };
 
   useEffect(() => {
     loadCards();
-  }, [user, preferences.studyVocabLimit]);
+  }, [user, preferences.studyVocabLimit, selectedCategory]);
 
   useEffect(() => {
     const checkExistingSession = async () => {
@@ -107,9 +187,8 @@ export const Study: React.FC = () => {
   }, [user]);
 
   const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'matching'] as const;
-  
-  useEffect(() => {
 
+  useEffect(() => {
     if (!validModes.includes(studyMode)) {
       setStudyMode('flashcard');
     }
@@ -119,63 +198,122 @@ export const Study: React.FC = () => {
     loadCards();
   }, [studyMode]);
 
-  const handleAnswer = async (isCorrect: boolean) => {
-    if (!user || currentIndex >= cards.length || cardAnswered.current) return;
-    
-    cardAnswered.current = true; // Mark as answered
-    const xpGained = isCorrect ? 8 : 3;
-    await updateUserXP(user.uid, xpGained);
-    
-    const currentCard = cards[currentIndex];
-    await saveStudyProgress(user.uid, {
-      cardId: currentCard.id,
-      rating: isCorrect ? 4 : 2,
-      isCorrect,
-      mode: studyMode,
-      timeSpent: Date.now() - studyStartTime.current
-    });
-
-    studyStartTime.current = Date.now();
-    
+  useEffect(() => {
     setProgress(prev => ({
       ...prev,
-      currentIndex: prev.currentIndex + 1,
       stats: {
         ...prev.stats,
-        correct: prev.stats.correct + (isCorrect ? 1 : 0),
-        incorrect: prev.stats.incorrect + (isCorrect ? 0 : 1),
-        streak: isCorrect ? prev.stats.streak + 1 : 0,
-        cardsReviewed: prev.stats.cardsReviewed + 1
+        totalCards: totalFilteredCards
       }
     }));
+  }, [totalFilteredCards]);
 
-    if (currentIndex < cards.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-   
-    } else {
-      setIsComplete(true);
+  const checkAndLoadNextCard = async () => {
+    if (cardAnswered.current) {
+      try {
+        setIsLoading(true);
+        if (currentIndex < cards.length - 1) {
+          cardAnswered.current = false;
+          setCurrentIndex(prev => prev + 1);
+        } else if (preloadQueue.current.length > 0) {
+          const newCards = await preloadNextBatch();
+          if (newCards && newCards.length) {
+            cardAnswered.current = false;
+            setCurrentIndex(prev => prev + 1);
+          } else {
+            setIsComplete(true);
+          }
+        } else {
+          setIsComplete(true);
+        }
+      } catch (error) {
+        console.error('Error advancing to next card:', error);
+        setError('Failed to load next card');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleRating = async (rating: 1 | 2 | 3 | 4 | 5) => {
-    if (!user || currentIndex >= cards.length || cardAnswered.current) return;
+  const preloadNextBatch = async () => {
+    if (!user || preloadQueue.current.length === 0) return;
     
-    cardAnswered.current = true;
+    const BATCH_SIZE = studyMode === 'matching' ? 12 : 10;
+    const idsToLoad = preloadQueue.current.slice(0, BATCH_SIZE);
+    
+    const newCards = await batchGetFlashcards(user.uid, idsToLoad);
+    newCards.forEach(card => {
+      if (!cardCache.current.has(card.id)) {
+        cardCache.current.set(card.id, card);
+      }
+    });
+    preloadQueue.current = preloadQueue.current.slice(BATCH_SIZE);
+    
+    setCards(prev => [...prev, ...newCards]);
+    return newCards;
+  };
 
-    try {
-      const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
-      await updateUserXP(user.uid, xpGained);
+  const handleAnswer = async (isCorrect: boolean) => {
+    if (!user || currentIndex >= cards.length || cardAnswered.current) return;
 
-      const currentCard = cards[currentIndex];
-      await saveStudyProgress(user.uid, {
-        cardId: currentCard.id,
+    const currentCard = cards[currentIndex];
+    const rating = isCorrect ? 4 : 1;
+    
+    const userSettings = await getDoc(doc(db, 'users', user.uid, 'preferences', 'settings'));
+    const srsType = userSettings.data()?.studySettings?.srsType || 'position';
+
+    const srsResult = calculateNextReview(
+      rating,
+      currentCard.difficulty,
+      currentCard.state || 'NEW',
+      srsType === 'position' ? currentCard.position || 0 : currentCard.interval || 0,
+      currentCard.easeFactor || DEFAULT_CONFIG.startingEase
+    );
+
+    const cardToReposition = {
+      ...currentCard,
+      [srsType === 'position' ? 'position' : 'interval']: srsResult.interval,
+      state: srsResult.state as 'NEW' | 'LEARNING' | 'REVIEW' | 'RELEARN',
+      easeFactor: srsResult.easeFactor
+    };
+
+    const newCards = cards.filter(c => c.id !== currentCard.id);
+
+    const insertIndex = srsType === 'position' 
+  ? Math.min(
+      calculateRelativePosition(
+        newCards.length,
+        srsResult.interval,
         rating,
-        isCorrect: rating >= 3,
-        mode: studyMode,
-        timeSpent: Date.now() - studyStartTime.current
-      });
+        cardToReposition.state
+      ),
+      newCards.length
+    )
+  : Math.min(currentIndex + 6, newCards.length);
 
- 
+    newCards.splice(insertIndex, 0, cardToReposition);
+    setCards(newCards);
+    cardAnswered.current = true;
+    const xpGained = isCorrect ? 8 : 3;
+    await saveStudyProgress(user.uid, {
+      cardId: currentCard.id,
+      ...srsResult,
+      rating: rating,
+      isCorrect: rating >= 3,
+      mode: studyMode,
+      timeSpent: Date.now() - studyStartTime.current
+    });
+    await updateUserXP(user.uid, xpGained);
+    await checkAndLoadNextCard();
+  };
+
+  const handleRating = async (rating: 1 | 2 | 3 | 4 | 5, srsResult: ReviewResult) => {
+    if (!user || currentIndex >= cards.length) return;
+    
+    try {
+      const currentCard = cards[currentIndex];
+      const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
+
       setProgress(prev => ({
         ...prev,
         stats: {
@@ -183,41 +321,64 @@ export const Study: React.FC = () => {
           correct: prev.stats.correct + (rating >= 3 ? 1 : 0),
           incorrect: prev.stats.incorrect + (rating < 3 ? 1 : 0),
           streak: rating >= 3 ? prev.stats.streak + 1 : 0,
-          cardsReviewed: prev.stats.cardsReviewed + 1,
-          timeSpent: prev.stats.timeSpent + (Date.now() - studyStartTime.current)
+          cardsReviewed: prev.stats.cardsReviewed + 1
         }
       }));
 
+      await Promise.all([
+        saveStudyProgress(user.uid, {
+          cardId: currentCard.id,
+          rating,
+          isCorrect: rating >= 3,
+          mode: studyMode,
+          timeSpent: Date.now() - studyStartTime.current,
+          interval: srsResult.interval,
+          easeFactor: srsResult.easeFactor,
+          nextReview: srsResult.nextReview
+        }),
+        updateUserXP(user.uid, xpGained),
+        updateFlashcard(user.uid, currentCard.id, {
+          state: srsResult.state,
+          interval: srsResult.interval,
+          easeFactor: srsResult.easeFactor,
+          nextReview: srsResult.nextReview
+        })
+      ]);
 
-      studyStartTime.current = Date.now();
-      if (currentIndex < cards.length - 1) {
-        setCurrentIndex(prev => prev + 1);
+      cardAnswered.current = true;
+
+      const hasMoreCards = currentIndex < cards.length - 1 || preloadQueue.current.length > 0;
+      if (hasMoreCards) {
+        await checkAndLoadNextCard();
       } else {
         setIsComplete(true);
       }
-    } catch (error) {
-      console.error('Error saving progress:', error);
+
+    } catch (err) {
+      console.error('Error saving progress:', err);
+      setError('Failed to save progress');
+      cardAnswered.current = false;
     }
   };
 
   const handleMatchingComplete = async (correct: number) => {
     if (!user) return;
-    
+
     const xpGained = correct * 5;
     await updateUserXP(user.uid, xpGained);
-    
+
     setCurrentIndex(prev => prev + 6);
     setProgress(prev => ({
-      ...prev,
-      currentIndex: prev.currentIndex + 6,
-      stats: {
-        ...prev.stats,
-        correct: prev.stats.correct + correct,
-        incorrect: prev.stats.incorrect + (6 - correct),
-        streak: correct === 6 ? prev.stats.streak + 1 : 0,
-        cardsReviewed: prev.stats.cardsReviewed + 6
-      }
-    }));
+        ...prev,
+        currentIndex: prev.currentIndex + 6,
+        stats: {
+          ...prev.stats,
+          correct: prev.stats.correct + correct,
+          incorrect: prev.stats.incorrect + (6 - correct),
+          streak: correct === 6 ? prev.stats.streak + 1 : 0,
+          cardsReviewed: prev.stats.cardsReviewed + 6
+        }
+      }));
   };
 
   const handleStartNewSession = async () => {
@@ -235,7 +396,7 @@ export const Study: React.FC = () => {
 
   const handleResumeSession = () => {
     if (!sessionProgress) return;
-    
+
     if (!sessionProgress.cards || !sessionProgress.cards.length) {
       handleStartNewSession();
       return;
@@ -256,17 +417,14 @@ export const Study: React.FC = () => {
     });
   };
 
-
   const handleModeChange = (newMode: StudyMode) => {
     if (validModes.includes(newMode as typeof validModes[number])) {
       setStudyMode(newMode);
       cardAnswered.current = false;
-    
-      setCurrentIndex(0);
+      setCurrentIndex(currentIndex);
       setProgress(prev => ({
         ...prev,
-        mode: newMode,
-        currentIndex: 0
+        mode: newMode
       }));
     }
   };
@@ -275,20 +433,36 @@ export const Study: React.FC = () => {
     switch (studyMode) {
       case 'flashcard':
         return (
-          <FlashCard 
+          <FlashCard
             card={cards[currentIndex]}
             onRating={handleRating}
             showAnswer={false}
+            isLoading={isLoading}
           />
         );
       case 'multipleChoice':
         return <MultipleChoice card={cards[currentIndex]} onAnswer={handleAnswer} />;
       case 'fillInBlanks':
-        return <FillInBlanks card={cards[currentIndex]} onAnswer={handleAnswer} />;
+        return (
+          <FillInBlanks 
+            card={cards[currentIndex]} 
+            onAnswer={handleAnswer}
+            useWordAsQuestion={fillBlanksPreference} 
+          />
+        );
       case 'matching':
         return <MatchingGame cards={cards.slice(currentIndex, currentIndex + 6)} onComplete={handleMatchingComplete} />;
     }
   };
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!user && !isLoading) {
+        navigate('/login');
+      }
+    };
+    checkAuth();
+  }, [user, isLoading, navigate]);
 
   if (error) {
     return (
@@ -324,7 +498,14 @@ export const Study: React.FC = () => {
   if (!cards.length) {
     return (
       <Container>
-        <Typography variant="h6">No cards due for study!</Typography>
+        <Typography variant="h6" sx={{ textAlign: 'center', mt: 2 }}>
+          {t('study.noCards', {
+            values: { 
+              total: totalFilteredCards,
+              category: selectedCategory || t('study.allCards')
+            }
+          })}
+        </Typography>
       </Container>
     );
   }
@@ -332,34 +513,47 @@ export const Study: React.FC = () => {
   if (isComplete) {
     return (
       <Container>
-        <Typography variant="h6">Study session complete!</Typography>
-        <Button onClick={() => window.location.reload()}>Start New Session</Button>
+        <Typography variant="h6" sx={{ textAlign: 'center', mt: 2 }}>
+          {t('study.complete', { 
+            values: {
+              reviewed: progress.stats.cardsReviewed,
+              total: totalFilteredCards
+            }
+          })}
+        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+          <Button onClick={() => window.location.reload()}>
+            {t('study.startNew')}
+          </Button>
+        </Box>
       </Container>
     );
   }
 
   return (
-    <Container 
-      maxWidth="xl" 
-      sx={{ 
-        py: { xs: 1, sm: 3 }, 
-        px: { xs: 1, sm: 2 },
+    <Container
+      maxWidth="xl"
+      sx={{
+        py: { xs: 1, sm: 3 },
+        px: { xs: 0, sm: 2 },
         minHeight: '100vh',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        overflow: 'hidden'
       }}
     >
-      <Box sx={{ 
-        minHeight: { 
-          xs: 'calc(100vh - 56px)', 
-          sm: 'calc(100vh - 64px)' 
+      <Box sx={{
+        minHeight: {
+          xs: 'calc(100vh - 56px)',
+          sm: 'calc(100vh - 64px)'
         },
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
         gap: { xs: 1, sm: 3 },
+        width: '100%',
+        pl: { xs: 0 }
       }}>
-        {/* Progress sidebar */}
-        <Box sx={{ 
+        <Box sx={{
           position: { xs: 'static', md: 'sticky' },
           top: { xs: 0, md: 24 },
           width: { xs: '100%', md: '300px' },
@@ -368,18 +562,27 @@ export const Study: React.FC = () => {
           overflowY: 'auto',
           bgcolor: 'background.paper',
           borderRadius: 2,
-          p: 2, 
+          p: { xs: 2, sm: 2 },
+          pl: { xs: 0, sm: 0, md: 0 },
+          ml: { xs: 0, sm: 0, md: 0 },
           display: 'flex',
           flexDirection: 'column',
-          gap: 2
+          gap: 2,
+          mb: { xs: 2, md: 0 },
+          '& > *': {
+            pl: { xs: 0, sm: 0, md: 0 },
+            ml: { xs: 0, sm: 0, md: 0 },
+          }
         }}>
-          <StudyProgress 
-            progress={progress} 
-            total={cards.length} 
+          <StudyProgress
+            progress={progress}
+            total={totalFilteredCards}
           />
-          <StudyModeSelector 
-            mode={studyMode} 
-            onModeChange={handleModeChange} 
+          <StudyModeSelector
+            mode={studyMode}
+            onModeChange={handleModeChange}
+            onFillBlanksPreferenceChange={handleFillBlanksPreferenceChange}
+            currentFillInBlanksPreference={fillBlanksPreference}
             modes={[
               { value: 'flashcard', label: t('study.modes.flashcard') },
               { value: 'multipleChoice', label: t('study.modes.multipleChoice') },
@@ -387,36 +590,64 @@ export const Study: React.FC = () => {
               { value: 'fillInBlanks', label: t('study.modes.fillBlanks') }
             ]}
           />
-          <Typography 
-            variant="body2" 
+          <CategorySelector
+            categories={Array.from(new Set(metadata.flatMap(card => Array.isArray(card.categories) ? card.categories : []).filter(Boolean)))}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            label={t('study.categories.label')}
+            placeholder={t('study.categories.placeholder')}
+            allCategoriesLabel={t('study.categories.all')}
+            noOptionsText={t('study.categories.noCategories')}
+          />
+          <Typography
+            variant="body2"
             sx={{ textAlign: 'center', color: 'text.secondary' }}
           >
             {t('study.progress.cardProgress', {
               values: {
                 current: currentIndex + 1,
-                total: cards.length
+                total: totalFilteredCards
               }
             })}
           </Typography>
         </Box>
 
-        {/* Main content area */}
-        <Box sx={{ 
+        <Box sx={{
           flex: 1,
-          minHeight: { 
-            xs: 'calc(100vh - 200px)',
-            sm: '60vh' 
+          minHeight: {
+            xs: '65vh',
+            sm: '60vh'
           },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           gap: { xs: 1, sm: 3 },
           order: { xs: 1, md: 2 },
-          pt: { xs: 1, md: 2 }
+          pt: { xs: 1, md: 2 },
+          width: '100%',
+          pl: { xs: 0 },
+          px: { xs: 0, sm: 0 },
+          ml: { xs: 0 }
         }}>
           {renderStudyMode()}
         </Box>
       </Box>
     </Container>
+  );
+};
+
+const calculateRelativePosition = (
+  queueLength: number,
+  interval: number,
+  rating: number,
+  state: string
+): number => {
+  if (rating <= 2) {
+    return Math.min(3, queueLength);
+  }
+  
+  return Math.min(
+    Math.floor(queueLength * (interval / 100)),
+    queueLength
   );
 };

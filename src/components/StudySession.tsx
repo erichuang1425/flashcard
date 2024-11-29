@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import type { Flashcard } from '../types';
 import { GlassPaper, FloatingBox } from './common/StyledComponents';
+import { useAudio } from '../hooks/useAudio';
 
 interface StudySessionSummary {
   duration: number;
@@ -47,6 +48,7 @@ const calculateNewDifficulty = (currentDifficulty: number, rating: Rating): numb
 export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete }) => {
   const { user } = useAuth();
   const { t } = useI18n();
+  const { playSound } = useAudio();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionStart] = useState(new Date());
@@ -67,7 +69,13 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
       const isCorrect = rating >= 3;
       const isMastered = rating >= 4;
       const newDifficulty = calculateNewDifficulty(card.difficulty, rating);
-      const { nextReview } = calculateNextReview(rating, newDifficulty);
+      const { nextReview } = calculateNextReview(
+        rating,
+        newDifficulty,
+        card.state || 'NEW',
+        card.interval || 0,
+        card.easeFactor || 2.5
+      );
       
       await updateCardReview(
         user.uid,
@@ -86,7 +94,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
       }));
 
       if (currentIndex >= cards.length - 1) {
-
+        playSound('LEVEL_UP');
         onComplete({
           duration: (new Date().getTime() - sessionStart.getTime()) / 1000,
           cardsStudied: cards.length,
@@ -96,6 +104,7 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
         });
         setStats(prev => ({ ...prev, completed: true }));
       } else {
+        playSound(rating >= 3 ? 'CORRECT_ANSWER' : 'WRONG_ANSWER');
         setCurrentIndex(prev => prev + 1);
       }
     } finally {

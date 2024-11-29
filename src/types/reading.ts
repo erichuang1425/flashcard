@@ -19,6 +19,16 @@ export interface ArticleProgress {
   wordsRead: number;
   lastPosition: number;
   completed: boolean;
+  progress: number;
+  lastRead?: Date;
+  timeSpent: number;
+  completionDate?: Date;
+}
+
+export interface ReadingProgress extends ArticleProgress {
+  articleId: string;
+  userId: string;
+  lastUpdated: string;
 }
 
 export interface ReadingPreferences {

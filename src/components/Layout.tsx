@@ -17,10 +17,10 @@ import { useUserPreferences } from '../context/UserPreferencesContext';
 import { useI18n } from '../i18n/I18nContext';
 import { useReadingMode } from '../context/ReadingModeContext';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
-import { getRandomArticle } from '../services/articleService';
 import { logger } from '../services/logging';
 import { useAuth } from '../context/AuthContext';
 import DarkModeIcon from '@mui/icons-material/DarkMode'; 
+import { ReadingSpeedTracker } from './reading-mode/ReadingSpeedTracker';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,34 +28,20 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useI18n();
-  const { levelSystem } = useGamification();
+  const { levelSystem, showGamePanel, toggleGamePanel, showMobileGamePanel, toggleMobileGamePanel } = useGamification();
   const { focusMode, toggleFocusMode } = useFocusMode();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 900);
-  const [showGamePanel, setShowGamePanel] = useState(true);
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [autoHide, setAutoHide] = useState(false);
   const location = useLocation();
-  const [mobileGamePanelOpen, setMobileGamePanelOpen] = useState(false);
   const { preferences, setPreferences } = useUserPreferences();
   const { currentArticle, setCurrentArticle } = useReadingMode();
   const { user } = useAuth();
+  const isReadingPage = location.pathname === '/reading';
 
-  const toggleGamePanel = () => {
-    if (isMobile) {
-      setShowGamePanel(!showGamePanel); 
-    } else {
-      setShowGamePanel(!showGamePanel);
-      setIsPanelCollapsed(false);
-    }
-  };
-
-  const toggleMobileGamePanel = () => {
-    setMobileGamePanelOpen(!mobileGamePanelOpen);
-  };
-  
   const updateReadingSettings = (key: string, value: any) => {
     setPreferences(prev => ({
       ...prev,
@@ -65,20 +51,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       }
     }));
   };
-
-  const handleRandomArticle = async () => {
-    if (!user) return;
-    try {
-      const article = await getRandomArticle(user.uid);
-      if (article) {
-        setCurrentArticle(article);
-        setMobileGamePanelOpen(false);
-      }
-    } catch (err) {
-      logger.error('Failed to get random article', err as Error);
-    }
-  };
-
 
   useEffect(() => {
     const handleResize = () => {
@@ -105,8 +77,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
       transition: 'all 0.3s ease'
     }}>
-      {/* Only show NavBar if user is logged in */}
-      {user && (
+      {/* Only show NavBar if user is logged in and not on reading page */}
+      {user && !isReadingPage && (
         <NavBar 
           onTogglePanel={toggleGamePanel} 
           showGamePanel={showGamePanel && !!user} 
@@ -200,6 +172,28 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   }}>
                     {levelSystem && <LevelProgress />}
                     <PomodoroTimer />
+                    {location.pathname === '/reading' && currentArticle && (
+                      <>
+                        <Paper
+                          elevation={0}
+                          sx={{
+                            p: 2,
+                            bgcolor: 'background.default', 
+                            borderRadius: 2,
+                            mb: 2
+                          }}
+                        >
+                          <ReadingSpeedTracker compact />
+                          <Box sx={{ 
+                            display: 'flex',
+                            justifyContent: 'center',
+                            gap: 2,
+                            mt: 2
+                          }}>
+                          </Box>
+                        </Paper>
+                      </>
+                    )}
                   </Box>
                 </Paper>
               </>
@@ -208,27 +202,30 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Mobile Panel */}
             {isMobile && (
               <>
-                <Fab
-                  size="small"
-                  color="primary"
-                  onClick={toggleMobileGamePanel}
-                  sx={{
-                    position: 'fixed',
-                    right: 16,
-                    bottom: 16,
-                    zIndex: 1200,
-                    transform: mobileGamePanelOpen ? 'rotate(180deg)' : 'none',
-                    transition: 'transform 0.3s ease'
-                  }}
-                >
-                  <KeyboardArrowUpIcon />
-                </Fab>
+                {/* Hide game panel toggle button on reading pages */}
+                {!isReadingPage && (
+                  <Fab
+                    size="small"
+                    color="primary"
+                    onClick={toggleMobileGamePanel}
+                    sx={{
+                      position: 'fixed',
+                      right: 16,
+                      bottom: 16,
+                      zIndex: 1200,
+                      transform: showMobileGamePanel ? 'rotate(180deg)' : 'none',
+                      transition: 'transform 0.3s ease'
+                    }}
+                  >
+                    <KeyboardArrowUpIcon />
+                  </Fab>
+                )}
 
                 <SwipeableDrawer
                   anchor="bottom"
-                  open={mobileGamePanelOpen}
-                  onClose={() => setMobileGamePanelOpen(false)}
-                  onOpen={() => setMobileGamePanelOpen(true)}
+                  open={showMobileGamePanel}
+                  onClose={() => toggleMobileGamePanel()}
+                  onOpen={() => toggleMobileGamePanel()}
                   disableSwipeToOpen={false}
                   swipeAreaWidth={30}
                   ModalProps={{
@@ -334,14 +331,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                             justifyContent: 'center',
                             gap: 2
                           }}>
-                            <Button
-                              variant="contained"
-                              onClick={handleRandomArticle}
-                              startIcon={<ShuffleIcon />}
-                              fullWidth
-                            >
-                              {t('reading.actions.random')}
-                            </Button>
                           </Box>
                         </Paper>
                       </>

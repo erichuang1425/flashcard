@@ -1,38 +1,9 @@
+import { UserPreferences } from '../types';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from './AuthContext';
 import { debounce } from 'lodash';
-
-export interface UserPreferences {
-  theme: 'system' | 'light' | 'dark';
-  notifications: boolean;
-  audioEnabled: boolean;
-  dailyGoal: number;
-  studySessionLength: number;
-  pomodoroSettings: {
-    workDuration: number;
-    breakDuration: number;
-    autoStartBreak: boolean;
-  };
-  studyVocabLimit: number;
-  language: string;
-  appMode: 'flashcards' | 'reading';
-  lastModeSwitch?: string;
-  lastUpdated?: string;
-  readingSettings: {
-    fontSize: number;
-    lineHeight: number;
-    fontFamily: string;
-    enableTTS: boolean;
-    autoScroll: boolean;
-    highlightColor: string;
-    focusModeEnabled: boolean;
-    readingSpeed?: number;
-    highlightCategories?: string[];
-    theme: 'light' | 'dark' | 'sepia';
-  };
-}
 
 const defaultPreferences: UserPreferences = {
   theme: 'system',
@@ -59,6 +30,13 @@ const defaultPreferences: UserPreferences = {
     readingSpeed: 250,
     highlightCategories: [],
     theme: 'light'
+  },
+  preloadBatchSize: 5,
+  cacheTimeout: 3600,
+  studySettings: {
+    srsType: 'interval',
+    defaultNewCardsPerDay: 20,
+    defaultReviewsPerDay: 100
   }
 };
 

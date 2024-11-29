@@ -3,6 +3,7 @@ import { Box, Paper, Grid, Button, Typography, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { useI18n } from '../../i18n/I18nContext';
 import { saveStudyProgress } from '../../services/firestore';
+import { useAudio } from '../../hooks/useAudio';
 
 interface Props {
   cards: Flashcard[];
@@ -20,6 +21,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
   const { t } = useI18n();
+  const { playSound } = useAudio();
   const [selected, setSelected] = useState<string | null>(null);
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -47,12 +49,14 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
       : currentCard.word === selected && currentCard.englishDefinition === item;
 
     if (isMatch) {
+      playSound('CORRECT_ANSWER');
       const newMatched = new Set([...Array.from(matched), item, selected]);
       setMatched(newMatched);
       setFeedback({ message: t('study.matching.pairFound'), type: 'success' });
       
       // Only mark current card as completed when its pair is matched
       if (newMatched.has(currentCard.word) && newMatched.has(currentCard.englishDefinition)) {
+        playSound('LEVEL_UP');
         await saveStudyProgress(currentCard.userId, {
           cardId: currentCard.id,
           rating: 4,
@@ -91,6 +95,7 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
         }, 1000);
       }
     } else {
+      playSound('WRONG_ANSWER');
       setFeedback({ message: t('study.matching.pairNotFound'), type: 'error' });
     }
     

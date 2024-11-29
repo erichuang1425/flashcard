@@ -6,14 +6,18 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
-  signInWithPopup 
+  signInWithPopup,
+  setPersistence,
+  browserLocalPersistence 
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import type { User } from '../types';
+import { logger } from '../services/logging';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  authInitialized: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -25,19 +29,55 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email!,
-          displayName: firebaseUser.displayName || undefined
-        });
-      } else {
-        setUser(null);
+    // Start with loading true
+    setLoading(true);
+    
+    // Check for persisted auth state
+    const lastAuthCheck = localStorage.getItem('lastAuthCheck');
+    if (lastAuthCheck) {
+      const lastCheck = new Date(lastAuthCheck);
+      const now = new Date();
+      // If last check was within last 24 hours, consider it valid
+      if (now.getTime() - lastCheck.getTime() < 24 * 60 * 60 * 1000) {
+        // Keep existing auth state while verifying
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          setUser({
+            uid: currentUser.uid,
+            email: currentUser.email!,
+            displayName: currentUser.displayName || undefined
+          });
+        }
       }
-      setLoading(false);
+    }
+
+    // Set persistence to LOCAL for better mobile experience
+    setPersistence(auth, browserLocalPersistence).catch(console.error);
+    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      try {
+        if (firebaseUser) {
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email!,
+            displayName: firebaseUser.displayName || undefined
+          });
+          localStorage.setItem('lastAuthCheck', new Date().toISOString());
+        } else {
+          setUser(null);
+          localStorage.removeItem('lastAuthCheck');
+        }
+      } catch (err) {
+        logger.error('Auth state change error:', err as Error);
+        setUser(null);
+        localStorage.removeItem('lastAuthCheck');
+      } finally {
+        setLoading(false);
+        setAuthInitialized(true);
+      }
     });
 
     return () => unsubscribe();
@@ -62,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, loading, authInitialized, signIn, signUp, signOut, signInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );
