@@ -10,7 +10,12 @@ import {
   Fade,
   Stack,
   CircularProgress,
-  Fab
+  Fab,
+  Pagination,
+  Snackbar,
+  Alert,
+  Button,
+  Collapse
 } from '@mui/material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import NotesIcon from '@mui/icons-material/Notes';
@@ -22,7 +27,6 @@ import { NoteSystem } from './NoteSystem';
 import { motion } from 'framer-motion';
 import { Paper3D } from '../common/Paper3D';
 import { ReadingAchievementPopup } from './ReadingAchievementPopup';
-import { ReadingActionMenu } from './ReadingActionMenu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -33,13 +37,30 @@ import { getRandomArticle } from '../../services/articleService';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
-import { RandomArticleButton } from './RandomArticleButton';
 import { useFocusMode } from '../../context/FocusModeContext';
+import { MobileDictionaryLookup } from './MobileDictionaryLookup';
+import { MobileContextMenu } from './MobileContextMenu';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import { ReadingSettingsDialog } from './ReadingSettingsDialog';
+import useFullscreen from '../../hooks/useFullscreen';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import { useI18n } from '../../i18n/I18nContext';
+import SettingsIcon from '@mui/icons-material/Settings';
+import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
+import FormatLineSpacingIcon from '@mui/icons-material/FormatLineSpacing';
+import FontDownloadIcon from '@mui/icons-material/FontDownload';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import { getFlashcardMetadata } from '../../services/firestore';
+import { FlashcardCounter } from '../../types';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../services/firebase';
+import { useAudio } from '../../hooks/useAudio';
 
 export const ReadingInterface: React.FC = () => {
   const { user } = useAuth();
   const { currentArticle, readingProgress, updateProgress, isReading, setCurrentArticle } = useReadingMode();
-  const { preferences } = useUserPreferences();
+  const { preferences, setPreferences } = useUserPreferences();
   const { focusMode, toggleFocusMode } = useFocusMode();
   const [activeParagraph, setActiveParagraph] = useState<number>(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -59,6 +80,99 @@ export const ReadingInterface: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [mobileDict, setMobileDict] = useState<{
+    open: boolean;
+    word: string;
+    definition: WordDefinition | null;
+    isLoading: boolean;
+    error: string | null;
+  }>({
+    open: false,
+    word: '',
+    definition: null,
+    isLoading: false,
+    error: null
+  });
+  const [definition, setDefinition] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [showCompletionAlert, setShowCompletionAlert] = useState(false);
+  const COMPLETION_THRESHOLD = 0.9;
+  const [textSettingsOpen, setTextSettingsOpen] = useState(false);
+  const { t } = useI18n();
+  const [metadata, setMetadata] = useState<FlashcardCounter | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const { playSound } = useAudio();
+  
+  useEffect(() => {
+    const loadMetadata = async () => {
+      if (!user) return;
+      try {
+        const data = await getFlashcardMetadata(user.uid);
+        if (!data) return;
+        setMetadata(data);
+        setCategories(Object.keys(data.categories || {}));
+      } catch (err) {
+        logger.error('Failed to load metadata:', err as Error);
+      }
+    };
+    loadMetadata();
+  }, [user]);
+
+  const handleCategoryUpdate = async (newCategory: string) => {
+    try {
+      if (!user) return;
+      if (metadata && !metadata.categories[newCategory]) {
+        const updatedCategories = {
+          ...metadata.categories,
+          [newCategory]: Object.keys(metadata.categories).length
+        };
+        await updateDoc(doc(db, 'users', user.uid, 'counters', 'flashcards'), {
+          categories: updatedCategories
+        });
+      }
+    } catch (err) {
+      logger.error('Failed to update categories', err as Error);
+    }
+  };
+
+  const handleFontSize = (increment: number) => {
+    setPreferences(prev => ({
+      ...prev,
+      readingSettings: {
+        ...prev.readingSettings,
+        fontSize: Math.min(Math.max(12, (prev.readingSettings?.fontSize || 16) + increment), 32)
+      }
+    }));
+  };
+
+  const handleLineHeight = (increment: number) => {
+    setPreferences(prev => ({
+      ...prev,
+      readingSettings: {
+        ...prev.readingSettings,
+        lineHeight: Math.min(Math.max(1, (prev.readingSettings?.lineHeight || 1.6) + increment), 3)
+      }
+    }));
+  };
+
+  const handleFontChange = () => {
+    const fonts = ['system-ui', 'Georgia', 'Merriweather', 'Source Serif Pro', 'Crimson Pro', 'Noto Serif', 'IBM Plex Serif'];
+    setPreferences(prev => {
+      const currentIndex = fonts.indexOf(prev.readingSettings?.fontFamily || 'system-ui');
+      const nextIndex = (currentIndex + 1) % fonts.length;
+      return {
+        ...prev,
+        readingSettings: {
+          ...prev.readingSettings,
+          fontFamily: fonts[nextIndex]
+        }
+      };
+    });
+  };
 
   const handleRandomArticle = async () => {
     if (!user) return;
@@ -94,36 +208,14 @@ export const ReadingInterface: React.FC = () => {
     exit: { opacity: 0, x: -20 }
   };
 
-  const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        const paragraph = entry.target as HTMLElement;
-        const index = parseInt(paragraph.dataset.index || '0');
-        setActiveParagraph(index);
-        
-        const totalParagraphs = currentArticle?.content?.split('\n').length || 1;
-        updateProgress({
-          progress: (index / totalParagraphs) * 100,
-          lastPosition: window.scrollY
-        });
+  const [visibleParagraphs, setVisibleParagraphs] = useState<number[]>([]);
+  const [currentSnapIndex, setCurrentSnapIndex] = useState(0);
 
-        if (index >= (currentPage + 1) * PARAGRAPHS_PER_PAGE - 10) {
-          setCurrentPage(prev => prev + 1);
-        }
-      }
-    });
-  }, [currentArticle, currentPage, updateProgress]);
-
-  useEffect(() => {
-    if (!isReading || !contentRef.current) return;
-
-    const observer = new IntersectionObserver(handleIntersection, { threshold: 0.5 });
-
-    const paragraphs = contentRef.current.querySelectorAll('[data-index]');
-    paragraphs.forEach((p) => observer.observe(p));
-
-    return () => observer.disconnect();
-  }, [isReading, currentArticle, handleIntersection]);
+  const calculateOpacity = useCallback((index: number) => {
+    if (!focusMode) return 1;
+    const distance = Math.abs(index - currentSnapIndex);
+    return Math.max(0.4, 1 - (distance * 0.3));
+  }, [currentSnapIndex, focusMode]);
 
   const handleTextToSpeech = async (text: string) => {
     if (!enableTTS) return;
@@ -151,7 +243,7 @@ export const ReadingInterface: React.FC = () => {
       setSelectedWord(sanitizeText(text));
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      
+
       const fakeAnchor = document.createElement('div');
       fakeAnchor.style.position = 'absolute';
       fakeAnchor.style.left = `${rect.left}px`;
@@ -188,10 +280,10 @@ export const ReadingInterface: React.FC = () => {
   useEffect(() => {
     if (!currentArticle?.content) return;
     let mounted = true;
-    
+
     const loadPage = async (pageNum: number) => {
       if (loadedPages[pageNum]) return;
-      
+
       if (!currentArticle?.content) return;
       const allParagraphs = currentArticle.content.split('\n');
       const start = pageNum * PARAGRAPHS_PER_PAGE;
@@ -202,15 +294,15 @@ export const ReadingInterface: React.FC = () => {
   useEffect(() => {
     if (!currentArticle?.content) return;
     let mounted = true;
-    
+
     const loadPage = async (pageNum: number) => {
       if (loadedPages[pageNum]) return;
-      
+
       if (!currentArticle?.content) return;
       const allParagraphs = currentArticle.content.split('\n');
       const start = pageNum * PARAGRAPHS_PER_PAGE;
       const end = start + PARAGRAPHS_PER_PAGE;
-      
+
       if (mounted) {
         setLoadedPages(prev => ({
           ...prev,
@@ -229,7 +321,7 @@ export const ReadingInterface: React.FC = () => {
 
   useEffect(() => {
     if (!currentArticle?.content || isInitialized) return;
-    
+
     const initializeContent = async () => {
       try {
         setIsContentLoading(true);
@@ -237,12 +329,12 @@ export const ReadingInterface: React.FC = () => {
           ?.split('\n')
           ?.map(p => p.trim())
           ?.filter(p => p.length > 0) ?? [];
-        
+
         const initialPages = {
           0: paragraphs.slice(0, PARAGRAPHS_PER_PAGE),
           1: paragraphs.slice(PARAGRAPHS_PER_PAGE, PARAGRAPHS_PER_PAGE * 2)
         };
-        
+
         setLoadedPages(initialPages);
         setRenderedPages([0, 1]);
         setIsInitialized(true);
@@ -258,17 +350,16 @@ export const ReadingInterface: React.FC = () => {
 
   const updateVisiblePages = useCallback(() => {
     if (!containerRef.current) return;
-    
+
     const containerHeight = containerRef.current.clientHeight;
     const scrollTop = containerRef.current.scrollTop;
     const totalHeight = containerRef.current.scrollHeight;
-    
+
     const currentPage = Math.floor(scrollTop / (containerHeight * 0.8));
     const visiblePages = [currentPage - 1, currentPage, currentPage + 1].filter(p => p >= 0);
-    
+
     setRenderedPages(visiblePages);
   }, []);
-
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -276,7 +367,7 @@ export const ReadingInterface: React.FC = () => {
     const handleScroll = () => {
       if (!containerRef.current) return;
       const currentScroll = containerRef.current.scrollTop;
-      
+
       if (Math.abs(currentScroll - lastScrollPosition) > 100) {
         setLastScrollPosition(currentScroll);
         updateVisiblePages();
@@ -288,33 +379,56 @@ export const ReadingInterface: React.FC = () => {
     return () => container.removeEventListener('scroll', handleScroll);
   }, [lastScrollPosition, updateVisiblePages]);
 
+  const totalPages = useMemo(() => {
+    if (!currentArticle?.content) return 0;
+    const paragraphs = currentArticle.content.split('\n').filter(p => p.trim().length > 0);
+    return Math.ceil(paragraphs.length / PARAGRAPHS_PER_PAGE);
+  }, [currentArticle?.content]);
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    playSound('PAGE_TURN');
+    setPage(value);
+    
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+    }
+    
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
+    document.documentElement.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+    
+    setRenderedPages([value - 1]); 
+  };
 
   const contentPages = useMemo(() => {
     if (!currentArticle?.content || !isInitialized) {
       return {};
     }
-    
+
     try {
       const paragraphs = currentArticle.content
         .split('\n')
         .map(p => p.trim())
         .filter(p => p.length > 0);
-      
+
       const pages: Record<number, string[]> = {};
-      
-      renderedPages.forEach(pageNum => {
-        const start = pageNum * PARAGRAPHS_PER_PAGE;
-        const end = start + PARAGRAPHS_PER_PAGE;
-        pages[pageNum] = paragraphs.slice(start, end);
-      });
-      
+      const pageIndex = page - 1;
+      const start = pageIndex * PARAGRAPHS_PER_PAGE;
+      const end = start + PARAGRAPHS_PER_PAGE;
+      pages[pageIndex] = paragraphs.slice(start, end);
+
       return pages;
     } catch (error) {
       logger.error('Error preparing content pages', error as Error);
       return {};
     }
-  }, [currentArticle?.content, renderedPages, isInitialized]);
-
+  }, [currentArticle?.content, isInitialized, page]);
 
   const paragraphElements = useMemo(() => {
     const elements: HTMLElement[] = [];
@@ -325,14 +439,106 @@ export const ReadingInterface: React.FC = () => {
     return elements;
   }, [contentPages]);
 
+  const handleDictionaryLookup = async (word: string) => {
+    setMobileDict(prev => ({ ...prev, open: true, word, isLoading: true, error: null }));
+
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+
+      if (!response.ok) {
+        throw new Error(response.status === 404 ? 'Word not found' : 'Failed to fetch definition');
+      }
+
+      const data = await response.json();
+      setMobileDict(prev => ({ 
+        ...prev, 
+        definition: data[0], 
+        isLoading: false 
+      }));
+
+    } catch (error) {
+      setMobileDict(prev => ({ 
+        ...prev, 
+        error: error instanceof Error ? error.message : 'Failed to load definition',
+        isLoading: false 
+      }));
+    }
+  };
+
+  const handleDictionaryOpen = useCallback(() => {
+    setMobileDict(prev => ({
+      ...prev,
+      open: true,
+      word: '',
+      definition: null,
+      error: null,
+      isLoading: false
+    }));
+  }, []);
+
   useEffect(() => {
-    if (!isReading) return;
+    if (!containerRef.current) return;
 
-    const observer = new IntersectionObserver(handleIntersection, { threshold: 0.5 });
-    paragraphElements.forEach(p => observer.observe(p));
-    return () => observer.disconnect();
-  }, [isReading, handleIntersection, paragraphElements]);
+    containerRef.current.style.scrollSnapType = focusMode ? 'y mandatory' : 'none';
+  }, [focusMode]);
 
+  const handleTranslation = async (text: string) => {
+    try {
+      const encodedText = encodeURIComponent(text);
+      const response = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=en|zh-TW`
+      );
+
+      if (!response.ok) {
+        throw new Error('Translation failed');
+      }
+
+      const data: TranslationResponse = await response.json();
+      
+      if (data.responseStatus === 200) {
+        setTranslation(data.responseData.translatedText);
+      } else {
+        throw new Error(data.responseDetails || 'Translation failed');
+      }
+    } catch (error) {
+      logger.error('Translation error:', error as Error);
+      setError(error instanceof Error ? error.message : 'Failed to translate');
+    }
+  };
+
+  const handleMarkAsComplete = async () => {
+    try {
+      playSound('LEVEL_UP');
+      const progressUpdate = {
+        articleId: currentArticle?.id,
+        progress: 100,
+        wordsRead: currentArticle?.wordCount || 0,
+        lastPosition: window.scrollY,
+        completed: true,
+        lastRead: new Date(),
+        timeSpent: currentArticle?.id ? readingProgress[currentArticle.id]?.timeSpent || 0 : 0,
+        completionDate: new Date()
+      };
+
+      await updateProgress(progressUpdate);
+      setShowCompletionAlert(true);
+    } catch (err) {
+      logger.error('Failed to mark article as complete', err as Error);
+    }
+  };
+
+  const { isFullscreen, toggleFullscreen } = useFullscreen(contentRef);
+  
+  const handleEscape = useCallback((event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isFullscreen) {
+      toggleFullscreen();
+    }
+  }, [isFullscreen, toggleFullscreen]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [handleEscape]);
 
   if (!currentArticle?.content || isContentLoading) {
     return (
@@ -347,7 +553,6 @@ export const ReadingInterface: React.FC = () => {
     );
   }
 
- 
   if (!currentArticle) return null;
 
   const handleNotes = () => {
@@ -364,6 +569,7 @@ export const ReadingInterface: React.FC = () => {
   return (
     <ErrorBoundary>
       <Container 
+        ref={contentRef}
         maxWidth="md" 
         sx={{ 
           py: { xs: 2, sm: 5, md: 6 },
@@ -379,10 +585,12 @@ export const ReadingInterface: React.FC = () => {
           transition: 'filter 0.3s ease',
         }}
       >
-        <Box sx={{ mb: { xs: 3, sm: 4 } }}>
-          <ReadingSpeedTracker />
-        </Box>
-        
+        {isMobile && (
+          <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+            <ReadingSpeedTracker />
+          </Box>
+        )}
+
         <Paper3D elevation={2}>
           <motion.div
             initial="initial"
@@ -539,8 +747,9 @@ export const ReadingInterface: React.FC = () => {
                       msOverflowStyle: '-ms-autohiding-scrollbar',
                     },
                     fontSize: `${fontSize}px`,
-                    lineHeight: lineHeight,
+                    lineHeight: `${lineHeight}`,
                     fontFamily: `${fontFamily}, system-ui, serif`,
+                    scrollSnapType: focusMode ? 'y mandatory' : 'none',
                   }}
                 >
                   <Box ref={contentRef}>
@@ -552,7 +761,7 @@ export const ReadingInterface: React.FC = () => {
                           opacity: isContentLoading ? 0 : 1,
                           transition: 'opacity 0.3s ease',
                           fontSize: `${fontSize}px`,
-                          lineHeight: lineHeight,
+                          lineHeight: `${lineHeight}`,
                           fontFamily: `${fontFamily}, system-ui, serif`,
                         }}
                       >
@@ -567,7 +776,6 @@ export const ReadingInterface: React.FC = () => {
                                 fontSize: 'inherit',
                                 lineHeight: 'inherit',
                                 fontFamily: 'inherit',
-                                transition: 'all 0.3s ease',
                                 backgroundColor: activeParagraph === globalIndex ? 
                                   'action.selected' : 'transparent',
                                 p: { xs: 1.5, sm: 2, md: 3 },
@@ -586,7 +794,10 @@ export const ReadingInterface: React.FC = () => {
                                 '&::selection': {
                                   backgroundColor: theme => `${theme.palette.primary.main}30`,
                                   color: 'inherit'
-                                }
+                                },
+                                opacity: calculateOpacity(globalIndex),
+                                scrollSnapAlign: focusMode ? 'start' : 'none',
+                                transition: 'all 0.3s ease, opacity 300ms ease-in-out',
                               }}
                               onClick={() => enableTTS && handleTextToSpeech(paragraph)}
                             >
@@ -603,22 +814,127 @@ export const ReadingInterface: React.FC = () => {
           </motion.div>
         </Paper3D>
 
+        <Box sx={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          justifyContent: 'center',
+          alignItems: 'center',
+          py: { xs: 2, sm: 3 },
+          position: 'sticky',
+          bottom: 0,
+          backgroundColor: 'background.default',
+          borderTop: 1,
+          borderColor: 'divider',
+          zIndex: 1
+        }}>
+          <Pagination
+            page={page}
+            count={totalPages}
+            onChange={handlePageChange}
+            color="primary"
+            size={isMobile ? "small" : "medium"}
+            showFirstButton
+            showLastButton
+            sx={{
+              '.MuiPagination-ul': {
+                gap: { xs: 0.5, sm: 1 }
+              }
+            }}
+          />
+          
+          {page === totalPages && !readingProgress[currentArticle?.id]?.completed && (
+            <Button
+              variant="contained"
+              color="success"
+              size="large"
+              startIcon={<CheckCircleOutlineIcon />}
+              onClick={handleMarkAsComplete}
+              sx={{
+                minWidth: 200,
+                py: 1.5,
+                borderRadius: 2,
+                fontWeight: 600,
+                boxShadow: theme => `0 8px 16px -4px ${theme.palette.success.main}50`,
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: theme => `0 12px 20px -4px ${theme.palette.success.main}50`,
+                },
+                transition: 'all 0.2s ease',
+                animation: 'pulse 2s infinite',
+                '@keyframes pulse': {
+                  '0%': {
+                    transform: 'scale(1)',
+                  },
+                  '50%': {
+                    transform: 'scale(1.05)',
+                  },
+                  '100%': {
+                    transform: 'scale(1)',
+                  },
+                },
+              }}
+            >
+              Complete Article
+            </Button>
+          )}
+        </Box>
+
+        {isMobile ? (
+          <MobileContextMenu onLookup={handleDictionaryLookup} />
+        ) : null}
+
+        <ReadingSettingsDialog 
+          open={textSettingsOpen}
+          onClose={() => setTextSettingsOpen(false)}
+        />
+
         <ReadingAchievementPopup 
           open={Boolean(achievement)}
           onClose={() => setAchievement(null)}
           message={achievement || ''}
         />
 
-        <DictionaryLookup
-          word={selectedWord}
-          anchorEl={dictAnchorEl}
-          onClose={() => {
-            setDictAnchorEl(null);
-            setSelectedWord('');
-          }}
-          onAddToFlashcards={async (word, definition) => {
-          }}
-        />
+        {isMobile ? (
+          <MobileDictionaryLookup
+            word={mobileDict.word}
+            open={mobileDict.open || dictionaryOpen}
+            onClose={() => {
+              setMobileDict(prev => ({ ...prev, open: false }));
+              setDictionaryOpen(false);
+            }}
+            onAddToFlashcards={async (word, definition) => {
+            }}
+            definition={mobileDict.definition}
+            isLoading={mobileDict.isLoading}
+            error={mobileDict.error}
+            onLookup={handleDictionaryLookup}
+            translation={translation ?? undefined}
+            onTranslate={handleTranslation}
+            metadata={metadata}
+            categories={categories.reduce((acc, cat, idx) => {
+              acc[cat] = idx;
+              return acc;
+            }, {} as Record<string, number>)}
+            onCategoryUpdate={handleCategoryUpdate}
+          />
+        ) : (
+          <DictionaryLookup
+            word={selectedWord}
+            anchorEl={dictAnchorEl}
+            onClose={() => {
+              setDictAnchorEl(null);
+              setSelectedWord('');
+            }}
+            onAddToFlashcards={async (word, definition) => {
+            }}
+            translation={translation || undefined}
+            onTranslate={handleTranslation}
+            metadata={metadata}
+            categories={metadata?.categories || {}}
+            onCategoryUpdate={handleCategoryUpdate}
+          />
+        )}
 
         <NoteSystem
           articleId={currentArticle.id}
@@ -626,7 +942,45 @@ export const ReadingInterface: React.FC = () => {
           open={notesOpen}
           onClose={() => setNotesOpen(false)}
         />
+        {isMobile && (
+          <MobileContextMenu 
+            onLookup={handleDictionaryLookup}
+          />
+        )}
+        <Snackbar
+          open={showCompletionAlert}
+          autoHideDuration={4000}
+          onClose={() => setShowCompletionAlert(false)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={() => setShowCompletionAlert(false)}
+            severity="success"
+            sx={{ width: '100%' }}
+          >
+            Article completed! Progress saved.
+          </Alert>
+        </Snackbar>
       </Container>
     </ErrorBoundary>
   );
 };
+
+interface WordDefinition {
+  word: string;
+  phonetic?: string;
+  meanings: {
+    partOfSpeech: string;
+    definitions: { definition: string; example?: string }[];
+  }[];
+}
+
+interface TranslationResponse {
+  responseData: {
+    translatedText: string;
+    match: number;
+  };
+  quotaFinished?: boolean;
+  responseStatus: number;
+  responseDetails?: string;
+}

@@ -1,6 +1,3 @@
-import { random } from "lodash";
-import { title } from "process";
-
 export const zhTW = {
   common: {
     save: '儲存',
@@ -14,6 +11,12 @@ export const zhTW = {
     focusMode: '專注模式',
   },
   settings: {
+    "srsType": "演算法模型",
+    "srsTypes": {
+      "interval": "時間間隔",
+      "position": "隊列組合"
+    },
+    "srsTypeHelp": "選擇要使用的 SRS 演算法模型",
     title: '設定',
     language: '語言',
     languageHelp: '選擇您偏好的語言',
@@ -57,7 +60,78 @@ export const zhTW = {
     },
     readingPreferences: '閱讀偏好設定',
     fontSize: '字體大小',
-    focusMode: '專注模式'
+    focusMode: '專注模式',
+    collections: {
+      title: '集合管理',
+      statistics: '集合統計',
+      selectCollections: '選擇要管理的集合',
+      flashcards: {
+        title: '字卡',
+        totalCards: '字卡總數',
+        mastered: '已掌握',
+        dueReview: '待複習',
+        categories: '類別',
+        categoryProgress: '類別進度',
+        averageAccuracy: '平均正確率',
+        noData: '無字卡資料'
+      },
+      articles: {
+        title: '文章',
+        total: '文章總數',
+        categories: '類別',
+        lastUpdated: '最後更新',
+        noData: '無文章資料'
+      },
+      migration: {
+        title: '遷移',
+        verify: '驗證所選集合',
+        migrate: '遷移所選集合',
+        verification: '驗證',
+        migration: '遷移',
+        verifyResults: '驗證結果',
+        inProgress: '遷移進行中...',
+        selectPrompt: '請至少選擇一種集合類型',
+        success: '遷移完成',
+        failed: '遷移失敗',
+        synced: '集合已同步',
+        found: '發現 {{count}} 個項目需要遷移'
+      }
+    },
+    export: {
+      title: '匯出資料',
+      selectData: '選擇要匯出的資料',
+      button: '匯出選定的資料',
+      exporting: '匯出中...',
+      success: '資料匯出成功',
+      error: '匯出失敗',
+      flashcards: '字卡',
+      articles: '文章',
+    },
+    analytics: '分析',
+    dataManagement: '資料管理',
+    account: '帳戶設定',
+    security: '安全性',
+    accessibility: '無障礙設定',
+    display: '顯示設定',
+    sound: '音效設定',
+    notification: '通知設定',
+    sync: '同步設定',
+    about: '關於',
+    help: '幫助與支援',
+    backup: '備份與還原',
+    advanced: '進階設定',
+    experimental: '實驗性功能',
+    developerMode: '開發者模式',
+    resetSettings: '重設設定',
+    resetWarning: '這將會將所有設定重設為預設值',
+    resetConfirm: '確定要重設所有設定嗎？',
+    importSettings: '匯入設定',
+    exportSettings: '匯出設定',
+    performance: '效能設定',
+    preloadLimit: '預載數量',
+    preloadLimitHelp: '預先載入的項目數量 (3-10)',
+    cacheTimeout: '快取時效',
+    cacheTimeoutHelp: '快取更新間隔時間（分鐘）(1-30)',
   },
   studyMode:{
     selected: '已選擇'
@@ -120,6 +194,7 @@ export const zhTW = {
     }
   },
   home: {
+    readingMode: '閱讀學習資料',
     welcome: '歡迎回來',
     stats: {
       totalStudied: '總學習量',
@@ -138,7 +213,7 @@ export const zhTW = {
     },
     actions: {
       startStudying: '開始學習',
-      importCards: '匯入卡片'
+      importCards: '匯入及管理字卡'
     },
     buttons: {
       startReview: '開始複習',
@@ -193,12 +268,13 @@ export const zhTW = {
       createAccount: '註冊帳號失敗'
     },
     branding: {
-      title: '字卡 AI',
+      title: '補習 AI',
       tagline: '您的智能學習夥伴，掌握語言學習的最佳助手。',
       benefits: ['智能單字學習', '個人化學習進度', '多元學習模式'] as string[]
     }
   },
   study: {
+    noCards: '找不到卡片',
     title: '學習課程', 
     modes: {
       title: '學習模式', 
@@ -263,7 +339,13 @@ export const zhTW = {
       title: '是否繼續上次的學習進度？',
       continueSession: '繼續學習',
       newSession: '開始新的學習'
-    }
+    },
+    categories: {
+      label: '按類別篩選',
+      placeholder: '選擇類別',
+      all: '所有類別',
+      noCategories: '無可用類別'
+    },
   },
   import: {
     title: '匯入單字卡',
@@ -302,13 +384,21 @@ export const zhTW = {
         definition: '輸入英文定義',
         translation: '輸入中文翻譯',
         categories: '選擇或建立類別',
+        wordDuplicate: '重複單詞',
         wordTooShort: '單字至少需要2個字元',
+        example: '輸入範例'
       },
       testTranslation: '測試翻譯',
-      translationSuccess: '翻譯測試成功',
+      translationSuccess: '翻譯成功',
       translating: '翻譯中...',
       savedEntries: '已儲存的項目',
-      importSaved: '匯入所有已儲存項目'
+      importSaved: '匯入所有已儲存項目',
+      useDefaultCategories: '將目前類別設為預設值',
+      setAsDefault: '設為預設類別',
+      lookupDefinition: '查詢定義',
+      definitionSuccess: '已找到定義',
+      definitionLoading: '查詢中...',
+      definitionError: '查詢失敗：{{error}}',
     },
     fileImport: {
       title: '檔案匯入',
@@ -340,7 +430,9 @@ export const zhTW = {
       emptyTranslation: '翻譯結果為空',
       uploadSuccess: '上傳成功！',
       savingEntry: '儲存中...',
-      deleteConfirm: '確定要刪除此項目嗎？'
+      deleteConfirm: '確定要刪除此項目嗎？',
+      duplicateWord:'{{word}} 已經存在',
+      duplicate: '重複單詞',
     },
     notifications: {
       saved: '已儲存',
@@ -459,10 +551,11 @@ export const zhTW = {
       logout: '登出',
       home: '首頁',
       study: '學習',
+      library: '字卡庫',
       worksheets: '習題',
       import: '匯入'
     },
-    appName: '字卡 AI',
+    appName: '補習 AI',
     level: '等級'
   },
   forms: {
@@ -602,7 +695,7 @@ export const zhTW = {
       }
     },
     manage: {
-      title: '管理文��',
+      title: '管理文章',
       deleteSelected: '刪除已選擇 ({{count}})',
       never: '從未',
       confirmDelete: '刪除',
@@ -618,6 +711,51 @@ export const zhTW = {
         lastRead: '最後閱讀',
         progress: '進度'
       }
+    }
+  },
+  flashcards: {
+    library: {
+      title: '字卡庫',
+      noResults: '找不到字卡',
+      loading: '載入字卡中...'
+    },
+    errors: {
+      loadFailed: '載入字卡失敗'
+    },
+    fields: {
+      word: '單字',
+      partOfSpeech: '詞性',
+      englishDefinition: '英文定義',
+      chineseTranslation: '中文翻譯',
+      category: '類別',
+      categoryHelp: '多個類別請用逗號分隔',
+      exampleSentence: '範例句子'
+    },
+    search: {
+      placeholder: '搜尋字卡...'
+    },
+    pagination: {
+      showing: '顯示 {{start}}-{{end}} / 共 {{total}} 張字卡',
+      filtered: '找到 {{count}} 張相符字卡',
+      noResults: '找不到相符的字卡',
+      of: '/'
+    },
+    edit: {
+      title: '編輯字卡',
+      success: '變更已儲存',
+      error: '儲存變更失敗',
+      placeholder: '輸入新的值'
+    },
+    delete: {
+      title: '刪除字卡',
+      message: '確定要刪除此字卡嗎？',
+      confirm: '刪除',
+      cancel: '取消',
+      confirmTitle: '刪除字卡',
+      confirmMessage: '確定要刪除「{{word}}」嗎？',
+      success: '字卡已成功刪除',
+      error: '刪除字卡失敗',
+      menuItem: '刪除字卡'
     }
   }
 };

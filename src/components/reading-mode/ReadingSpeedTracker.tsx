@@ -4,7 +4,11 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import { useReadingMode } from '../../context/ReadingModeContext';
 import { useI18n } from '../../i18n/I18nContext';
 
-export const ReadingSpeedTracker: React.FC = () => {
+interface ReadingSpeedTrackerProps {
+  compact?: boolean;
+}
+
+export const ReadingSpeedTracker: React.FC<ReadingSpeedTrackerProps> = ({ compact = false }) => {
   const { readingProgress, currentArticle } = useReadingMode();
   const { t } = useI18n();
   const [wpm, setWpm] = useState(0);
@@ -37,15 +41,15 @@ export const ReadingSpeedTracker: React.FC = () => {
         bottom: 24,
         bgcolor: 'background.paper',
         borderRadius: 2,
-        p: 2,
-        boxShadow: 3,
+        p: compact ? 1 : 2,
+        boxShadow: compact ? 0 : 3,
         minWidth: 200
       }}
     >
       <Typography variant="subtitle2" gutterBottom>
         {t('reading.tools.readingSpeed')}
       </Typography>
-      <Typography variant="h4" color="primary">
+      <Typography variant={compact ? "h6" : "h4"} color="primary">
         {wpm} <Typography component="span" variant="body2">WPM</Typography>
       </Typography>
       <LinearProgress

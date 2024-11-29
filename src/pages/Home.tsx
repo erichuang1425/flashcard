@@ -222,13 +222,13 @@ export const Home: React.FC = () => {
                   justifyContent: 'center'
                 }}>
                   <AnimatedCounter
-                    end={stats.dueToday}
+                    end={stats.totalInDatabase}
                     variant="h3"
-                    color="warning.main"
+                    color="primary.main"
                     gutterBottom
                   />
                   <Typography variant="subtitle2" color="text.secondary">
-                    {t('home.stats.dueToday')}
+                    {t('home.stats.totalCards')}
                   </Typography>
                 </CardContent>
               </Card3D>
@@ -244,13 +244,13 @@ export const Home: React.FC = () => {
                   justifyContent: 'center'
                 }}>
                   <AnimatedCounter
-                    end={stats.mastered}
+                    end={stats.remainingToStudy}
                     variant="h3"
-                    color="success.main"
+                    color="warning.main"
                     gutterBottom
                   />
                   <Typography variant="subtitle2" color="text.secondary">
-                    {t('home.stats.mastered')}
+                    {t('home.stats.remainingToStudy')}
                   </Typography>
                 </CardContent>
               </Card3D>
@@ -259,25 +259,8 @@ export const Home: React.FC = () => {
         )}
 
         {!isMobile && (
-          <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              gap: { xs: 1.5, sm: 2 },
-              mt: { xs: 1, sm: 2 },
-              '& .MuiButton-root': {
-                borderRadius: '12px',
-                minHeight: { xs: '56px', sm: '48px' },
-                fontSize: { xs: '1rem', sm: '1.1rem' },
-                textTransform: 'none',
-                fontWeight: 600,
-                boxShadow: theme => `0 4px 12px ${theme.palette.primary.main}25`,
-                '&:active': {
-                  transform: 'translateY(1px)',
-                  boxShadow: 'none'
-                }
-              }
-            }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
               <Button
                 variant="contained"
                 size="large"
@@ -286,13 +269,30 @@ export const Home: React.FC = () => {
                 onClick={() => navigate('/study')}
                 disabled={stats.dueToday === 0}
                 sx={{
-                  py: 2,
+                  py: 2.5,
+                  height: '100%',
                   fontSize: '1.1rem',
-                  boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}20`
+                  boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}20`,
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  '& .MuiButton-startIcon': {
+                    margin: 0,
+                    fontSize: '2rem'
+                  }
                 }}
               >
-                {t('home.buttons.startReview')} ({stats.dueToday} {t('home.cards')})
+                <Box>
+                  {t('home.buttons.startReview')}
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
+                    {stats.dueToday} {t('home.cards')}
+                  </Typography>
+                </Box>
               </Button>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
               <Button
                 variant="contained"
                 size="large"
@@ -301,13 +301,30 @@ export const Home: React.FC = () => {
                 startIcon={<MenuBookIcon />}
                 onClick={() => navigate('/reading')}
                 sx={{
-                  py: 2,
+                  py: 2.5,
+                  height: '100%',
                   fontSize: '1.1rem',
-                  boxShadow: theme => `0 8px 32px ${theme.palette.secondary.main}20`
+                  boxShadow: theme => `0 8px 32px ${theme.palette.secondary.main}20`,
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  '& .MuiButton-startIcon': {
+                    margin: 0,
+                    fontSize: '2rem'
+                  }
                 }}
               >
-                {t('home.buttons.startReading')}
+                <Box>
+                  {t('home.buttons.startReading')}
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
+                    {t('home.readingMode')}
+                  </Typography>
+                </Box>
               </Button>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
               <Button
                 variant="outlined"
                 size="large"
@@ -315,14 +332,29 @@ export const Home: React.FC = () => {
                 startIcon={<LibraryBooksIcon />}
                 onClick={() => navigate('/import')}
                 sx={{
-                  py: 2,
-                  fontSize: '1.1rem'
+                  py: 2.5,
+                  height: '100%',
+                  fontSize: '1.1rem',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  borderWidth: 2,
+                  '& .MuiButton-startIcon': {
+                    margin: 0,
+                    fontSize: '2rem'
+                  }
                 }}
               >
-                {t('home.buttons.addNewCards')}
+                <Box>
+                  {t('home.buttons.addNewCards')}
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
+                    {t('home.actions.importCards')}
+                  </Typography>
+                </Box>
               </Button>
-            </Box>
-          </Box>
+            </Grid>
+          </Grid>
         )}
 
         <Grid container spacing={{ xs: 2, sm: 3 }}>
@@ -338,41 +370,66 @@ export const Home: React.FC = () => {
                     : 'rgba(0,0,0,0.05)'
                 }
               }}>
-                <Typography variant="h6" gutterBottom>{t('home.progressOverview')}</Typography>
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TrendingUpIcon color="primary" />
+                  {t('home.progressOverview')}
+                </Typography>
+
                 <Box sx={{ mb: 4 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('home.masteryProgress')}
-                    </Typography>
-                    <Typography variant="body2" color="text.primary">
-                      {calculatePercentage(stats.mastered, stats.total)}%
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('home.stats.totalCards')}
+                      </Typography>
+                      <Typography variant="body1" color="text.primary">
+                        {stats.totalInDatabase} {t('home.cards')}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('home.stats.mastered')}
+                      </Typography>
+                      <Typography variant="body1" color="success.main">
+                        {stats.mastered} {t('home.cards')}
+                      </Typography>
+                    </Box>
                   </Box>
                   <LinearProgress 
                     variant="determinate" 
-                    value={calculatePercentage(stats.mastered, stats.total)}
+                    value={calculatePercentage(stats.mastered, stats.totalInDatabase)}
                     sx={{ height: 8, borderRadius: 4 }}
                   />
-                  <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                    {stats.mastered} {t('home.stats.of')} {stats.total} {t('home.stats.cardsMastered')}
+                  <Typography variant="caption" sx={{ mt: 0.5, display: 'block', textAlign: 'right' }}>
+                    {calculatePercentage(stats.mastered, stats.totalInDatabase)}% {t('home.stats.cardsMastered')}
                   </Typography>
                 </Box>
+
                 <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {t('home.stats.weeklyGoal')} ({stats.weeklyGoal} {t('home.stats.minutesCompleted')})
-                    </Typography>
-                    <Typography variant="body2" color="text.primary">
-                      {calculatePercentage(stats.weeklyProgress, stats.weeklyGoal)}%
-                    </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, alignItems: 'center' }}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('home.stats.weeklyGoal')}
+                      </Typography>
+                      <Typography variant="body1" color="text.primary">
+                        {stats.weeklyGoal} {t('home.stats.minutes')}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t('home.stats.totalStudied')}
+                      </Typography>
+                      <Typography variant="body1" color="info.main">
+                        {stats.weeklyProgress} {t('home.stats.minutes')}
+                      </Typography>
+                    </Box>
                   </Box>
                   <LinearProgress 
                     variant="determinate" 
                     value={calculatePercentage(stats.weeklyProgress, stats.weeklyGoal)}
                     sx={{ height: 8, borderRadius: 4 }}
                   />
-                  <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                    {stats.weeklyProgress} {t('home.stats.of')} {stats.weeklyGoal} {t('home.stats.minutesCompleted')}
+                  <Typography variant="caption" sx={{ mt: 0.5, display: 'block', textAlign: 'right' }}>
+                    {calculatePercentage(stats.weeklyProgress, stats.weeklyGoal)}% {t('home.stats.minutesCompleted')}
                   </Typography>
                 </Box>
               </CardContent>
@@ -387,19 +444,27 @@ export const Home: React.FC = () => {
                 flexDirection: 'column',
                 gap: 2
               }}>
-                <Typography variant="h6" gutterBottom>{t('home.studyTime')}</Typography>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <WhatshotIcon color="warning" />
+                  {t('profile.details.studyStreak')}
+                </Typography>
                 <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <AnimatedCounter
-                      end={stats.totalStudyMinutes}
+                      end={stats.streak}
                       variant="h3"
-                      color="info.main"
+                      color="warning.main"
                       gutterBottom
                     />
                     <Typography variant="subtitle2" color="text.secondary">
-                      {t('home.totalMinutes')}
+                      {t('home.stats.streak')}
                     </Typography>
                   </Box>
+                </Box>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {t('profile.stats.totalDays')}: {stats.totalStudyDays}
+                  </Typography>
                 </Box>
               </CardContent>
             </Card3D>

@@ -10,10 +10,11 @@ import SelectAllIcon from '@mui/icons-material/SelectAll';
 import SearchIcon from '@mui/icons-material/Search';
 import { useAuth } from '../context/AuthContext';
 import { templates, generateWorksheet } from '../utils/worksheet-templates';
-import { addWorksheet, getCategories, getUserFlashcards, getVocabularyWords, getWordsByCategory, searchVocabulary } from '../services/firestore';
-import { VocabularyWord, Flashcard } from '@/types';
+import { addWorksheet, getCategories, getUserFlashcards, getWordsByCategory } from '../services/firestore';
+import { VocabularyWord, FlashcardMetadata } from '@/types';
 import type { Category, Worksheet, WorksheetQuestion } from '../types';  
 import { useI18n } from '../i18n/I18nContext';
+import { useFlashcardLibrary } from '../hooks/useFlashcardLibrary';
 
 interface WorksheetData {
   userId: string;
@@ -47,8 +48,7 @@ export const WorksheetGenerator: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [inputMode, setInputMode] = useState<'database' | 'manual'>('database');
-  const [vocabularyList, setVocabularyList] = useState<VocabularyWord[]>([]);
-  const [selectedWords, setSelectedWords] = useState<VocabularyWord[]>([]);
+  const [selectedWords, setSelectedWords] = useState<FlashcardMetadata[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [timeLimit, setTimeLimit] = useState(30);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
@@ -58,40 +58,19 @@ export const WorksheetGenerator: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const { t } = useI18n();
 
+  const {
+    cards,
+    loading: metadataLoading,
+    error: metadataError,
+    searchTerm: librarySearchTerm,
+    setSearchTerm: setLibrarySearchTerm,
+    filters,
+    setFilters
+  } = useFlashcardLibrary();
+
   useEffect(() => {
-    loadVocabularyWords();
     loadCategories();
   }, []);
-
-  const loadVocabularyWords = async () => {
-    try {
-      if (!user) throw new Error('User not authenticated');
-      
-      setIsLoading(true);
-      setError(null);
-      // Get user's own flashcards and convert them to VocabularyWord type
-      const flashcards = await getUserFlashcards(user.uid);
-      const vocabularyWords: VocabularyWord[] = flashcards.cards.map((card: Flashcard) => ({
-        id: card.id,
-        word: card.word,
-        englishDefinition: card.englishDefinition,
-        chineseTranslation: card.chineseTranslation || '',
-        partOfSpeech: card.partOfSpeech,
-        categories: card.categories
-      }));
-
-      if (vocabularyWords.length === 0) {
-        setError('No vocabulary words found in database');
-        return;
-      }
-      setVocabularyList(vocabularyWords);
-    } catch (err) {
-      setError('Failed to load vocabulary words');
-      console.error('Error loading vocabulary:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const loadCategories = async () => {
     if (!user) return;
@@ -113,53 +92,15 @@ export const WorksheetGenerator: React.FC = () => {
   };
 
   const handleSearch = async (term: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      if (!term) {
-        await loadVocabularyWords();
-        return;
-      }
-      const results = await searchVocabulary(term);
-      setVocabularyList(results);
-      if (results.length === 0) {
-        setError('No matching words found');
-      }
-    } catch (err) {
-      setError('Search failed');
-      console.error('Search error:', err);
-    } finally {
-      setIsLoading(false);
-    }
+    setLibrarySearchTerm(term);
   };
 
   const handleCategorySelect = async (category: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      if (!user) return;
-      setSelectedCategory(category);
-      if (category) {
-        const categoryWords = await getWordsByCategory(user.uid, category);
-        if (categoryWords.length > 0) {
-          setVocabularyList(categoryWords);
-
-          setSelectedWords([]);
-        } else {
-          setError('No words found in this category');
-          setVocabularyList([]);
-          setSelectedWords([]);
-        }
-      } else {
-        await loadVocabularyWords();
-        setSelectedWords([]); // Clear selection when removing filter
-      }
-    } catch (err) {
-      setError('Failed to load category words');
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
+    setSelectedCategory(category);
+    setFilters(prev => ({
+      ...prev,
+      categories: category ? [category] : []
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -174,12 +115,19 @@ export const WorksheetGenerator: React.FC = () => {
       setSuccess(false);
       
       let wordList: string[];
+      let selectedMetadata: FlashcardMetadata[] | undefined;
+
       if (inputMode === 'database') {
         if (selectedWords.length === 0) {
           setError('Please select at least one word');
           return;
         }
         wordList = selectedWords.map(w => w.word);
+        // Update metadata with userId
+        selectedMetadata = selectedWords.map(w => ({
+          ...w,
+          userId: user.uid
+        }));
       } else {
         wordList = words
           .split('\n')
@@ -190,6 +138,16 @@ export const WorksheetGenerator: React.FC = () => {
           setError('Please enter at least one word');
           return;
         }
+      }
+
+      if (!templateId || !templates[templateId]) {
+        setError('Please select a valid template');
+        return;
+      }
+
+      if (timeLimit < 1 || timeLimit > 120) {
+        setError('Time limit must be between 1 and 120 minutes');
+        return;
       }
 
       const worksheetData: Omit<Worksheet, 'id'> = {
@@ -210,7 +168,17 @@ export const WorksheetGenerator: React.FC = () => {
         }
       };
 
-      const { questions, answers } = await generateWorksheet(wordList, templateId, difficulty);
+      const { questions, answers } = await generateWorksheet(
+        wordList, 
+        templateId, 
+        difficulty,
+        selectedMetadata // Pass metadata to generator
+      );
+
+      if (!questions?.length) {
+        throw new Error('Failed to generate worksheet questions');
+      }
+
       worksheetData.questions = questions;
       worksheetData.answers = answers;
       worksheetData.stats.total = questions.length;
@@ -226,6 +194,20 @@ export const WorksheetGenerator: React.FC = () => {
   };
 
   const wordListTitle = `Vocabulary Worksheet - ${t(`worksheets.difficulty.${difficulty}`)} (${new Date().toLocaleDateString()})`;
+
+  const sortedCards = React.useMemo(() => {
+    // Replace current sorting logic with case-insensitive alphabetical sort
+    return [...cards].sort((a, b) => 
+      a.word.toLowerCase().localeCompare(b.word.toLowerCase())
+    );
+  }, [cards]);
+
+  const capitalizedCards = React.useMemo(() => {
+    return sortedCards.map(card => ({
+      ...card,
+      word: card.word.charAt(0).toUpperCase() + card.word.slice(1)
+    }));
+  }, [sortedCards]);
 
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, maxWidth: 'lg', mx: 'auto' }}>
@@ -281,8 +263,8 @@ export const WorksheetGenerator: React.FC = () => {
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => setSelectedWords(vocabularyList)}
-                    disabled={vocabularyList.length === 0}
+                    onClick={() => setSelectedWords(sortedCards)}
+                    disabled={sortedCards.length === 0}
                     startIcon={<SelectAllIcon />}
                   >
                     {t('worksheets.form.selectAll')}
@@ -300,11 +282,26 @@ export const WorksheetGenerator: React.FC = () => {
 
                 <Autocomplete
                   multiple
-                  loading={isLoading}
-                  options={vocabularyList}
+                  loading={metadataLoading}
+                  options={capitalizedCards}
                   value={selectedWords}
-                  getOptionLabel={(option) => `${option.word} - ${option.englishDefinition}`}
+                  getOptionLabel={(option) => option.word}
                   onChange={(_, newValue) => setSelectedWords(newValue)}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => {
+                      // Destructure the props and separate the key
+                      const { key, ...chipProps } = getTagProps({ index });
+                      return (
+                        <Chip
+                          key={key}
+                          {...chipProps}
+                          label={option.word}
+                          size="small"
+                          sx={{ borderRadius: 1 }}
+                        />
+                      );
+                    })
+                  }
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -323,23 +320,13 @@ export const WorksheetGenerator: React.FC = () => {
                         ),
                         endAdornment: (
                           <>
-                            {isLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                            {metadataLoading ? <CircularProgress color="inherit" size={20} /> : null}
                             {params.InputProps.endAdornment}
                           </>
                         ),
                       }}
                     />
                   )}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        {...getTagProps({ index })}
-                        label={option.word}
-                        size="small"
-                        sx={{ borderRadius: 1 }}
-                      />
-                    ))
-                  }
                 />
               </Grid>
             </>

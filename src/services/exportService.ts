@@ -1,6 +1,9 @@
 import { Worksheet } from '../types';
 import { Document, Paragraph, Packer } from 'docx';
 import { generateWorksheetPDF } from './pdfService';
+import JSZip from 'jszip';
+import { collection, getDocs } from '@firebase/firestore';
+import { db } from './firebase';
 
 export const exportWorksheet = async (worksheet: Worksheet, format: 'pdf' | 'docx') => {
   if (format === 'pdf') {
@@ -58,4 +61,64 @@ export const downloadDOCX = async (doc: Document, filename: string) => {
     console.error('DOCX export failed:', error);
     throw error;
   }
+};
+
+interface ExportOptions {
+  flashcards: boolean;
+  articles: boolean;
+}
+
+export const exportUserData = async (userId: string, options: ExportOptions) => {
+  const zip = new JSZip();
+  
+  if (options.flashcards) {
+    // Export flashcards as CSV
+    const flashcardsRef = collection(db, 'users', userId, 'flashcards');
+    const snapshot = await getDocs(flashcardsRef);
+    const flashcardsData = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return [
+        data.word,
+        data.partOfSpeech,
+        data.englishDefinition,
+        data.chineseTranslation,
+        (data.categories || []).join(';')
+      ].join(',');
+    });
+    
+    const csvContent = ['word,partOfSpeech,englishDefinition,chineseTranslation,categories']
+      .concat(flashcardsData)
+      .join('\n');
+      
+    zip.file('flashcards.csv', csvContent);
+  }
+
+  if (options.articles) {
+    // Export articles with their original structure
+    const articlesRef = collection(db, 'users', userId, 'articles');
+    const snapshot = await getDocs(articlesRef);
+    
+    const articlesFolder = zip.folder('articles');
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      const article = {
+        title: data.title,
+        content: data.content,
+        category: data.category,
+        sourceUrl: data.sourceUrl
+      };
+      
+      // Create individual zip for each article to match import format
+      const articleZip = new JSZip();
+      articleZip.file('article.json', JSON.stringify(article, null, 2));
+      if (data.coverImage) {
+        articleZip.file('cover.jpg', data.coverImage, {base64: true});
+      }
+      
+      const articleZipBlob = await articleZip.generateAsync({type: 'blob'});
+      articlesFolder?.file(`${doc.id}.zip`, articleZipBlob);
+    }
+  }
+
+  return zip.generateAsync({type: 'blob'});
 };

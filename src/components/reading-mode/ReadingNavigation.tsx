@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import {
   AppBar,
   Toolbar,
@@ -13,16 +14,36 @@ import {
   InputLabel,
   Divider,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Collapse,
+  Paper,
+  Stack,
+  Button
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import TranslateIcon from '@mui/icons-material/Translate';
+import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
+import TextDecreaseIcon from '@mui/icons-material/TextDecrease';
+import FormatLineSpacingIcon from '@mui/icons-material/FormatLineSpacing';
+import FontDownloadIcon from '@mui/icons-material/FontDownload';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/Fullscreen';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import useFullscreen from '../../hooks/useFullscreen';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserPreferences } from '../../context/UserPreferencesContext';
 import { useI18n } from '../../i18n/I18nContext';
 import { useReadingMode } from '../../context/ReadingModeContext';
 import { logger } from '../../services/logging';
 import { useAuth } from '../../context/AuthContext';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import { ReadingSettingsDialog } from './ReadingSettingsDialog';
+import { useGamification } from '../../context/GamificationContext';
 
 export const ReadingNavigation: React.FC = () => {
   const navigate = useNavigate();
@@ -30,8 +51,16 @@ export const ReadingNavigation: React.FC = () => {
   const { preferences, setPreferences } = useUserPreferences();
   const { t } = useI18n();
   const { currentArticle, setCurrentArticle } = useReadingMode();
-  const { user } = useAuth();
   const [settingsAnchor, setSettingsAnchor] = useState<null | HTMLElement>(null);
+  const { user } = useAuth();
+  const isMobile = useMediaQuery('(max-width:600px)');
+  const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const fullscreenRef = React.useRef<HTMLElement>(null);
+  const { isFullscreen, toggleFullscreen } = useFullscreen(fullscreenRef);
+  const [textSettingsOpen, setTextSettingsOpen] = useState(false);
+  const { showGamePanel, toggleGamePanel } = useGamification();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleSettingsClick = (event: React.MouseEvent<HTMLElement>) => {
     setSettingsAnchor(event.currentTarget);
@@ -68,8 +97,55 @@ export const ReadingNavigation: React.FC = () => {
   const handleBack = () => {
     if (currentArticle) {
       setCurrentArticle(null);
+    } else if (location.pathname === '/reading') {
+      navigate('/');
     } else {
       navigate('/reading');
+    }
+  };
+
+  const handleFontSize = (increment: number) => {
+    setPreferences(prev => ({
+      ...prev,
+      readingSettings: {
+        ...prev.readingSettings,
+        fontSize: Math.min(Math.max(12, (prev.readingSettings?.fontSize || 16) + increment), 32)
+      }
+    }));
+  };
+
+  const handleLineHeight = (increment: number) => {
+    setPreferences(prev => ({
+      ...prev,
+      readingSettings: {
+        ...prev.readingSettings,
+        lineHeight: Math.min(Math.max(1, (prev.readingSettings?.lineHeight || 1.6) + increment), 3)
+      }
+    }));
+  };
+
+  const handleFontChange = () => {
+    const fonts = ['system-ui', 'Georgia', 'Merriweather', 'Source Serif Pro', 'Crimson Pro', 'Noto Serif', 'IBM Plex Serif'];
+    setPreferences(prev => {
+      const currentIndex = fonts.indexOf(prev.readingSettings?.fontFamily || 'system-ui');
+      const nextIndex = (currentIndex + 1) % fonts.length;
+      return {
+        ...prev,
+        readingSettings: {
+          ...prev.readingSettings,
+          fontFamily: fonts[nextIndex]
+        }
+      };
+    });
+  };
+
+  const handleFullscreen = () => {
+    if (document.documentElement.requestFullscreen) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
     }
   };
 
@@ -104,98 +180,72 @@ export const ReadingNavigation: React.FC = () => {
           </IconButton>
         </Box>
 
-        <IconButton 
-          onClick={handleSettingsClick}
-          sx={{ 
-            bgcolor: 'background.paper',
-            boxShadow: 1,
-            '&:hover': {
-              bgcolor: 'background.paper',
-            }
-          }}
-        >
-          <SettingsIcon />
-        </IconButton>
-      </Toolbar>
+        <Box sx={{ position: 'relative' }}>
+          <IconButton
+            onClick={() => setMenuOpen(!menuOpen)}
+            sx={{ bgcolor: 'background.paper', boxShadow: 1 }}
+          >
+            <SettingsIcon />
+          </IconButton>
 
-      <Menu
-        anchorEl={settingsAnchor}
-        open={Boolean(settingsAnchor)}
-        onClose={handleClose}
-        PaperProps={{
-          sx: { width: 320, maxHeight: '80vh' }
-        }}
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            {t('reading.settings.fontSize')}
-          </Typography>
-          <Slider
-            value={preferences.readingSettings.fontSize}
-            onChange={(_, value) => updateReadingSettings('fontSize', value)}
-            min={12}
-            max={32}
-            marks
-            valueLabelDisplay="auto"
-          />
+          <Collapse in={menuOpen}>
+            <Paper 
+              sx={{ 
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                mt: 1,
+                p: 1,
+                minWidth: '48px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                zIndex: 1200
+              }}
+            >
+              <IconButton onClick={() => {
+                setTextSettingsOpen(true);
+                setMenuOpen(false);
+              }}>
+                <TextFieldsIcon />
+              </IconButton>
 
-          <Box sx={{ mt: 2 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('reading.settings.fontFamily')}</InputLabel>
-              <Select
-                value={preferences.readingSettings.fontFamily}
-                onChange={(e) => updateReadingSettings('fontFamily', e.target.value)}
-                label={t('reading.settings.fontFamily')}
-              >
-                <MenuItem value="system-ui">{t('reading.settings.fonts.system')}</MenuItem>
-                <MenuItem value="Georgia">{t('reading.settings.fonts.georgia')}</MenuItem>
-                <MenuItem value="Merriweather">{t('reading.settings.fonts.merriweather')}</MenuItem>
-                <MenuItem value="'Source Serif Pro'">{t('reading.settings.fonts.sourceSerif')}</MenuItem>
-                <MenuItem value="'Crimson Pro'">{t('reading.settings.fonts.crimson')}</MenuItem>
-                <MenuItem value="'Noto Serif'">{t('reading.settings.fonts.notoSerif')}</MenuItem>
-                <MenuItem value="'IBM Plex Serif'">{t('reading.settings.fonts.ibmPlex')}</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
+              <IconButton onClick={() => {
+                updateReadingSettings('focusModeEnabled', !preferences.readingSettings.focusModeEnabled);
+                setMenuOpen(false);
+              }}>
+                <CenterFocusStrongIcon color={preferences.readingSettings.focusModeEnabled ? "secondary" : "inherit"} />
+              </IconButton>
 
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              {t('reading.settings.lineHeight')}
-            </Typography>
-            <Slider
-              value={preferences.readingSettings.lineHeight}
-              onChange={(_, value) => updateReadingSettings('lineHeight', value)}
-              min={1}
-              max={3}
-              step={0.1}
-              marks
-              valueLabelDisplay="auto"
-            />
-          </Box>
+              <IconButton onClick={() => {
+                handleFullscreen();
+                setMenuOpen(false);
+              }}>
+                {document.fullscreenElement ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              </IconButton>
 
-          <Divider sx={{ my: 2 }} />
+              <IconButton onClick={() => {
+                setDictionaryOpen(true);
+                setMenuOpen(false);
+              }}>
+                <TranslateIcon />
+              </IconButton>
 
-          <FormControlLabel
-            control={
-              <Switch
-                checked={preferences.readingSettings.focusModeEnabled}
-                onChange={(e) => updateReadingSettings('focusModeEnabled', e.target.checked)}
-              />
-            }
-            label={t('reading.settings.focusMode')}
-          />
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={preferences.readingSettings.enableTTS}
-                onChange={(e) => updateReadingSettings('enableTTS', e.target.checked)}
-              />
-            }
-            label={t('reading.settings.enableTTS')}
-          />
+              <IconButton onClick={() => {
+                toggleGamePanel();
+                setMenuOpen(false);
+              }}>
+                {showGamePanel ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              </IconButton>
+            </Paper>
+          </Collapse>
         </Box>
-      </Menu>
+
+        <ReadingSettingsDialog 
+          open={textSettingsOpen}
+          onClose={() => setTextSettingsOpen(false)}
+        />
+      </Toolbar>
     </AppBar>
   );
 };

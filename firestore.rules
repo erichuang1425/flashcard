@@ -38,7 +38,11 @@ service cloud.firestore {
         isOwner(userId) || 
         resource.data.isPublic == true
       );
-      allow write: if isAuthenticated() && isOwner(userId);
+      allow create: if isAuthenticated() && isOwner(userId) && (
+        request.resource.data.keys().hasAll(['word', 'englishDefinition', 'partOfSpeech']) &&
+        request.resource.data.exampleSentence is string || request.resource.data.exampleSentence == null
+      );
+      allow update: if isAuthenticated() && isOwner(userId);
     }
 
     // User stats and progress stays under user doc

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -33,7 +33,7 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, user, loading, authInitialized } = useAuth();
   const navigate = useNavigate();
   const { t, setLanguage: setI18nLanguage } = useI18n();
   const [language, setLanguage] = useState('en');
@@ -42,6 +42,16 @@ export const Login: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    // Only redirect if auth is initialized and user exists
+    if (user && !loading && authInitialized) {
+      const redirectUrl = sessionStorage.getItem('redirectUrl') || '/';
+      sessionStorage.removeItem('redirectUrl'); // Clean up after getting the URL
+      navigate(redirectUrl, { replace: true });
+    }
+  }, [user, loading, authInitialized, navigate]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +62,7 @@ export const Login: React.FC = () => {
       setIsLoading(true);
       setIsExiting(true);
       await signIn(email, password);
-      // Wait for exit animations
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      navigate('/');
+      // Redirect handling is now done in useEffect
     } catch (err) {
       setError(t('auth.errors.failed'));
       setIsExiting(false);
@@ -68,12 +76,11 @@ export const Login: React.FC = () => {
       setError('');
       setIsLoading(true);
       await signInWithGoogle();
-      navigate('/');
+      // Redirect is now handled by useEffect
     } catch (err) {
       logger.error('Google sign-in failed', err as Error);
       setError(t('auth.errors.googleFailed'));
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Make sure to set loading to false on error
     }
   };
 

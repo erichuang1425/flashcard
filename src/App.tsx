@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Study } from './pages/Study';
@@ -22,56 +22,86 @@ import { GamificationProvider } from './context/GamificationContext';
 import { FocusModeProvider } from './context/FocusModeContext';
 import { Profile } from './pages/Profile';
 import { SettingsProvider } from './context/SettingsContext';
-import { ThemeProvider } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ThemeModeProvider } from './context/ThemeModeContext';
 import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { I18nProvider } from './i18n/I18nContext';
 import { ReadingModeProvider } from './context/ReadingModeContext';
 import { Reading } from './pages/Reading';
+import { getDoc, doc, setDoc, collection } from '@firebase/firestore';
+import { db } from './services/firebase';
+import { FlashcardLibrary } from './pages/FlashcardLibrary';
+import { SnackbarProvider } from 'notistack';
+import { ConfirmProvider } from './context/ConfirmContext';
+import { MainDrawer } from './components/navigation/MainDrawer';
+import { Box, useMediaQuery } from '@mui/material';
+import { logger } from './services/logging';
+import { checkAndRunMigrations, migrateQueuePerformanceTracking } from './utils/migrations';
+
 
 const App: React.FC = () => {
   const { user } = useAuth();
-
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [drawerOpen, setDrawerOpen] = useState(false);
   return (
     <ThemeModeProvider>
       <ThemeProvider>
-        <UserPreferencesProvider>
-          <I18nProvider>
-            <SettingsProvider>
-              <GamificationProvider>
-                <ReadingModeProvider>
-                  <FocusModeProvider>
-                    <Layout>
-                      <Routes>
-                        <Route path="/login" element={
-                          !user ? <Login /> : <Navigate to="/" replace />
-                        } />
-                        <Route path="/register" element={
-                          !user ? <Register /> : <Navigate to="/" replace />
-                        } />
-                        {/* All other routes require authentication */}
-                        <Route path="/*" element={
-                          !user ? <Navigate to="/login" replace /> :
-                          <Routes>
-                            <Route path="/" element={<Home />} />
-                            <Route path="/study" element={<Study />} />
-                            <Route path="/import" element={<Import />} />
-                            <Route path="/worksheets" element={<Worksheets />} />
-                            <Route path="/settings" element={<Settings />} />
-                            <Route path="/profile" element={<Profile />} />
-                            <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
-                            <Route path="/reading" element={<Reading />} />
-                            <Route path="*" element={<Navigate to="/" replace />} />
-                          </Routes>
-                        } />
-                      </Routes>
-                    </Layout>
-                  </FocusModeProvider>
-                </ReadingModeProvider>
-              </GamificationProvider>
-            </SettingsProvider>
-          </I18nProvider>
-        </UserPreferencesProvider>
+        <SnackbarProvider maxSnack={3}>
+          <ConfirmProvider>
+            <UserPreferencesProvider>
+              <I18nProvider>
+                <SettingsProvider>
+                  <GamificationProvider>
+                    <ReadingModeProvider>
+                      <FocusModeProvider>
+                        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                          {!isMobile && (
+                            <MainDrawer 
+                              open={drawerOpen} 
+                              onClose={() => setDrawerOpen(false)} 
+                            />
+                          )}
+                          <Box sx={{ 
+                            flexGrow: 1,
+                            pb: 0 // Remove bottom padding since there's no bottom nav
+                          }}>
+                            <Layout>
+                              <Routes>
+                                <Route path="/login" element={
+                                  !user ? <Login /> : <Navigate to="/" replace />
+                                } />
+                                <Route path="/register" element={
+                                  !user ? <Register /> : <Navigate to="/" replace />
+                                } />
+                                {/* All other routes require authentication */}
+                                <Route path="/*" element={
+                                  !user ? <Navigate to="/login" replace /> :
+                                  <Routes>
+                                    <Route path="/" element={<Home />} />
+                                    <Route path="/study" element={<Study />} />
+                                    <Route path="/flashcards" element={<FlashcardLibrary />} /> {/* Add this line */}
+                                    <Route path="/import" element={<Import />} />
+                                    <Route path="/worksheets" element={<Worksheets />} />
+                                    <Route path="/settings" element={<Settings />} />
+                                    <Route path="/profile" element={<Profile />} />
+                                    <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
+                                    <Route path="/reading" element={<Reading />} />
+                                    <Route path="*" element={<Navigate to="/" replace />} />
+                                  </Routes>
+                                } />
+                              </Routes>
+                            </Layout>
+                          </Box>
+                        </Box>
+                      </FocusModeProvider>
+                    </ReadingModeProvider>
+                  </GamificationProvider>
+                </SettingsProvider>
+              </I18nProvider>
+            </UserPreferencesProvider>
+          </ConfirmProvider>
+        </SnackbarProvider>
       </ThemeProvider>
     </ThemeModeProvider>
   );

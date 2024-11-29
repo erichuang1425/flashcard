@@ -14,9 +14,30 @@ interface GamificationContextType {
   showLevelUpNotification: (level: number) => void;
   focusMode: boolean;
   setFocusMode: (active: boolean) => void;
+  showGamePanel: boolean;
+  setShowGamePanel: (show: boolean) => void;
+  toggleGamePanel: () => void;
+  showMobileGamePanel: boolean;
+  setShowMobileGamePanel: (show: boolean) => void;
+  toggleMobileGamePanel: () => void;
 }
 
-const GamificationContext = createContext<GamificationContextType | null>(null);
+const GamificationContext = createContext<GamificationContextType | null>({
+  levelSystem: null,
+  achievements: [],
+  dailyChallenges: [],
+  addXP: async () => {},
+  refreshChallenges: async () => {},
+  showLevelUpNotification: () => {},
+  focusMode: false,
+  setFocusMode: () => {},
+  showGamePanel: true,
+  setShowGamePanel: () => {},
+  toggleGamePanel: () => {},
+  showMobileGamePanel: false,
+  setShowMobileGamePanel: () => {},
+  toggleMobileGamePanel: () => {}
+});
 
 export const useGamification = () => {
   const context = useContext(GamificationContext);
@@ -34,6 +55,8 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [notifications, setNotifications] = useState<string[]>([]);
   const [levelUpNotification, setLevelUpNotification] = useState<{ level: number; visible: boolean }>({ level: 0, visible: false });
   const [focusMode, setFocusMode] = useState(false);
+  const [showGamePanel, setShowGamePanel] = useState(true);
+  const [showMobileGamePanel, setShowMobileGamePanel] = useState(false);
 
   // Track previous level for level-up detection
   const previousLevel = React.useRef(1);
@@ -100,6 +123,9 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setTimeout(() => setLevelUpNotification(prev => ({ ...prev, visible: false })), 3000);
   };
 
+  const toggleGamePanel = () => setShowGamePanel(prev => !prev);
+  const toggleMobileGamePanel = () => setShowMobileGamePanel(prev => !prev);
+
   const value = {
     levelSystem,
     achievements,
@@ -118,6 +144,12 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     showLevelUpNotification,
     focusMode,
     setFocusMode,
+    showGamePanel,
+    setShowGamePanel,
+    toggleGamePanel,
+    showMobileGamePanel,
+    setShowMobileGamePanel, 
+    toggleMobileGamePanel
   };
 
   return (

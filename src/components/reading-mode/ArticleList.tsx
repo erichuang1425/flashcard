@@ -70,6 +70,9 @@ export const ArticleList: React.FC<ArticleListProps> = ({
             '& .article-tag': {
               backgroundColor: 'primary.main',
               color: 'primary.contrastText',
+            },
+            '& .article-overlay': {
+              opacity: article.progress?.completed ? 0.15 : 0
             }
           }
         }}
@@ -80,8 +83,24 @@ export const ArticleList: React.FC<ArticleListProps> = ({
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
+            position: 'relative',
           }}
         >
+          <Box
+            className="article-overlay"
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              bgcolor: 'success.main',
+              opacity: article.progress?.completed ? 0.1 : 0,
+              transition: 'opacity 0.3s ease',
+              zIndex: 1,
+              pointerEvents: 'none'
+            }}
+          />
           <CardContent 
             sx={{ 
               flexGrow: 1,
@@ -199,7 +218,7 @@ export const ArticleList: React.FC<ArticleListProps> = ({
                 </Typography>
               )}
 
-              <Box sx={{ mt: 2 }}>
+              <Box sx={{ mt: 'auto', p: 2 }}>
                 <Stack 
                   direction="row" 
                   spacing={2} 
@@ -212,10 +231,10 @@ export const ArticleList: React.FC<ArticleListProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
-                      color: 'text.secondary',
+                      color: article.progress?.completed ? 'success.main' : 'text.secondary',
                       '& > span': {
                         fontWeight: 600,
-                        color: 'text.primary'
+                        color: article.progress?.completed ? 'success.main' : 'text.primary'
                       }
                     }}
                   >
@@ -225,7 +244,7 @@ export const ArticleList: React.FC<ArticleListProps> = ({
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        color: 'success.main',
+                        color: article.progress?.completed ? 'success.main' : 'text.secondary',
                         fontWeight: 500 
                       }}
                     >
@@ -244,7 +263,11 @@ export const ArticleList: React.FC<ArticleListProps> = ({
                     visibility: progress > 0 ? 'visible' : 'hidden',
                     '& .MuiLinearProgress-bar': {
                       backgroundImage: theme => 
-                        `linear-gradient(45deg, ${theme.palette.success.main}, ${theme.palette.success.light})`
+                        `linear-gradient(45deg, ${
+                          article.progress?.completed ? theme.palette.success.main : theme.palette.primary.main
+                        }, ${
+                          article.progress?.completed ? theme.palette.success.light : theme.palette.primary.light
+                        })`
                     }
                   }}
                 />

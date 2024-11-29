@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { theme } from './theme';
 import App from './App';
 import { MobileProvider } from './context/MobileContext';
+import './styles/global.css'; // Add this import
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

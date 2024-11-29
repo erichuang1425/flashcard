@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { useUserPreferences } from './UserPreferencesContext';
-import { doc, DocumentData, DocumentReference, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, DocumentData, DocumentReference, onSnapshot, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { updateArticleProgress } from '../services/articleService';
+import { logger } from '../services/logging';
 
 interface ReadingProgress {
   articleId: string;
@@ -13,6 +15,9 @@ interface ReadingProgress {
   readingSpeed: number;
   startTime?: number;
   lastCalculation?: number;
+  completed?: boolean; // Added this field
+  lastRead?: Date;
+  completionDate?: Date;
 }
 
 export interface ReadingProgressMap {
@@ -58,6 +63,8 @@ interface ArticleProgress {
   wordsRead: number;
   lastPosition: number;
   completed: boolean;
+  readingSpeed?: number;
+  lastCalculation?: number;
 }
 
 const ReadingModeContext = createContext<ReadingModeContextType | null>(null);
@@ -108,9 +115,9 @@ export const ReadingModeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return () => unsubscribe();
   }, [user]);
 
-  const updateProgress = useCallback(async (progress: Partial<ReadingProgress>) => {
+  const updateProgress = useCallback(async (progress: Partial<ArticleProgress>) => {
     if (!user || !currentArticle || !mountedRef.current) return;
-
+    
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current);
     }
@@ -119,15 +126,17 @@ export const ReadingModeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (!mountedRef.current) return;
 
       try {
-        const progressRef = doc(db, 'users', user.uid, 'readingProgress', currentArticle.id);
+        const progressRef = doc(db, 'users', user.uid, 'articles', currentArticle.id);
         const newProgress = {
           ...readingProgress[currentArticle.id],
           ...progress,
           lastUpdated: new Date().toISOString()
         };
 
-        await setDoc(progressRef, newProgress, { merge: true });
+        // Update Firebase
+        await updateArticleProgress(user.uid, currentArticle.id, newProgress);
         
+        // Update local state
         if (mountedRef.current) {
           setReadingProgress(prev => ({
             ...prev,
@@ -135,10 +144,10 @@ export const ReadingModeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           }));
         }
       } catch (error) {
-        console.error('Failed to update reading progress:', error);
+        logger.error('Failed to update reading progress', error as Error);
       }
     }, 1000);
-  }, [user, currentArticle, readingProgress]);
+  }, [user, currentArticle, readingProgress, mountedRef]);
 
   useEffect(() => {
     mountedRef.current = true;

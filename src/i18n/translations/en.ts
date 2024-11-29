@@ -13,6 +13,48 @@ export const en = {
     title: 'Settings',
     language: 'Language',
     languageHelp: 'Choose your preferred language',
+    "srsType": "Study Review System",
+    "srsTypes": {
+      "interval": "Time-based Intervals",
+      "position": "Queue Position-based"
+    },
+    "srsTypeHelp": "Choose how cards are scheduled for review",
+    collections: {
+      title: 'Collection Management',
+      statistics: 'Collection Statistics',
+      selectCollections: 'Select Collections to Manage',
+      flashcards: {
+        title: 'Flashcards',
+        totalCards: 'Total Cards',
+        mastered: 'Mastered',
+        dueReview: 'Due for Review',
+        categories: 'Categories',
+        categoryProgress: 'Category Progress',
+        averageAccuracy: 'Average Accuracy',
+        noData: 'No flashcard data available'
+      },
+      articles: {
+        title: 'Articles',
+        total: 'Total Articles',
+        categories: 'Categories',
+        lastUpdated: 'Last Updated',
+        noData: 'No article data available'
+      },
+      migration: {
+        title: 'Migration',
+        verify: 'Verify Selected Collections',
+        migrate: 'Migrate Selected Collections',
+        verification: 'Verification',
+        migration: 'Migration',
+        verifyResults: 'Verification Results',
+        inProgress: 'Migration in progress...',
+        selectPrompt: 'Please select at least one collection type',
+        success: 'Migration completed successfully',
+        failed: 'Migration failed',
+        synced: 'Collections already in sync',
+        found: 'Found {{count}} items to migrate'
+      }
+    },
     theme: 'Theme Mode',
     appearance: 'Language & Appearance',
     study: 'Study Settings',
@@ -53,7 +95,42 @@ export const en = {
     },
     readingPreferences: 'Reading Preferences',
     fontSize: 'Font Size',
-    focusMode: 'Focus Mode'
+    focusMode: 'Focus Mode',
+    export: {
+      title: 'Export Data',
+      selectData: 'Select Data to Export',
+      button: 'Export Selected Data',
+      exporting: 'Exporting...',
+      success: 'Data exported successfully',
+      error: 'Export failed',
+      flashcards: 'Flashcards',
+      articles: 'Articles',
+    },
+    analytics: 'Analytics',
+    dataManagement: 'Data Management',
+    account: 'Account Settings',
+    security: 'Security',
+    accessibility: 'Accessibility',
+    display: 'Display Settings',
+    sound: 'Sound Settings',
+    notification: 'Notification Settings',
+    sync: 'Sync Settings',
+    about: 'About',
+    help: 'Help & Support',
+    backup: 'Backup & Restore',
+    advanced: 'Advanced Settings',
+    experimental: 'Experimental Features',
+    developerMode: 'Developer Mode',
+    resetSettings: 'Reset Settings',
+    resetWarning: 'This will reset all settings to default values',
+    resetConfirm: 'Are you sure you want to reset all settings?',
+    importSettings: 'Import Settings',
+    exportSettings: 'Export Settings',
+    performance: 'Performance Settings',
+    preloadLimit: 'Preload Batch Size',
+    preloadLimitHelp: 'Number of items to preload in advance (3-10)',
+    cacheTimeout: 'Cache Timeout',
+    cacheTimeoutHelp: 'Time in minutes before cache is refreshed (1-30)',
   },
   profile: {
     level: 'Level',
@@ -147,7 +224,9 @@ export const en = {
     progressOverview: 'Progress Overview',
     masteryProgress: 'Mastery Progress',
     totalMinutes: 'Total Minutes Studied',
-    studyTime: 'Study Time Overview'
+    studyTime: 'Study Time Overview',
+    readingMode: 'Access your reading materials',
+    importCards: 'Import and manage flashcards'
   },
   library: {
     title: 'Library',
@@ -200,6 +279,7 @@ export const en = {
     }
   },
   study: {
+    noCards: 'No flashcards available',
     title: 'Study Session', 
     modes: {
       title: 'Study Mode', 
@@ -260,6 +340,12 @@ export const en = {
       pairFound: 'Good match!',
       pairNotFound: 'Try another pair',
       complete: 'All pairs matched!'
+    },
+    categories: {
+      label: 'Filter by Category',
+      placeholder: 'Select category',
+      all: 'All Categories',
+      noCategories: 'No categories available'
     }
   },
   import: {
@@ -297,13 +383,17 @@ export const en = {
         definition: 'Enter English definition',
         translation: 'Enter Chinese translation',
         categories: 'Select or create categories',
-        wordTooShort: 'Word must be at least 2 characters'
+        wordTooShort: 'Word must be at least 2 characters',
+        example: 'Enter example sentence',
+        wordDuplicate: 'Word already exists in database',
       },
       testTranslation: 'Test Translation',
-      translationSuccess: 'Translation test successful',
+      translationSuccess: 'Translation successful',
       translating: 'Translating...',
       savedEntries: 'Saved Entries',
-      importSaved: 'Import All Saved Entries'
+      importSaved: 'Import All Saved Entries',
+      useDefaultCategories: 'Use default categories for new entries',
+      setAsDefault: 'Set current categories as default',
     },
     actions: {
       upload: 'Upload CSV File',
@@ -324,7 +414,9 @@ export const en = {
       emptyTranslation: 'Translation result is empty',
       uploadSuccess: 'Upload successful!',
       savingEntry: 'Saving entry...',
-      deleteConfirm: 'Are you sure you want to delete this item?'
+      deleteConfirm: 'Are you sure you want to delete this item?',
+      duplicateWord: '{{word}} already exists in database',
+      duplicate: 'Duplicate',
     },
     notifications: {
       saved: 'Entry saved',
@@ -358,6 +450,17 @@ export const en = {
       addMore: 'Add More Words',
       saveEntry: 'Save Entry'
     }
+  },
+  edit: {
+    title: 'Edit Flashcard',
+    success: 'Flashcard updated successfully',
+    error: 'Failed to update flashcard',
+  },
+  fields: {
+    word: 'Word',
+    englishDefinition: 'English Definition',
+    chineseTranslation: 'Chinese Translation',
+    exampleSentence: 'Example Sentence',
   },
   worksheets: {
     title: 'My Worksheets',
@@ -457,7 +560,8 @@ export const en = {
       logout: 'Logout',
       home: 'Home',
       study: 'Study',
-      worksheets: 'Worksheets',
+      library: 'Archive',
+      worksheets: 'Worksheets', 
       import: 'Import'
     },
     appName: 'FlashCards AI',
@@ -596,42 +700,88 @@ export const en = {
       addToFlashcards: 'Add to Flashcards',
       textToSpeech: 'Text to Speech',
       search: 'Search articles...',
-      progress: {
-        progress: '{{percent}}% completed',
-        importing: 'Importing article...',
-        analyzing: 'Analyzing content...',
-        saving: 'Saving article...',
-        error: {
-          fileStructure: 'Invalid file structure',
-          fileSize: 'File too large',
-          fileType: 'Invalid file type',
-          parsing: 'Error parsing content',
-          network: 'Network error',
-          unknown: 'Unknown error occurred'
-        },
-        success: 'Article successfully imported'
-      }
-    },
-    dictionary: {
-      addToFlashcards: 'Add to Flashcards'
-    },
-    manage: {
-      title: 'Manage Articles',
-      deleteSelected: 'Delete Selected ({{count}})',
-      never: 'Never',
-      confirmDelete: 'Delete',
-      deleteConfirmTitle: 'Confirm Deletion',
-      deleteConfirmMessage: 'Are you sure you want to delete {{count}} selected articles? This action cannot be undone.',
-      error: {
-        deleteFailed: 'Failed to delete articles'
+  progress: {
+    progress: '{{percent}}% completed',
+    importing: 'Importing article...',
+    analyzing: 'Analyzing content...'
+  },
+      title: 'Collection Management',
+      statistics: 'Collection Statistics',
+      selectCollections: 'Select Collections to Manage',
+      flashcards: {
+        title: 'Flashcards',
+        totalCards: 'Total Cards',
+        mastered: 'Mastered',
+        dueReview: 'Due for Review',
+        categories: 'Categories',
+        categoryProgress: 'Category Progress',
+        averageAccuracy: 'Average Accuracy',
+        noData: 'No flashcard data available'
       },
-      columns: {
-        title: 'Title',
-        category: 'Category',
-        wordCount: 'Words',
-        lastRead: 'Last Read',
-        progress: 'Progress'
+      articles: {
+        title: 'Articles',
+        total: 'Total Articles',
+        categories: 'Categories',
+        lastUpdated: 'Last Updated',
+        noData: 'No article data available'
+      },
+      migration: {
+        title: 'Migration',
+        verify: 'Verify Selected Collections',
+        migrate: 'Migrate Selected Collections',
+        verifyResults: 'Verification Results',
+        inProgress: 'Migration in progress...',
+        selectPrompt: 'Please select at least one collection type',
+        success: 'Migration completed successfully',
+        failed: 'Migration failed',
+        synced: 'Collections already in sync',
+        found: 'Found {{count}} items to migrate'
       }
+    }
+  },
+  flashcards: {
+    library: {
+      title: 'Flashcard Library',
+      noResults: 'No cards found',
+      loading: 'Loading cards...'
+    },
+    errors: {
+      loadFailed: 'Failed to load flashcard'
+    },
+    fields: {
+      word: 'Word',
+      partOfSpeech: 'Part of Speech',
+      englishDefinition: 'English Definition',
+      chineseTranslation: 'Chinese Translation',
+      category: 'Categories',
+      categoryHelp: 'Separate multiple categories with commas',
+      exampleSentence: 'Example Sentence'
+    },
+    search: {
+      placeholder: 'Search flashcards...'
+    },
+    pagination: {
+      showing: 'Showing {{start}}-{{end}} of {{total}} cards',
+      filtered: 'Found {{count}} matching cards',
+      noResults: 'No matching cards found',
+      of: 'of'
+    },
+    edit: {
+      title: 'Edit Flashcard',
+      success: 'Changes saved successfully',
+      error: 'Failed to save changes',
+      placeholder: 'Enter new value'
+    },
+    delete: {
+      title: 'Delete Card',
+      message: 'Are you sure you want to delete this card?',
+      confirm: 'Delete',
+      cancel: 'Cancel',
+      menuItem: 'Delete Card',
+      confirmTitle: 'Delete Flashcard',
+      confirmMessage: 'Are you sure you want to delete "{{word}}"?',
+      success: 'Flashcard deleted successfully',
+      error: 'Failed to delete flashcard'
     }
   }
 };

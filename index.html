@@ -2,12 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="format-detection" content="telephone=no">
   <meta name="theme-color" content="#2196f3">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="supported-color-schemes" content="light dark">
+
+  <meta name="action-handler" content="dictionary-lookup">
+  <meta name="action-title" content="Look Up">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
  
   <title>Flashcard App</title>
 
@@ -18,53 +26,53 @@
 
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <style>
+    /* iOS Safari specific CSS */
     html {
       height: 100%;
       overflow: hidden;
+      position: fixed;
+      width: 100%;
+      -webkit-text-size-adjust: 100%;
     }
     
     body {
       height: 100%;
       overflow-y: auto;
       overscroll-behavior-y: none;
-      position: fixed;
-      width: 100%;
       -webkit-overflow-scrolling: touch;
       margin: 0;
-      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      position: fixed;
+      width: 100%;
+      touch-action: manipulation;
     }
-    
+
     #root {
       height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     input[type="text"],
     input[type="email"],
-    input[type="password"] {
+    input[type="password"],
+    textarea {
       font-size: 16px !important;
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 0;
     }
 
     * {
       -webkit-tap-highlight-color: transparent;
       -webkit-touch-callout: none;
     }
-    
-    input, textarea {
+
+    /* Enable text selection in specific areas */
+    .selectable-text {
       -webkit-user-select: text;
       user-select: text;
-    }
-    
-    @supports (-webkit-touch-callout: none) {
-      body {
-        min-height: -webkit-fill-available;
-      }
-      /* Prevent elastic scrolling */
-      html {
-        position: fixed;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
+      -webkit-touch-callout: default;
     }
   </style>
 </head>

@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material';
 import { theme as baseTheme } from '../theme';
+import { useTheme as useMuiTheme } from '@mui/material/styles';
+
+
+
+export const useTheme = useMuiTheme;
 
 type ThemeMode = 'light' | 'dark' | 'system';
 

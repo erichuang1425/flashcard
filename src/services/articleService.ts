@@ -3,12 +3,12 @@ import {
   where, orderBy, limit, startAfter, increment,
   serverTimestamp, DocumentSnapshot, writeBatch,
   deleteDoc, getDoc, arrayUnion, arrayRemove,
-  documentId, deleteField
+  documentId, deleteField, Timestamp, updateDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase';
 import localforage from 'localforage';
-import { Article, ArticleCounter, ArticleContentCache, ArticlePageCache, PARAGRAPHS_PER_PAGE } from '../types/reading';
+import { Article, ArticleCounter, ArticleContentCache, ArticlePageCache, PARAGRAPHS_PER_PAGE, ArticleProgress } from '../types/reading';
 import { chunk } from 'lodash';
 import { logger, ArticleError, CacheError } from './logging';
 import { sanitizeText, isValidText } from '../utils/textSanitizer';
@@ -395,28 +395,66 @@ const getLastDocument = async (userId: string, page: number) => {
 };
 
 export const updateArticleProgress = async (
-  userId: string,
-  articleId: string,
-  progress: {
-    wordsRead: number;
-    lastPosition: number;
-    completed: boolean;
-  }
+  userId: string, 
+  articleId: string, 
+  progress: Partial<ArticleProgress>
 ) => {
-  const articleRef = doc(db, 'users', userId, 'articles', articleId);
+  const progressRef = doc(db, 'users', userId, 'articles', articleId);
   
-  await setDoc(articleRef, {
-    progress,
-    lastRead: serverTimestamp(),
-    readCount: increment(1)
-  }, { merge: true });
+  // Convert dates to Firestore Timestamps
+  const updateData = {
+    'progress.wordsRead': progress.wordsRead ?? 0,
+    'progress.lastPosition': progress.lastPosition ?? 0,
+    'progress.completed': progress.completed ?? false,
+    'progress.progress': progress.progress ?? 0,
+    'progress.lastRead': progress.lastRead ? Timestamp.fromDate(progress.lastRead) : null,
+    'progress.timeSpent': progress.timeSpent ?? 0,
+    'progress.completionDate': progress.completionDate ? Timestamp.fromDate(progress.completionDate) : null,
+    'progress.lastUpdated': serverTimestamp()
+  };
 
-  await localforage.removeItem(CACHE_KEY);
+  try {
+    await updateDoc(progressRef, updateData);
+
+    // Update reading stats if article is completed
+    if (progress.completed) {
+      const statsRef = doc(db, 'users', userId, 'stats', 'reading');
+      await updateDoc(statsRef, {
+        completedArticles: increment(1),
+        totalWordsRead: increment(progress.wordsRead || 0)
+      });
+    }
+  } catch (err) {
+    logger.error('Failed to update article progress', err as Error);
+    throw err;
+  }
 };
 
-const getCountFromServer = async (ref: any) => {
-  const snapshot = await getDocs(ref);
-  return { data: () => ({ count: snapshot.size }) };
+// Add migration helper
+export const migrateArticleProgress = async (userId: string) => {
+  const batch = writeBatch(db);
+  const articlesRef = collection(db, 'users', userId, 'articles');
+  const snapshot = await getDocs(articlesRef);
+
+  snapshot.docs.forEach(doc => {
+    const data = doc.data();
+    if (!data.progress?.progress) {
+      batch.update(doc.ref, {
+        progress: {
+          wordsRead: data.progress?.wordsRead || 0,
+          lastPosition: data.progress?.lastPosition || 0,
+          completed: data.progress?.completed || false,
+          progress: (data.progress?.wordsRead / (data.wordCount || 1)) * 100,
+          lastRead: data.progress?.lastRead || null,
+          timeSpent: data.progress?.timeSpent || 0,
+          completionDate: data.progress?.completed ? data.progress.lastRead : null,
+          lastUpdated: serverTimestamp()
+        }
+      });
+    }
+  });
+
+  await batch.commit();
 };
 
 export const getArticleCount = async (userId: string): Promise<ArticleCounter> => {

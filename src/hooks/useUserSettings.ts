@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { UserPreferences, useUserPreferences } from './useUserPreferences';
+import type { UserPreferences } from './useUserPreferences';
+import { useUserPreferences } from './useUserPreferences';
 
 export const useUserSettings = () => {
   const { preferences, updatePreferences, loading, error } = useUserPreferences();
