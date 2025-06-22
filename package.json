@@ -39,7 +39,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "serve": "vite",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -51,8 +51,11 @@
     "@firebase/firestore-types": "^3.0.2",
     "@firebase/rules-unit-testing": "^4.0.0",
     "@firebase/storage-types": "^0.8.2",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.9.0",
     "@types/pdfmake": "^0.2.9",
-    "@types/react": "^18.3.12"
+    "@types/react": "^18.3.12",
+    "jest": "^30.0.2",
+    "ts-jest": "^29.4.0"
   }
 }

@@ -12,6 +12,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { uploadFile } from '../services/storage';
 import { addCategory, addFlashcard, getUserFlashcards } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
+import { parseCSVLine } from '../utils/csv';
 
 interface ImportStats {
   total: number;
@@ -29,38 +30,6 @@ interface PreviewData {
   categories: string[];
 }
 
-const parseCSVLine = (line: string): string[] => {
-  const result = [];
-  let cell = '';
-  let isQuoted = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    
-    if (char === '"') {
-      if (isQuoted && line[i + 1] === '"') {
-        // Handle escaped quotes
-        cell += '"';
-        i++;
-      } else {
-        // Toggle quote mode
-        isQuoted = !isQuoted;
-      }
-    } else if (char === ',' && !isQuoted) {
-      // End of cell
-      result.push(cell.trim());
-      cell = '';
-    } else {
-      cell += char;
-    }
-  }
-  
-  if (cell) {
-    result.push(cell.trim());
-  }
-  
-  return result;
-};
 
 export const ImportTools: React.FC = () => {
   const { user } = useAuth();
@@ -384,7 +353,7 @@ export const ImportTools: React.FC = () => {
             helperText="Enter categories separated by commas"
           />
         </Grid>
-        <Button>Add Flashcard</Button>
+        <Button onClick={handleManualSubmit}>Add Flashcard</Button>
       </Grid>
     </Box>
   );
