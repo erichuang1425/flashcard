@@ -533,13 +533,16 @@ export const Study: React.FC = () => {
   return (
     <Container
       maxWidth="xl"
+      disableGutters
       sx={{
         py: { xs: 1, sm: 3 },
-        px: { xs: 0, sm: 2 },
+        px: 0,
         minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        width: '100%',
+        '& .MuiGrid-root': {
+          maxWidth: '100%'
+        }
       }}
     >
       <Box sx={{
@@ -549,9 +552,9 @@ export const Study: React.FC = () => {
         },
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        gap: { xs: 1, sm: 3 },
+        gap: { xs: 1, sm: 2 },
         width: '100%',
-        pl: { xs: 0 }
+        px: { xs: 1, sm: 2 }
       }}>
         <Box sx={{
           position: { xs: 'static', md: 'sticky' },
@@ -563,16 +566,10 @@ export const Study: React.FC = () => {
           bgcolor: 'background.paper',
           borderRadius: 2,
           p: { xs: 2, sm: 2 },
-          pl: { xs: 0, sm: 0, md: 0 },
-          ml: { xs: 0, sm: 0, md: 0 },
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
-          mb: { xs: 2, md: 0 },
-          '& > *': {
-            pl: { xs: 0, sm: 0, md: 0 },
-            ml: { xs: 0, sm: 0, md: 0 },
-          }
+          mb: { xs: 2, md: 0 }
         }}>
           <StudyProgress
             progress={progress}
@@ -615,19 +612,17 @@ export const Study: React.FC = () => {
         <Box sx={{
           flex: 1,
           minHeight: {
-            xs: '65vh',
-            sm: '60vh'
+            xs: 'calc(100vh - 180px)',
+            sm: 'calc(100vh - 200px)'
           },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: { xs: 1, sm: 3 },
+          gap: { xs: 1, sm: 2 },
           order: { xs: 1, md: 2 },
           pt: { xs: 1, md: 2 },
           width: '100%',
-          pl: { xs: 0 },
-          px: { xs: 0, sm: 0 },
-          ml: { xs: 0 }
+          overflow: 'hidden'
         }}>
           {renderStudyMode()}
         </Box>

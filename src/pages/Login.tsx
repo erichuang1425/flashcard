@@ -44,14 +44,12 @@ export const Login: React.FC = () => {
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    // Only redirect if auth is initialized and user exists
     if (user && !loading && authInitialized) {
       const redirectUrl = sessionStorage.getItem('redirectUrl') || '/';
       sessionStorage.removeItem('redirectUrl'); // Clean up after getting the URL
       navigate(redirectUrl, { replace: true });
     }
   }, [user, loading, authInitialized, navigate]);
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +60,6 @@ export const Login: React.FC = () => {
       setIsLoading(true);
       setIsExiting(true);
       await signIn(email, password);
-      // Redirect handling is now done in useEffect
     } catch (err) {
       setError(t('auth.errors.failed'));
       setIsExiting(false);
@@ -76,11 +73,10 @@ export const Login: React.FC = () => {
       setError('');
       setIsLoading(true);
       await signInWithGoogle();
-      // Redirect is now handled by useEffect
     } catch (err) {
       logger.error('Google sign-in failed', err as Error);
       setError(t('auth.errors.googleFailed'));
-      setIsLoading(false); // Make sure to set loading to false on error
+      setIsLoading(false);
     }
   };
 
@@ -107,7 +103,6 @@ export const Login: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* Language Toggle */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <ToggleButtonGroup
               value={language}
@@ -264,52 +259,48 @@ export const Login: React.FC = () => {
             boxShadow: theme => `0 8px 40px -12px ${theme.palette.primary.main}20`
           }}
         >
-          {/* Left side - Branding */}
-          {!isMobile && (
-            <Box
-              sx={{
-                flex: 1,
-                background: theme => `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                p: 6,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                color: 'white',
-                textAlign: 'center',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
+          <Box
+            sx={{
+              flex: 1,
+              background: theme => `linear-gradient(45deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+              p: 6,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              color: 'white',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
             >
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              >
-                <SchoolIcon sx={{ 
-                  fontSize: 80, 
+              <SchoolIcon sx={{ 
+                fontSize: 80, 
+                mb: 4,
+                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))'
+              }} />
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                {t('auth.branding.title')}
+              </Typography>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  opacity: 0.9, 
                   mb: 4,
-                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))'
-                }} />
-                <Typography variant="h4" fontWeight="bold" gutterBottom>
-                  {t('auth.branding.title')}
-                </Typography>
-                <Typography 
-                  variant="body1" 
-                  sx={{ 
-                    opacity: 0.9, 
-                    mb: 4,
-                    fontSize: '1.1rem',
-                    lineHeight: 1.6 
-                  }}
-                >
-                  {t('auth.branding.tagline')}
-                </Typography>
-              </motion.div>
-            </Box>
-          )}
+                  fontSize: '1.1rem',
+                  lineHeight: 1.6 
+                }}
+              >
+                {t('auth.branding.tagline')}
+              </Typography>
+            </motion.div>
+          </Box>
 
-          {/* Right side - Login Form */}
           <Box
             sx={{
               flex: 1,

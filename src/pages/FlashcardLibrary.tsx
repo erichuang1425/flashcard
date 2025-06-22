@@ -22,13 +22,11 @@ import SearchIcon from '@mui/icons-material/Search';
 import { FlashcardOverlay } from '../components/library/FlashcardOverlay';
 
 export const FlashcardLibrary: React.FC = () => {
-  // Hooks
   const { t } = useI18n();
   const { user } = useAuth();
   const showSnackbar = useSnackbar();
   const confirm = useConfirm();
   
-  // State
   const [viewCard, setViewCard] = useState<FlashcardMetadata | null>(null);
   const [editCard, setEditCard] = useState<FlashcardMetadata | null>(null);
   const [deleteInProgress, setDeleteInProgress] = useState(new Set<string>());
@@ -41,7 +39,6 @@ export const FlashcardLibrary: React.FC = () => {
   const [fullEditCard, setFullEditCard] = useState<Flashcard | null>(null);
   const [sourceElement, setSourceElement] = useState<HTMLElement | null>(null);
 
-  // Library hook
   const {
     cards,
     loading,
@@ -57,14 +54,12 @@ export const FlashcardLibrary: React.FC = () => {
     totalPages
   } = useFlashcardLibrary();
 
-  // Error handling
   useEffect(() => {
     if (error) {
       showSnackbar(error, 'error');
     }
   }, [error, showSnackbar]);
 
-  // Callbacks - Defined with stable dependencies
   const handleDelete = useCallback(async (card: FlashcardMetadata) => {
     if (!user || deleteInProgress.has(card.id)) return;
 
@@ -96,7 +91,6 @@ export const FlashcardLibrary: React.FC = () => {
   const handleViewCard = useCallback(async (card: FlashcardMetadata) => {
     if (!user) return;
     
-    // Get the clicked card element
     const cardElement = document.querySelector(`[data-card-id="${card.id}"]`) as HTMLElement | null;
     setSourceElement(cardElement);
     
@@ -125,7 +119,6 @@ export const FlashcardLibrary: React.FC = () => {
     try {
       const fullCardData = await getFlashcard(user.uid, card.id);
       setFullEditCard(fullCardData);
-      // Initialize edit values with full card data
       setEditValues({
         word: fullCardData.word,
         englishDefinition: fullCardData.englishDefinition,
@@ -143,14 +136,12 @@ export const FlashcardLibrary: React.FC = () => {
   }, [user, t]);
 
   const handleCloseDialog = useCallback(() => {
-    // Cleanup function to properly reset state
     setViewCard(null);
     setFullCard(null);
     setCardError(null);
     setIsLoadingCard(false);
   }, []);
 
-  // Add escape key handler
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -186,7 +177,7 @@ export const FlashcardLibrary: React.FC = () => {
       await updateFlashcard(user.uid, editCard.id, editValues);
       showSnackbar(t('flashcards.edit.success'), 'success');
       handleCloseEditDialog();
-      refresh(); // Refresh the card list
+      refresh();
     } catch (error) {
       console.error('Error updating flashcard:', error);
       setEditError(t('flashcards.edit.error'));
@@ -205,7 +196,11 @@ export const FlashcardLibrary: React.FC = () => {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
+    <Container maxWidth="lg" sx={{ 
+      py: { xs: 2, sm: 4 },
+      touchAction: 'pan-y',
+      overscrollBehavior: 'contain'
+    }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 } }}>
         <Typography variant="h4" sx={{ mb: { xs: 1, sm: 2 } }}>
           {t('flashcards.library.title')}
@@ -267,7 +262,6 @@ export const FlashcardLibrary: React.FC = () => {
           </Box>
         )}
 
-        {/* Replace Dialog with FlashcardOverlay */}
         {viewCard && fullCard && (
           <FlashcardOverlay
             card={fullCard}
@@ -276,7 +270,6 @@ export const FlashcardLibrary: React.FC = () => {
           />
         )}
 
-        {/* Edit Dialog */}
         <Dialog
           open={!!editCard}
           onClose={handleCloseEditDialog}

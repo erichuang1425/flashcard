@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Container, Toolbar, Paper, useMediaQuery, useTheme, IconButton, 
-  Collapse, Tooltip, SwipeableDrawer, Fab, Typography, Slider, FormControlLabel, Switch, Button 
+  Collapse, Tooltip, SwipeableDrawer, Fab, Typography, Slider, FormControlLabel, Switch, Button, AppBar 
 } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -9,7 +9,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import { NavBar } from './NavBar';
 import { LevelProgress } from './gamification/LevelProgress';
 import { useGamification } from '../context/GamificationContext';
-import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
 import { useLocation } from 'react-router-dom';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -21,6 +20,8 @@ import { logger } from '../services/logging';
 import { useAuth } from '../context/AuthContext';
 import DarkModeIcon from '@mui/icons-material/DarkMode'; 
 import { ReadingSpeedTracker } from './reading-mode/ReadingSpeedTracker';
+import { useUIState } from '../context/UIStateContext';
+import { useResponsive } from '../hooks/useResponsive';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,7 +30,8 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useI18n();
   const { levelSystem, showGamePanel, toggleGamePanel, showMobileGamePanel, toggleMobileGamePanel } = useGamification();
-  const { focusMode, toggleFocusMode } = useFocusMode();
+  const { uiState, toggleFocusMode } = useUIState();
+  const { focusMode, fullscreen } = uiState;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
@@ -41,6 +43,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { currentArticle, setCurrentArticle } = useReadingMode();
   const { user } = useAuth();
   const isReadingPage = location.pathname === '/reading';
+  const { isMobileDevice, isIOSDevice } = useResponsive();
 
   const updateReadingSettings = (key: string, value: any) => {
     setPreferences(prev => ({
@@ -64,20 +67,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Auto-hide panel on study page
   useEffect(() => {
     setAutoHide(location.pathname === '/study');
   }, [location]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <Box sx={{ 
-      minHeight: '100vh', 
+      minHeight: isIOSDevice ? '-webkit-fill-available' : '100vh',
       display: 'flex', 
       flexDirection: 'column',
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.3s ease',
+      pb: isIOSDevice ? 'env(safe-area-inset-bottom)' : 0,
+      pt: isIOSDevice ? 'env(safe-area-inset-top)' : 0,
     }}>
-      {/* Only show NavBar if user is logged in and not on reading page */}
       {user && !isReadingPage && (
         <NavBar 
           onTogglePanel={toggleGamePanel} 
@@ -87,6 +94,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
       )}
       
+      {user && (
+        <AppBar
+          position="fixed"
+          sx={{
+            bgcolor: focusMode || fullscreen ? 'transparent' : 'background.paper',
+            backdropFilter: 'blur(10px)',
+            borderBottom: focusMode || fullscreen ? 'none' : 1,
+            borderColor: 'divider',
+            zIndex: theme => theme.zIndex.drawer + 2,
+          }}
+        >
+        </AppBar>
+      )}
+
       <Box sx={{ 
         display: 'flex', 
         flex: 1,
@@ -110,7 +131,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {!focusMode && showGamePanel && user && (
           <>
-            {/* Desktop Panel */}
             {!isMobile && (
               <>
                 <IconButton
@@ -199,10 +219,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </>
             )}
 
-            {/* Mobile Panel */}
             {isMobile && (
               <>
-                {/* Hide game panel toggle button on reading pages */}
                 {!isReadingPage && (
                   <Fab
                     size="small"

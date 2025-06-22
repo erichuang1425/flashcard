@@ -10,50 +10,45 @@ export interface LogEntry {
   timestamp: string;
 }
 
+interface LogData {
+  [key: string]: any;
+}
+
 class Logger {
   private isDevelopment = process.env.NODE_ENV === 'development';
 
-  info(message: string, context?: Record<string, any>) {
-    this.log('info', message, context);
+  info(message: string, data?: LogData) {
+    if (this.isDevelopment) {
+      console.log(`[INFO] ${message}`, data || '');
+    }
+    this.trackEvent('info_log', { message, ...data });
   }
 
-  warn(message: string, context?: Record<string, any>) {
-    this.log('warn', message, context);
+  warn(message: string, data?: LogData) {
+    if (this.isDevelopment) {
+      console.warn(`[WARN] ${message}`, data || '');
+    }
+    this.trackEvent('warning_log', { message, ...data });
   }
 
-  error(message: string, error?: Error, context?: Record<string, any>) {
-    this.log('error', message, {
-      ...context,
-      error: error ? {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      } : undefined
+  error(message: string, error: Error, data?: LogData) {
+    console.error(`[ERROR] ${message}`, error);
+    this.trackEvent('error_log', {
+      message,
+      errorName: error.name,
+      errorMessage: error.message,
+      stack: error.stack,
+      ...data
     });
   }
 
-  private log(level: LogLevel, message: string, context?: Record<string, any>) {
-    const entry: LogEntry = {
-      level,
-      message,
-      context,
-      timestamp: new Date().toISOString()
-    };
-
-    if (this.isDevelopment) {
-      const logFn = level === 'error' ? console.error : 
-                    level === 'warn' ? console.warn : 
-                    console.log;
-      
-      logFn(`[${entry.timestamp}] ${level.toUpperCase()}: ${message}`, context || '');
-    }
-
-    if (level === 'error') {
-      logEvent(analytics, 'error', {
-        error_message: message,
-        error_context: JSON.stringify(context),
-        timestamp: entry.timestamp
-      });
+  private trackEvent(eventName: string, eventData?: LogData) {
+    try {
+      logEvent(analytics, eventName, eventData);
+    } catch (error) {
+      if (this.isDevelopment) {
+        console.error('Failed to log analytics event:', error);
+      }
     }
   }
 }

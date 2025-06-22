@@ -82,41 +82,73 @@ export const AnalyticsOverview: React.FC<Props> = ({ analytics }) => {
   };
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>Study Overview</Typography>
-          <Box sx={{ mb: 3 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2" color="text.secondary">Total Study Time</Typography>
-                <Typography variant="h4">{analytics.totalStudyTime}m</Typography>
+    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+      <Grid container spacing={2} sx={{ 
+        width: '100%', 
+        mx: 0,
+        '& .MuiGrid-item': {  // Ensure grid items don't overflow
+          maxWidth: '100%',
+          '& > *': {
+            maxWidth: '100%'
+          }
+        }
+      }}>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ 
+            p: { xs: 1.5, sm: 3 },
+            width: '100%',
+            overflow: 'hidden',  // Ensure content doesn't overflow
+            '& canvas': {
+              maxWidth: '100%',
+              height: 'auto !important',
+            }
+          }}>
+            <Typography variant="h6" gutterBottom>Study Overview</Typography>
+            <Box sx={{ mb: 3 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Total Study Time</Typography>
+                  <Typography variant="h4">{analytics.totalStudyTime}m</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Cards Reviewed</Typography>
+                  <Typography variant="h4">{analytics.totalCardsReviewed}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Accuracy Rate</Typography>
+                  <Typography variant="h4">{analytics.accuracyRate}%</Typography>
+                </Grid>
               </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2" color="text.secondary">Cards Reviewed</Typography>
-                <Typography variant="h4">{analytics.totalCardsReviewed}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="subtitle2" color="text.secondary">Accuracy Rate</Typography>
-                <Typography variant="h4">{analytics.accuracyRate}%</Typography>
-              </Grid>
-            </Grid>
-          </Box>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle1" gutterBottom>Daily Study Time</Typography>
-          <Box sx={{ height: 200, mt: 2 }}>
-            <Line data={studyTimeData} options={options} />
-          </Box>
-        </Paper>
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" gutterBottom>Daily Study Time</Typography>
+            <Box sx={{ 
+              width: '100%',
+              overflowX: 'hidden',
+              '& .chart-wrapper': {
+                width: '100%',
+                position: 'relative',
+                '& canvas': {
+                  maxWidth: '100%',
+                  height: 'auto !important'
+                }
+              }
+            }}>
+              <Box sx={{ height: 200, mt: 2 }}>
+                <Line data={studyTimeData} options={options} />
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" gutterBottom>Mastery Progress</Typography>
+            <Box sx={{ height: 300 }}>
+              <Line data={masteryData} options={options} />
+            </Box>
+          </Paper>
+        </Grid>
       </Grid>
-      <Grid item xs={12} md={6}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>Mastery Progress</Typography>
-          <Box sx={{ height: 300 }}>
-            <Line data={masteryData} options={options} />
-          </Box>
-        </Paper>
-      </Grid>
-    </Grid>
+    </Box>
   );
 };

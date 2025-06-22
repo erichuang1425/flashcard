@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics } from 'firebase/analytics';
@@ -13,11 +13,14 @@ const firebaseConfig = {
   appId: import.meta.env.REACT_APP_FIREBASE_APP_ID
 };
 
-// Initialize Firebase only if it hasn't been initialized
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-// Initialize services
 const auth = getAuth(app);
+
+setPersistence(auth, browserLocalPersistence)
+  .catch(error => {
+    console.error('Failed to set auth persistence:', error);
+  });
+
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = getAnalytics(app);

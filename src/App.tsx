@@ -19,7 +19,6 @@ import '@fontsource/source-serif-pro';
 import '@fontsource/noto-serif';
 import '@fontsource/crimson-pro';
 import { GamificationProvider } from './context/GamificationContext';
-import { FocusModeProvider } from './context/FocusModeContext';
 import { Profile } from './pages/Profile';
 import { SettingsProvider } from './context/SettingsContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -34,27 +33,43 @@ import { FlashcardLibrary } from './pages/FlashcardLibrary';
 import { SnackbarProvider } from 'notistack';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { MainDrawer } from './components/navigation/MainDrawer';
-import { Box, useMediaQuery } from '@mui/material';
+import { Box, useMediaQuery, CircularProgress } from '@mui/material';
 import { logger } from './services/logging';
 import { checkAndRunMigrations, migrateQueuePerformanceTracking } from './utils/migrations';
-
+import { useAuthInit } from './hooks/useAuthInit';
+import { UIStateProvider } from './context/UIStateContext';
 
 const App: React.FC = () => {
   const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const authLoaded = useAuthInit();
+
+  if (!authLoaded) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <ThemeModeProvider>
       <ThemeProvider>
-        <SnackbarProvider maxSnack={3}>
-          <ConfirmProvider>
-            <UserPreferencesProvider>
-              <I18nProvider>
-                <SettingsProvider>
-                  <GamificationProvider>
-                    <ReadingModeProvider>
-                      <FocusModeProvider>
+        <UIStateProvider>
+          <SnackbarProvider maxSnack={3}>
+            <ConfirmProvider>
+              <UserPreferencesProvider>
+                <I18nProvider>
+                  <SettingsProvider>
+                    <GamificationProvider>
+                      <ReadingModeProvider>
                         <Box sx={{ display: 'flex', minHeight: '100vh' }}>
                           {!isMobile && (
                             <MainDrawer 
@@ -64,7 +79,7 @@ const App: React.FC = () => {
                           )}
                           <Box sx={{ 
                             flexGrow: 1,
-                            pb: 0 // Remove bottom padding since there's no bottom nav
+                            pb: 0 
                           }}>
                             <Layout>
                               <Routes>
@@ -80,7 +95,7 @@ const App: React.FC = () => {
                                   <Routes>
                                     <Route path="/" element={<Home />} />
                                     <Route path="/study" element={<Study />} />
-                                    <Route path="/flashcards" element={<FlashcardLibrary />} /> {/* Add this line */}
+                                    <Route path="/flashcards" element={<FlashcardLibrary />} />
                                     <Route path="/import" element={<Import />} />
                                     <Route path="/worksheets" element={<Worksheets />} />
                                     <Route path="/settings" element={<Settings />} />
@@ -94,14 +109,14 @@ const App: React.FC = () => {
                             </Layout>
                           </Box>
                         </Box>
-                      </FocusModeProvider>
-                    </ReadingModeProvider>
-                  </GamificationProvider>
-                </SettingsProvider>
-              </I18nProvider>
-            </UserPreferencesProvider>
-          </ConfirmProvider>
-        </SnackbarProvider>
+                      </ReadingModeProvider>
+                    </GamificationProvider>
+                  </SettingsProvider>
+                </I18nProvider>
+              </UserPreferencesProvider>
+            </ConfirmProvider>
+          </SnackbarProvider>
+        </UIStateProvider>
       </ThemeProvider>
     </ThemeModeProvider>
   );

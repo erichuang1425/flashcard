@@ -37,8 +37,8 @@ interface Props {
   onAddToFlashcards: (word: string, definition: string) => Promise<void>;
   translation?: string;
   onTranslate: (text: string) => Promise<void>;
-  metadata: FlashcardCounter | null; // Update to allow null
-  categories: Record<string, number>; // Updated to Record<string, number>
+  metadata: FlashcardCounter | null;
+  categories: Record<string, number>;
   onCategoryUpdate: (newCategory: string) => void;
 }
 
@@ -55,7 +55,6 @@ const isMobileDevice = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
 
-// Core component: Dictionary lookup with flashcard integration
 export const DictionaryLookup: React.FC<Props> = ({
   word,
   anchorEl,
@@ -142,18 +141,16 @@ export const DictionaryLookup: React.FC<Props> = ({
 
       const mainDefinition = definition.meanings[0];
       if (!mainDefinition || !mainDefinition.definitions[0]) {
-        logger.error('Invalid definition format', undefined, { word: definition.word });
+        logger.error('Invalid definition format', new Error('Invalid definition format'), { word: definition.word });
         setError('Invalid definition format');
         return;
       }
 
-      // Convert categories array to Record structure with numeric values
       const categoriesRecord = selectedCategories.reduce((acc, cat) => {
-        acc[cat] = categories[cat]; // Use existing category index instead of creating new one
+        acc[cat] = categories[cat];
         return acc;
       }, {} as Record<string, number>);
 
-      // Convert selected categories to map format
       const categoriesMap = selectedCategories.reduce<Record<string, number>>((acc, cat) => {
         if (categories[cat] !== undefined) {
           acc[cat] = categories[cat];
@@ -168,7 +165,7 @@ export const DictionaryLookup: React.FC<Props> = ({
         englishDefinition: mainDefinition.definitions[0].definition.trim(),
         chineseTranslation: translation?.trim() || '',
         exampleSentence: mainDefinition.definitions[0].example?.trim(),
-        categories: categoriesMap, // Update to use dictionary structure
+        categories: categoriesMap,
         difficulty: 0,
         created: new Date(),
         lastReviewed: undefined,
@@ -227,7 +224,6 @@ export const DictionaryLookup: React.FC<Props> = ({
     }
   };
 
-  // Use the categories from props directly
   const getCategoryValues = (): string[] => {
     if (!categories) return [];
     return Object.keys(categories);
@@ -347,7 +343,7 @@ export const DictionaryLookup: React.FC<Props> = ({
                   >
                     {meaning.partOfSpeech}
                   </Typography>
-                  <Box sx={{ pl: 2 }}> {/* Increased padding */}
+                  <Box sx={{ pl: 2 }}>
                     {meaning.definitions.slice(0, 2).map((def, i) => (
                       <Box key={i} sx={{ mb: 3 }}>
                         <Typography variant="body1" sx={{ mb: 1 }}>
@@ -428,7 +424,7 @@ export const DictionaryLookup: React.FC<Props> = ({
                 <Box sx={{ 
                   display: 'flex', 
                   gap: 1,
-                  my: 3 // Added margin top and bottom
+                  my: 3
                 }}>
                   <TextField
                     size="small"
@@ -445,7 +441,6 @@ export const DictionaryLookup: React.FC<Props> = ({
                     Add
                   </Button>
                 </Box>
-                {/* Removed duplicate "Add to Flashcards" button here */}
               </Box>
             </Box>
           )}

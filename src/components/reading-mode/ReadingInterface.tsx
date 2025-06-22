@@ -35,16 +35,12 @@ import { sanitizeText, isValidText } from '../../utils/textSanitizer';
 import { useAuth } from '../../context/AuthContext';
 import { getRandomArticle } from '../../services/articleService';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, alpha } from '@mui/material/styles';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
-import { useFocusMode } from '../../context/FocusModeContext';
 import { MobileDictionaryLookup } from './MobileDictionaryLookup';
 import { MobileContextMenu } from './MobileContextMenu';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { ReadingSettingsDialog } from './ReadingSettingsDialog';
-import useFullscreen from '../../hooks/useFullscreen';
-import FullscreenIcon from '@mui/icons-material/Fullscreen';
-import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import { useI18n } from '../../i18n/I18nContext';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
@@ -56,12 +52,34 @@ import { FlashcardCounter } from '../../types';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { useAudio } from '../../hooks/useAudio';
+import { useUIState } from '../../context/UIStateContext';
+
+const debounce = (func: (...args: any[]) => void, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
+const isElementInViewportCenter = (element: HTMLElement, threshold = 150) => {
+  const windowHeight = window.innerHeight;
+  const rect = element.getBoundingClientRect();
+  const elementCenter = rect.top + (rect.height / 2);
+  const viewportCenter = windowHeight / 2;
+  
+  const absoluteCenter = window.scrollY + viewportCenter;
+  const elementAbsoluteCenter = window.scrollY + elementCenter;
+  
+  return Math.abs(viewportCenter - elementCenter) < threshold;
+};
 
 export const ReadingInterface: React.FC = () => {
   const { user } = useAuth();
   const { currentArticle, readingProgress, updateProgress, isReading, setCurrentArticle } = useReadingMode();
   const { preferences, setPreferences } = useUserPreferences();
-  const { focusMode, toggleFocusMode } = useFocusMode();
+  const { uiState, toggleFullscreen, toggleFocusMode } = useUIState();
+  const { focusMode, fullscreen } = uiState;
   const [activeParagraph, setActiveParagraph] = useState<number>(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string>('');
@@ -106,6 +124,8 @@ export const ReadingInterface: React.FC = () => {
   const [metadata, setMetadata] = useState<FlashcardCounter | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const { playSound } = useAudio();
+  const [centeredParagraphIndex, setCenteredParagraphIndex] = useState<number>(-1);
+  const [visibleParagraphs, setVisibleParagraphs] = useState<Set<number>>(new Set());
   
   useEffect(() => {
     const loadMetadata = async () => {
@@ -197,6 +217,12 @@ export const ReadingInterface: React.FC = () => {
   } = preferences || {};
 
   useEffect(() => {
+    if (focusMode) {
+      toggleFocusMode();
+    }
+  }, []);
+
+  useEffect(() => {
     if (focusModeEnabled !== focusMode) {
       toggleFocusMode();
     }
@@ -208,14 +234,13 @@ export const ReadingInterface: React.FC = () => {
     exit: { opacity: 0, x: -20 }
   };
 
-  const [visibleParagraphs, setVisibleParagraphs] = useState<number[]>([]);
-  const [currentSnapIndex, setCurrentSnapIndex] = useState(0);
+  const paragraphRefs = useRef<Map<number, HTMLElement>>(new Map());
 
-  const calculateOpacity = useCallback((index: number) => {
-    if (!focusMode) return 1;
-    const distance = Math.abs(index - currentSnapIndex);
-    return Math.max(0.4, 1 - (distance * 0.3));
-  }, [currentSnapIndex, focusMode]);
+  const [scrollInfo, setScrollInfo] = useState({
+    position: 0,
+    direction: 'none' as 'up' | 'down' | 'none',
+    speed: 0
+  });
 
   const handleTextToSpeech = async (text: string) => {
     if (!enableTTS) return;
@@ -432,9 +457,8 @@ export const ReadingInterface: React.FC = () => {
 
   const paragraphElements = useMemo(() => {
     const elements: HTMLElement[] = [];
-    Object.values(contentPages).flat().forEach((_, index) => {
-      const element = document.querySelector(`[data-index="${index}"]`);
-      if (element) elements.push(element as HTMLElement);
+    paragraphRefs.current.forEach(element => {
+      if (element) elements.push(element);
     });
     return elements;
   }, [contentPages]);
@@ -478,9 +502,23 @@ export const ReadingInterface: React.FC = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    containerRef.current.style.scrollSnapType = 'none';
+  }, []);
 
-    containerRef.current.style.scrollSnapType = focusMode ? 'y mandatory' : 'none';
-  }, [focusMode]);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+      const currentScroll = containerRef.current.scrollTop;
+      setLastScrollPosition(currentScroll);
+      updateVisiblePages();
+    };
+
+    const container = containerRef.current;
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [lastScrollPosition, updateVisiblePages]);
 
   const handleTranslation = async (text: string) => {
     try {
@@ -527,18 +565,122 @@ export const ReadingInterface: React.FC = () => {
     }
   };
 
-  const { isFullscreen, toggleFullscreen } = useFullscreen(contentRef);
-  
   const handleEscape = useCallback((event: KeyboardEvent) => {
-    if (event.key === 'Escape' && isFullscreen) {
+    if (event.key === 'Escape' && fullscreen) {
       toggleFullscreen();
     }
-  }, [isFullscreen, toggleFullscreen]);
+  }, [fullscreen, toggleFullscreen]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [handleEscape]);
+
+  useEffect(() => {
+    if (!focusMode) return;
+
+    const handleScroll = () => {
+      requestAnimationFrame(() => {
+        const viewportMiddle = window.innerHeight / 2;
+        let closestParagraph = -1;
+        let minDistance = Infinity;
+
+        paragraphRefs.current.forEach((element, index) => {
+          const rect = element.getBoundingClientRect();
+          const elementMiddle = rect.top + rect.height / 2;
+          const distance = Math.abs(viewportMiddle - elementMiddle);
+
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestParagraph = index;
+          }
+        });
+
+        if (closestParagraph !== -1 && minDistance < 150) {
+          setCenteredParagraphIndex(closestParagraph);
+        }
+      });
+    };
+
+    handleScroll();
+
+    contentRef.current?.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      contentRef.current?.removeEventListener('scroll', handleScroll);
+    };
+  }, [focusMode]);
+
+  const renderedParagraphs = useMemo(() => {
+    if (!contentPages[page-1]) return null;
+
+    return contentPages[page-1].map((paragraph, index) => {
+      const globalIndex = (page - 1) * PARAGRAPHS_PER_PAGE + index;
+      
+      return (
+        <Box
+          key={globalIndex}
+          data-index={globalIndex}
+          ref={(el: HTMLDivElement | null) => {
+                      if (el) {
+                        paragraphRefs.current.set(globalIndex, el);
+                      } else {
+                        paragraphRefs.current.delete(globalIndex);
+                      }
+                    }}
+          className="paragraph-container"
+          sx={{
+            mb: focusMode ? '6vh' : '2vh',
+            px: { xs: 2, sm: 3, md: 4 },
+            py: focusMode ? 4 : 2,
+            transition: 'all 0.3s ease-in-out',
+            borderRadius: focusMode ? 2 : 1,
+            position: 'relative',
+            '&:hover': {
+              bgcolor: 'action.hover',
+              transform: focusMode ? 'scale(1.01)' : 'none',
+            },
+          }}
+        >
+          <Typography
+            paragraph
+            sx={{
+              fontSize: 'inherit',
+              lineHeight: 'inherit',
+              fontFamily: 'inherit',
+              textAlign: 'justify',
+              wordWrap: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              WebkitUserSelect: 'text',
+              userSelect: 'text',
+              touchAction: 'pan-y',
+              opacity: focusMode ? 
+                (globalIndex === centeredParagraphIndex ? 1 : 0.3) : 1,
+              transition: 'opacity 0.3s ease-in-out',
+              mb: 0,
+            }}
+            onClick={() => enableTTS && handleTextToSpeech(paragraph)}
+          >
+            {paragraph}
+          </Typography>
+        </Box>
+      );
+    });
+  }, [contentPages, page, focusMode, centeredParagraphIndex, enableTTS]);
+
+  const containerStyles = useMemo(() => ({
+    px: { xs: 0.5, sm: 3, md: 4 },
+    py: { xs: 1, sm: 2 },
+    fontSize: `${fontSize}px`,
+    lineHeight: `${lineHeight}`,
+    fontFamily: `${fontFamily}, system-ui, serif`,
+    height: '100%',
+    width: '100%',
+    overflow: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    scrollBehavior: 'smooth',
+  }), [fontSize, lineHeight, fontFamily]);
 
   if (!currentArticle?.content || isContentLoading) {
     return (
@@ -568,30 +710,112 @@ export const ReadingInterface: React.FC = () => {
 
   return (
     <ErrorBoundary>
+      {focusMode && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: theme => alpha(
+              theme.palette.background.default,
+              theme.palette.mode === 'dark' ? 0.92 : 0.85
+            ),
+            backdropFilter: 'blur(8px)',
+            zIndex: theme => theme.zIndex.drawer,
+          }}
+        />
+      )}
+
       <Container 
         ref={contentRef}
         maxWidth="md" 
         sx={{ 
-          py: { xs: 2, sm: 5, md: 6 },
-          px: { xs: 0, sm: 3, md: 4 },
-          maxWidth: { 
-            xs: '100% !important',
-            sm: '95%', 
-            md: '900px !important'
-          },
-          margin: '0 auto',
+          position: focusMode ? 'fixed' : 'relative',
+          ...(focusMode && {
+            top: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            height: '100vh',
+            width: '100%',
+            maxWidth: { xs: '100% !important', sm: '95%', md: '900px !important' },
+            margin: '0 auto',
+            overflow: 'auto',
+            scrollBehavior: 'smooth',
+            zIndex: theme => theme.zIndex.drawer + 1,
+            bgcolor: 'transparent',
+          }),
+          ...(!focusMode && {
+            py: { xs: 2, sm: 3 },
+            overflow: 'visible',
+          }),
           WebkitOverflowScrolling: 'touch',
-          filter: focusMode ? 'grayscale(1)' : 'none',
-          transition: 'filter 0.3s ease',
+          transition: 'all 0.3s ease',
+          '& .paragraph-container': {
+            marginBottom: focusMode ? 6 : 2,
+          }
         }}
       >
-        {isMobile && (
-          <Box sx={{ mb: { xs: 3, sm: 4 } }}>
-            <ReadingSpeedTracker />
-          </Box>
-        )}
+        <Box sx={{ 
+          mb: { xs: 4, sm: 5 },
+          mt: { xs: 2, sm: 3 },
+          px: { xs: 2, sm: 0 }
+        }}>
+          <Typography 
+            variant="h3" 
+            gutterBottom
+            sx={{
+              fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' },
+              lineHeight: 1.2,
+              fontWeight: 500,
+              color: 'text.primary',
+              letterSpacing: '-0.01em',
+              wordBreak: 'break-word',
+            }}
+          >
+            {currentArticle.title}
+          </Typography>
+          {currentArticle.subtitle && (
+            <Typography 
+              variant="subtitle1" 
+              color="text.secondary" 
+              sx={{
+                fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                lineHeight: 1.4,
+                mt: 2,
+                fontWeight: 400
+              }}
+            >
+              {currentArticle.subtitle}
+            </Typography>
+          )}
 
-        <Paper3D elevation={2}>
+          {currentArticle.coverImage && (
+            <Box
+              sx={{
+                mt: 3,
+                borderRadius: { xs: 0, sm: 2 },
+                height: { xs: 200, sm: 300, md: 400 },
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+            >
+              <Box
+                component="img"
+                src={currentArticle.coverImage}
+                alt={currentArticle.title}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            </Box>
+          )}
+        </Box>
+
+        <Paper3D elevation={5}>
           <motion.div
             initial="initial"
             animate="animate"
@@ -601,11 +825,25 @@ export const ReadingInterface: React.FC = () => {
           >
             <Box 
               sx={{
-                p: { xs: 2, sm: 4, md: 5 },
+                p: { xs: 1, sm: 4, md: 5 },
                 minHeight: '80vh',
                 borderRadius: { xs: 0, sm: 2 },
                 position: 'relative',
-                bgcolor: theme => theme.palette.mode === 'dark' ? 'background.paper' : '#fff',
+                bgcolor: theme => alpha(
+                  theme.palette.mode === 'dark' ? 
+                    theme.palette.background.paper : 
+                    theme.palette.background.paper,
+                  theme.palette.mode === 'dark' ? 0.6 : 0.8
+                ),
+                backdropFilter: 'blur(8px)',
+                ...(!focusMode && {
+                  boxShadow: 'none',
+                  border: theme => `1px solid ${
+                    theme.palette.mode === 'dark' 
+                      ? alpha(theme.palette.common.white, 0.1)
+                      : alpha(theme.palette.common.black, 0.1)
+                  }`,
+                }),
                 '& ::selection': {
                   backgroundColor: theme => theme.palette.primary.light + '40',
                   color: theme => theme.palette.primary.dark
@@ -619,70 +857,6 @@ export const ReadingInterface: React.FC = () => {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 0.5 }}
               >
-                <Box sx={{ 
-                  mb: { xs: 4, sm: 5 },
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  pb: 3,
-                  px: { xs: 1, sm: 3, md: 4 },
-                }}>
-                  <Typography 
-                    variant="h3" 
-                    gutterBottom
-                    sx={{
-                      fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' },
-                      lineHeight: 1.2,
-                      fontWeight: 500,
-                      color: 'text.primary',
-                      letterSpacing: '-0.01em',
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {currentArticle.title}
-                  </Typography>
-                  {currentArticle.subtitle && (
-                    <Typography 
-                      variant="subtitle1" 
-                      color="text.secondary" 
-                      sx={{
-                        fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                        lineHeight: 1.4,
-                        mt: 2,
-                        fontWeight: 400
-                      }}
-                    >
-                      {currentArticle.subtitle}
-                    </Typography>
-                  )}
-
-                  {currentArticle.coverImage && (
-                    <Box
-                      sx={{
-                        mt: 3,
-                        mx: { xs: -3, sm: -4, md: -5 },
-                        height: { xs: 200, sm: 300, md: 400 },
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <Box
-                        component="img"
-                        src={currentArticle.coverImage}
-                        alt={currentArticle.title}
-                        sx={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          transition: 'transform 0.3s ease',
-                          '&:hover': {
-                            transform: 'scale(1.02)'
-                          }
-                        }}
-                      />
-                    </Box>
-                  )}
-                </Box>
-
                 <LinearProgress 
                   variant="determinate" 
                   value={Number(readingProgress?.progress) || 0}
@@ -699,114 +873,10 @@ export const ReadingInterface: React.FC = () => {
 
                 <Box 
                   ref={containerRef}
-                  sx={{
-                    height: '100%',
-                    overflowY: 'auto',
-                    scrollBehavior: 'smooth',
-                    px: { xs: 1, sm: 3, md: 4 },
-                    WebkitUserSelect: 'text',
-                    userSelect: 'text',
-                    '& p:first-of-type::first-letter': {
-                      fontSize: '4em',
-                      float: 'left',
-                      lineHeight: '0.8',
-                      padding: '0.1em 0.1em 0 0',
-                      background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      borderRadius: '0.1em',
-                      marginRight: '0.1em',
-                      fontWeight: 700,
-                      fontFamily: 'Georgia, serif',
-                      textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
-                    },
-                    '& p': {
-                      fontSize: 'inherit',
-                      lineHeight: 'inherit',
-                      fontFamily: 'inherit',
-                      mb: { xs: 2.5, sm: 3 },
-                      maxWidth: '100%',
-                      wordBreak: 'break-word',
-                      hyphens: 'auto',
-                      textAlign: 'justify',
-                      cursor: 'text',
-                      WebkitUserSelect: 'text',
-                      userSelect: 'text',
-                      WebkitTouchCallout: 'default',
-                      WebkitTapHighlightColor: 'rgba(0,0,0,0)',
-                      '@media screen and (max-width: 600px)': {
-                        textAlign: 'left'
-                      },
-                      '&::selection': {
-                        backgroundColor: theme => `${theme.palette.primary.main}30`,
-                        color: 'inherit'
-                      }
-                    },
-                    '@media screen and (max-width: 600px)': {
-                      WebkitOverflowScrolling: 'touch',
-                      msOverflowStyle: '-ms-autohiding-scrollbar',
-                    },
-                    fontSize: `${fontSize}px`,
-                    lineHeight: `${lineHeight}`,
-                    fontFamily: `${fontFamily}, system-ui, serif`,
-                    scrollSnapType: focusMode ? 'y mandatory' : 'none',
-                  }}
+                  sx={containerStyles}
                 >
                   <Box ref={contentRef}>
-                    {Object.entries(contentPages).map(([pageNum, paragraphs]) => (
-                      <Box 
-                        key={pageNum} 
-                        data-page={pageNum}
-                        sx={{
-                          opacity: isContentLoading ? 0 : 1,
-                          transition: 'opacity 0.3s ease',
-                          fontSize: `${fontSize}px`,
-                          lineHeight: `${lineHeight}`,
-                          fontFamily: `${fontFamily}, system-ui, serif`,
-                        }}
-                      >
-                        {paragraphs.map((paragraph, index) => {
-                          const globalIndex = parseInt(pageNum) * PARAGRAPHS_PER_PAGE + index;
-                          return (
-                            <Typography
-                              key={globalIndex}
-                              paragraph
-                              data-index={globalIndex}
-                              sx={{
-                                fontSize: 'inherit',
-                                lineHeight: 'inherit',
-                                fontFamily: 'inherit',
-                                backgroundColor: activeParagraph === globalIndex ? 
-                                  'action.selected' : 'transparent',
-                                p: { xs: 1.5, sm: 2, md: 3 },
-                                mx: { xs: 0, sm: -2 },
-                                my: 1,
-                                borderRadius: 1,
-                                cursor: 'pointer',
-                                textAlign: 'justify',
-                                hyphens: 'auto',
-                                '&:hover': {
-                                  backgroundColor: 'action.hover'
-                                },
-                                WebkitUserSelect: 'text',
-                                userSelect: 'text',
-                                touchAction: 'pan-y',
-                                '&::selection': {
-                                  backgroundColor: theme => `${theme.palette.primary.main}30`,
-                                  color: 'inherit'
-                                },
-                                opacity: calculateOpacity(globalIndex),
-                                scrollSnapAlign: focusMode ? 'start' : 'none',
-                                transition: 'all 0.3s ease, opacity 300ms ease-in-out',
-                              }}
-                              onClick={() => enableTTS && handleTextToSpeech(paragraph)}
-                            >
-                              {paragraph}
-                            </Typography>
-                          );
-                        })}
-                      </Box>
-                    ))}
+                    {renderedParagraphs}
                   </Box>
                 </Box>
               </motion.div>

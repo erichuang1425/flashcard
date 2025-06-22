@@ -138,32 +138,68 @@ export const CategoryProgress: React.FC<CategoryProgressProps> = ({ categories }
   };
 
   return (
-    <Grid container spacing={2}>
-      <Grid item xs={12}>
-        <Typography variant="h6" gutterBottom>
-          {t('settings.categories.title')}
-        </Typography>
-      </Grid>
-      <Grid item xs={12}>
-        <Paper sx={{ p: 2, height: '400px', position: 'relative' }}>
-          <Box sx={{ height: '100%', display: 'flex', position: 'relative' }}>
-            <Box sx={{ flex: 1, minHeight: '100%', position: 'relative' }}>
-              <Doughnut data={chartData} options={options} />
-              <Box sx={centerTextStyles}>
-                <Typography variant="h3" color="primary" sx={{ mb: 0.5 }}>
-                  {overallPercentage}%
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                  {t('home.stats.cardsMastered')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {totalMastered} / {totalCount}
-                </Typography>
+    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+      <Grid container spacing={2} sx={{ 
+        width: '100%', 
+        mx: 0,
+        '& .MuiGrid-item': {
+          maxWidth: '100%',
+          '& > *': {
+            maxWidth: '100%'
+          }
+        }
+      }}>
+        <Grid item xs={12}>
+          <Typography variant="h6" gutterBottom>
+            {t('settings.categories.title')}
+          </Typography>
+        </Grid>
+        <Grid item xs={12}>
+          <Paper sx={{ 
+            p: { xs: 1.5, sm: 2 },
+            height: { xs: 300, sm: '400px' },
+            position: 'relative',
+            overflow: 'hidden',
+            width: '100%',
+            '& canvas': {
+              maxWidth: '100% !important',
+              height: 'auto !important'
+            },
+            '& .chartjs-render-monitor': {
+              width: '100% !important',
+              maxWidth: '100%'
+            }
+          }}>
+            <Box sx={{
+              width: '100%',
+              height: '100%',
+              '& .category-chart': {
+                width: '100%',
+                height: '100%',
+                maxHeight: { xs: 300, sm: 400 },
+                overflow: 'hidden'
+              }
+            }}>
+              <Box sx={{ height: '100%', display: 'flex', position: 'relative' }}>
+                <Box sx={{ flex: 1, minHeight: '100%', position: 'relative' }}>
+                  <Doughnut data={chartData} options={options} />
+                  <Box sx={centerTextStyles}>
+                    <Typography variant="h3" color="primary" sx={{ mb: 0.5 }}>
+                      {overallPercentage}%
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {t('home.stats.cardsMastered')}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {totalMastered} / {totalCount}
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
             </Box>
-          </Box>
-        </Paper>
+          </Paper>
+        </Grid>
       </Grid>
-    </Grid>
+    </Box>
   );
 };
