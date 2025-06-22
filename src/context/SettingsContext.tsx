@@ -18,10 +18,19 @@ const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { preferences } = useUserPreferences();
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(preferences?.theme || 'system');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
   const [isBreak, setIsBreak] = useState(false);
+
+  // Sync local state with stored user preferences
+  useEffect(() => {
+    if (preferences) {
+      setTheme(preferences.theme);
+      const workDuration = preferences.pomodoroSettings?.workDuration ?? 25;
+      setTimeLeft(workDuration * 60);
+    }
+  }, [preferences]);
 
   const toggleTheme = () => {
     const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
