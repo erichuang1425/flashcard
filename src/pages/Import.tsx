@@ -21,7 +21,7 @@ export const Import: React.FC = () => {
           overflow: 'hidden' // Prevent content overflow
         }}>
           <Typography variant="body1" paragraph>
-            Upload a CSV file with two columns: front and back of the cards.
+            Upload a CSV file with four columns: word, part of speech, English definition, and Chinese translation.
           </Typography>
           <ImportTools />
         </Paper>
