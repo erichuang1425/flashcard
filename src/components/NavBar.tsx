@@ -16,12 +16,11 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import StyleIcon from '@mui/icons-material/Style'; // Add this import at the top with other imports
+import StyleIcon from '@mui/icons-material/Style';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import { FocusMode } from './gamification/FocusMode';
-import { useFocusMode } from '../context/FocusModeContext';
 import {useI18n} from '../i18n/I18nContext';
 import { useReadingMode } from '../context/ReadingModeContext';
 
@@ -89,7 +88,16 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel, fo
   };
 
   return (
-    <>
+    <AppBar
+      position="fixed"
+      sx={{
+        bgcolor: focusMode ? 'transparent' : 'background.paper',
+        backdropFilter: focusMode ? 'blur(10px)' : 'none',
+        borderBottom: focusMode ? 'none' : 1,
+        borderColor: 'divider',
+        zIndex: theme => theme.zIndex.drawer + 2, // Increased z-index to stay on top
+      }}
+    >
       <AppBar 
         position="fixed" 
         elevation={1}
@@ -345,6 +353,6 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel, fo
         </MenuItem>
       </Menu>
       <Toolbar /> 
-    </>
+    </AppBar>
   );
 };

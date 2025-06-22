@@ -1,6 +1,14 @@
 import { db } from './firebase';
 import { 
-  collection, query, where, getDocs, orderBy, Timestamp, limit 
+  getFirestore,
+  collection as firestoreCollection,
+  query as firestoreQuery,
+  where as firestoreWhere,
+  getDocs,
+  orderBy,
+  Timestamp,
+  limit,
+  addDoc 
 } from 'firebase/firestore';
 import { format, subDays, eachDayOfInterval } from 'date-fns';
 import type { StudyAnalytics } from '../types/analytics';
@@ -11,7 +19,6 @@ export async function getUserAnalytics(userId: string): Promise<StudyAnalytics> 
   const cachedData = analyticsCache.get(cacheKey);
   if (cachedData) return cachedData;
 
-  // Initialize with cached flashcards if available
   const cachedCards = flashcardCache.get(`flashcards_${userId}`);
   
   const [sessionsData, flashcardsData] = await Promise.all([
@@ -19,10 +26,8 @@ export async function getUserAnalytics(userId: string): Promise<StudyAnalytics> 
     cachedCards || getFlashcardsData(userId)
   ]);
 
-  // Process and combine data
   const analytics = processAnalyticsData(sessionsData, flashcardsData);
   
-  // Cache the results
   analyticsCache.set(cacheKey, analytics, true);
   if (!cachedCards) {
     flashcardCache.set(`flashcards_${userId}`, flashcardsData, true);
@@ -33,11 +38,11 @@ export async function getUserAnalytics(userId: string): Promise<StudyAnalytics> 
 
 async function getStudySessions(userId: string) {
   const thirtyDaysAgo = subDays(new Date(), 30);
-  const sessionsQuery = query(
-    collection(db, 'users', userId, 'studySessions'),
-    where('date', '>=', Timestamp.fromDate(thirtyDaysAgo)),
+  const sessionsQuery = firestoreQuery(
+    firestoreCollection(db, 'users', userId, 'studySessions'),
+    firestoreWhere('date', '>=', Timestamp.fromDate(thirtyDaysAgo)),
     orderBy('date', 'desc'),
-    limit(100) // Limit to last 100 sessions
+    limit(100)
   );
 
   const snapshot = await getDocs(sessionsQuery);
@@ -48,7 +53,7 @@ async function getStudySessions(userId: string) {
 }
 
 async function getFlashcardsData(userId: string) {
-  const snapshot = await getDocs(collection(db, 'users', userId, 'flashcards'));
+  const snapshot = await getDocs(firestoreCollection(db, 'users', userId, 'flashcards'));
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
@@ -56,10 +61,8 @@ async function getFlashcardsData(userId: string) {
 }
 
 function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytics {
-  // Get study sessions from last 30 days
   const thirtyDaysAgo = subDays(new Date(), 30);
 
-  // Initialize daily study time array with all dates
   const dailyStudyTime = eachDayOfInterval({
     start: thirtyDaysAgo,
     end: new Date()
@@ -68,7 +71,6 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
     minutes: 0
   }));
 
-  // Process study sessions
   let totalStudyTime = 0;
   let totalCardsReviewed = 0;
   let totalCorrect = 0;
@@ -76,9 +78,8 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
   sessions.forEach(data => {
     const date = data.date.toDate();
     const dateStr = format(date, 'yyyy-MM-dd');
-    const duration = Math.round(data.duration / 60); // Convert to minutes
+    const duration = Math.round(data.duration / 60);
 
-    // Update daily study time
     const dayIndex = dailyStudyTime.findIndex(day => day.date === dateStr);
     if (dayIndex !== -1) {
       dailyStudyTime[dayIndex].minutes += duration;
@@ -89,19 +90,17 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
     totalCorrect += data.correctAnswers || 0;
   });
 
-  // Process category data
   const categoryMap = new Map<string, { count: number; mastered: number }>();
   
   flashcards.forEach(data => {
-    if (!data.categories) return;
+    const categories = Array.isArray(data.categories) ? data.categories : [];
     
-    data.categories.forEach((category: string) => {
+    categories.forEach((category: string) => {
       if (!categoryMap.has(category)) {
         categoryMap.set(category, { count: 0, mastered: 0 });
       }
       const stats = categoryMap.get(category)!;
       stats.count++;
-      // Consider a card mastered if difficulty <= 2
       if (data.difficulty <= 2) {
         stats.mastered++;
       }
@@ -115,7 +114,6 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
     progress: (stats.mastered / stats.count) * 100
   }));
 
-  // Calculate study patterns
   const studyPatterns = Array(7).fill(0).map((_, index) => ({
     day: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][index],
     count: 0
@@ -126,7 +124,6 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
     studyPatterns[dayIndex].count += data.cardsReviewed || 0;
   });
 
-  // Calculate mastery trend
   const masteryTrend = eachDayOfInterval({
     start: thirtyDaysAgo,
     end: new Date()
@@ -135,23 +132,18 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
     mastered: 0
   }));
 
-  // Helper function to safely convert to date
   const getDateString = (timestamp: any): string => {
     if (!timestamp) return '';
     if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-      // Firestore Timestamp
       return format(timestamp.toDate(), 'yyyy-MM-dd');
     } else if (timestamp instanceof Date) {
-      // Regular Date object
       return format(timestamp, 'yyyy-MM-dd');
     } else if (typeof timestamp === 'string') {
-      // ISO string or other date string
       return format(new Date(timestamp), 'yyyy-MM-dd');
     }
     return '';
   };
 
-  // Update timestamp handling in masteryTrend calculation
   flashcards.forEach(data => {
     if (!data.categories) return;
     
@@ -171,20 +163,19 @@ function processAnalyticsData(sessions: any[], flashcards: any[]): StudyAnalytic
     totalCardsReviewed,
     accuracyRate: totalCardsReviewed > 0 ? (totalCorrect / totalCardsReviewed) * 100 : 0,
     dailyStudyTime,
-    weeklyProgress: [], // Implementation for weekly progress
+    weeklyProgress: [],
     masteryTrend,
     studyPatterns,
     categoryBreakdown
   };
 }
 
-// Add helper functions for calculating study stats
 function calculateTotalStudyTime(snapshot: any): number {
   let total = 0;
   snapshot.forEach((doc: any) => {
     total += doc.data().duration || 0;
   });
-  return Math.round(total / 60); // Convert to minutes
+  return Math.round(total / 60);
 }
 
 function calculateTotalCardsReviewed(snapshot: any): number {
@@ -208,7 +199,6 @@ function calculateAccuracyRate(snapshot: any): number {
 
 import { StudyPatternAnalysis } from '../types/flashcard';
 import { FlashcardReviewLog, StudyQueue } from '../types';
-import { addDoc} from 'firebase/firestore';
 import { calculateRetentionRate } from '../utils/analytics-utils';
 
 export const trackReviewPerformance = async (
@@ -216,7 +206,7 @@ export const trackReviewPerformance = async (
   cardId: string,
   reviewLog: FlashcardReviewLog
 ): Promise<void> => {
-  const reviewsRef = collection(db, 'users', userId, 'reviewLogs');
+  const reviewsRef = firestoreCollection(db, 'users', userId, 'reviewLogs');
   await addDoc(reviewsRef, {
     ...reviewLog,
     timestamp: new Date()
@@ -230,17 +220,16 @@ export const analyzeStudyPatterns = async (
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  const logsRef = collection(db, 'users', userId, 'reviewLogs');
-  const q = query(
+  const logsRef = firestoreCollection(db, 'users', userId, 'reviewLogs');
+  const q = firestoreQuery(
     logsRef,
-    where('timestamp', '>=', startDate),
+    firestoreWhere('timestamp', '>=', startDate),
     orderBy('timestamp', 'desc')
   );
 
   const snapshot = await getDocs(q);
   const logs = snapshot.docs.map(doc => doc.data());
 
-  // Calculate patterns
   const patterns: StudyPatternAnalysis = {
     timeOfDayDistribution: {},
     accuracyByTimeOfDay: {},
@@ -258,7 +247,6 @@ export const analyzeStudyPatterns = async (
     }
   };
 
-  // Implementation details...
   return patterns;
 };
 
@@ -268,7 +256,7 @@ export const trackStudySession = async (userId: string, sessionData: {
   accuracy: number;
   cardIds: string[];
 }): Promise<void> => {
-  const sessionsRef = collection(db, 'users', userId, 'studySessions');
+  const sessionsRef = firestoreCollection(db, 'users', userId, 'studySessions');
   await addDoc(sessionsRef, {
     ...sessionData,
     timestamp: new Date()
@@ -284,9 +272,9 @@ export const calculateRetentionStats = async (
 
   const reviewLogs = await Promise.all(
     cardIds.map(async cardId => {
-      const q = query(
-        collection(db, 'users', userId, 'reviewLogs'),
-        where('cardId', '==', cardId),
+      const q = firestoreQuery(
+        firestoreCollection(db, 'users', userId, 'reviewLogs'),
+        firestoreWhere('cardId', '==', cardId),
         orderBy('timestamp', 'desc'),
         limit(10)
       );
@@ -303,5 +291,3 @@ export const calculateRetentionStats = async (
 
   return retentionMap;
 };
-
-// Add more analytics functions as needed

@@ -1,20 +1,33 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Box, CircularProgress, useTheme, useMediaQuery } from '@mui/material';
+import { auth } from '../services/firebase';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading, authInitialized } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Only show loading while authentication is being initialized
-  if (!authInitialized) {
+  // Check if we have a stored session first
+  useEffect(() => {
+    const lastAuthCheck = localStorage.getItem('lastAuthCheck');
+    if (lastAuthCheck && auth.currentUser) {
+      const lastCheck = new Date(lastAuthCheck);
+      const now = new Date();
+      if (now.getTime() - lastCheck.getTime() > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('lastAuthCheck');
+      }
+    }
+  }, []);
+
+  // Only show loading while explicitly loading
+  if (loading) {
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -33,14 +46,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Only redirect if auth is fully initialized and we're sure there's no user
-  if (!user && !loading && authInitialized) {
-    // Store current location only when explicitly redirecting to login
-    const fullPath = `${location.pathname}${location.search}${location.hash}`;
-    sessionStorage.setItem('redirectUrl', fullPath);
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  // Redirect only if there's definitely no user
+  if (!user) {
+    const isLoginPage = location.pathname === '/login';
+    if (!isLoginPage) {
+      const fullPath = `${location.pathname}${location.search}${location.hash}`;
+      sessionStorage.setItem('redirectUrl', fullPath);
+      return <Navigate to="/login" replace />;
+    }
   }
 
-  // Show children while loading or if user exists
   return <>{children}</>;
 };

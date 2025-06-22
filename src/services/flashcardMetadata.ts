@@ -78,7 +78,8 @@ export const searchFlashcards = async (
       nextReview: counter.metadata.studyQueue?.find(q => q.cardId === item.id)?.nextReview || new Date(),
       difficulty: 0,
       state: counter.metadata.studyQueue?.find(q => q.cardId === item.id)?.state || 'NEW'
-    }));
+    }))
+    .sort((a, b) => a.word.toLowerCase().localeCompare(b.word.toLowerCase())); // Add alphabetical sorting here
 
   const total = filteredCards.length;
   const paginatedCards = filteredCards.slice(skip, skip + limit);

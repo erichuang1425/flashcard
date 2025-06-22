@@ -41,9 +41,11 @@ export const CategorySelector: React.FC<Props> = ({
         onChange={handleChange}
         label={label}
         displayEmpty
-        placeholder={placeholder}
+        renderValue={(value) => value === 'all' ? placeholder : value}
       >
-        <MenuItem value="all">{allCategoriesLabel}</MenuItem>
+        <MenuItem value="all">
+          <em>{placeholder}</em>
+        </MenuItem>
         {categories.length > 0 ? (
           categories.map((category) => (
             <MenuItem key={category} value={category}>

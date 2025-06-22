@@ -28,8 +28,9 @@ import { StudyPatterns } from '../components/analytics/StudyPatterns';
 import { CategoryProgress } from '../components/analytics/CategoryProgress';
 import type { StudyAnalytics } from '../types/analytics';
 import { useI18n } from '../i18n/I18nContext';
-import { useTheme } from '@mui/material';
+import { useTheme, useMediaQuery } from '@mui/material';
 import { Card3D } from '../components/common/Card3D';
+import { MobileProfileLayout } from '../components/mobile/MobileProfileLayout';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -39,36 +40,47 @@ export const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { t } = useI18n();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const [error, setError] = useState<string | null>(null);
+
+  // Move useMemo outside render cycle
+  const transformedCategories = React.useMemo(() => {
+    if (!analytics?.categoryBreakdown) return [];
+    
+    return analytics.categoryBreakdown
+      .filter(cat => cat && cat.category)
+      .map(cat => ({
+        name: cat.category,
+        count: cat.count || 0,
+        mastered: cat.mastered || 0
+      }));
+  }, [analytics]);
 
   useEffect(() => {
     const loadAnalytics = async () => {
       if (!user) return;
       try {
+        setError(null);
         const data = await getUserAnalytics(user.uid);
-        console.log('Category data:', data.categoryBreakdown);
-        setAnalytics(data);
+        if (data && data.categoryBreakdown) {
+          setAnalytics(data);
+        } else {
+          throw new Error('Invalid analytics data format');
+        }
       } catch (error) {
         console.error('Error loading analytics:', error);
+        setError(t('profile.errors.loadingFailed'));
       } finally {
         setLoading(false);
       }
     };
     loadAnalytics();
-  }, [user]);
+  }, [user, t]);
 
   if (!user || !levelSystem) return null;
 
   const userAchievements = achievements as UserAchievement[];
   const progress = (levelSystem.currentXP / levelSystem.requiredXP) * 100;
-
- 
-  const transformedCategories = analytics?.categoryBreakdown
-    ?.filter(cat => cat.category) 
-    .map(cat => ({
-      name: cat.category,
-      count: cat.count || 0,
-      mastered: cat.mastered || 0
-    }));
 
   console.log('Transformed Categories:', transformedCategories);
 
@@ -81,23 +93,59 @@ export const Profile: React.FC = () => {
     monthly: t('profile.graphs.monthly')
   };
 
+
+  // Regular desktop layout
   return (
-    <Container>
-      <Grid container spacing={3}>
+    <Container 
+      maxWidth="lg" 
+      disableGutters
+      sx={{
+        py: { xs: 1, sm: 3 },
+        px: 0,
+   
+        overflow: 'hidden',
+        width: '100%',
+        '& .MuiGrid-root': {
+          maxWidth: '100%'  // Constrain grid width
+        }
+      }}
+    >
+      <Grid 
+        container 
+        spacing={{ xs: 1, sm: 2 }} 
+        sx={{ 
+          width: '100%',
+          m: 0,
+          px: { xs: 1, sm: 2 },
+        }}
+      >
         <Grid item xs={12}>
           <Card3D depth={2}>
-            <Box sx={{ p: 3 }}>
+            <Box sx={{ 
+              p: { xs: 2, sm: 3 }, // Reduced padding on mobile
+              overflow: 'hidden',
+              width: '100%'
+            }}>
               <Paper sx={{ 
-                p: 3, 
+                p: { xs: 1.5, sm: 3 }, 
                 textAlign: 'center',
-                maxWidth: { sm: '400px' },
-                mx: 'auto'
+                maxWidth: { xs: '100%', sm: '400px' },
+                mx: 'auto',
+                width: '100%'
               }}>
                 <Avatar
-                  sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
+                  sx={{ 
+                    width: { xs: 80, sm: 120 }, // Smaller avatar on mobile
+                    height: { xs: 80, sm: 120 },
+                    mx: 'auto', 
+                    mb: { xs: 1, sm: 2 }
+                  }}
                   src={user.photoURL || undefined}
                 />
-                <Typography variant="h5" gutterBottom>
+                <Typography variant="h5" sx={{
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' }, // Smaller heading on mobile
+                  mb: { xs: 0.5, sm: 1 }
+                }}>
                   {user.displayName || 'User'}
                 </Typography>
                 <Typography color="textSecondary" gutterBottom>
@@ -123,11 +171,34 @@ export const Profile: React.FC = () => {
 
         <Grid item xs={12}>
           <Card3D>
-            <Paper sx={{ p: 2 }}>
+            <Paper sx={{ 
+              p: { xs: 2, sm: 3 },
+              overflowX: 'hidden',
+              width: '100%',
+              '& .analytics-container': {
+                maxWidth: '100%',
+                overflow: 'hidden'
+              },
+              '& .chart-container': {
+                maxWidth: '100%',
+                overflow: 'auto',
+                WebkitOverflowScrolling: 'touch'
+              }
+            }}>
               <Tabs
                 value={activeTab}
                 onChange={(_, newValue) => setActiveTab(newValue)}
-                sx={{ mb: 2 }}
+                sx={{ 
+                  mb: { xs: 1, sm: 2 },
+                  '& .MuiTab-root': {
+                    minWidth: { xs: 'auto', sm: 120 }, // Flexible tab width on mobile
+                    px: { xs: 1, sm: 2 },
+                    fontSize: { xs: '0.8rem', sm: '0.875rem' } // Smaller text on mobile
+                  }
+                }}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
               >
                 <Tab label={t('profile.overview')} />
                 <Tab label={t('profile.patterns')} />
@@ -135,20 +206,28 @@ export const Profile: React.FC = () => {
                 <Tab label={t('profile.achievements.achievements')} />
               </Tabs>
 
-              {loading ? (
+              {error ? (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography color="error">{error}</Typography>
+                </Box>
+              ) : loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                   <CircularProgress />
                 </Box>
               ) : (
                 <>
                   {activeTab === 0 && analytics && (
-                    <AnalyticsOverview analytics={analytics} />
+                    <Box className="analytics-container">
+                      <AnalyticsOverview analytics={analytics} />
+                    </Box>
                   )}
                   {activeTab === 1 && analytics && (
-                    <StudyPatterns patterns={analytics.studyPatterns} />
+                    <Box className="chart-container">
+                      <StudyPatterns patterns={analytics.studyPatterns} />
+                    </Box>
                   )}
                   {activeTab === 2 && analytics && (
-                    <Box sx={{ height: 400 }}>
+                    <Box className="chart-container" sx={{ height: { xs: 300, sm: 400 } }}>
                       {(transformedCategories ?? []).length > 0 ? (
                         <CategoryProgress 
                           categories={transformedCategories ?? []}
@@ -161,12 +240,13 @@ export const Profile: React.FC = () => {
                     </Box>
                   )}
                   {activeTab === 3 && (
-                    <Grid container spacing={2}>
+                    <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ width: '100%', mx: 0 }}>
                       {userAchievements.map(achievement => (
                         <Grid item xs={12} sm={6} md={4} key={achievement.id}>
-                          <Card3D depth={1} hover={achievement.achieved}>
+                          <Card3D depth={1} hover={achievement.achieved} sx={{ width: '100%' }}>
                             <Paper sx={{ 
-                              p: 2,
+                              p: { xs: 1.5, sm: 2 }, // Reduced padding on mobile
+                              width: '100%',
                               opacity: achievement.achieved ? 1 : 0.6,
                               transition: 'all 0.2s',
                               background: achievement.achieved ? 

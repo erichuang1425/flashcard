@@ -13,6 +13,10 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
           fontSize: '16px',
           borderRadius: '12px',
           textTransform: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          '&:active': {
+            transform: 'scale(0.98)'
+          },
           '&.MuiButton-containedPrimary, &.MuiButton-containedSecondary': {
             boxShadow: 'none',
             '&:active': {
@@ -31,7 +35,7 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
             fontSize: '16px',
             padding: '12px 16px',
             borderRadius: '12px',
-            minHeight: '44px', // iOS minimum tap target size
+            minHeight: '44px',
             '&:active': {
               transform: 'scale(0.98)',
               backgroundColor: 'rgba(0,0,0,0.1)'
@@ -45,9 +49,8 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
         root: {
           '& input, & textarea': {
             fontSize: '16px',
-            padding: '14px',
-            '-webkit-appearance': 'none',
-            borderRadius: '8px',
+            WebkitAppearance: 'none',
+            borderRadius: '8px'
           },
           '& .MuiOutlinedInput-root': {
             borderRadius: '12px',
@@ -94,7 +97,20 @@ export const getMobileThemeOverrides = (baseTheme: Theme): Partial<Theme> => ({
       styleOverrides: {
         root: {
           '@media (max-width: 600px)': {
-            padding: '12px',
+            padding: 0,
+            margin: 0,
+            maxWidth: '100%',
+            width: '100%',
+          },
+        },
+      },
+    },
+    MuiGrid: {
+      styleOverrides: {
+        root: {
+          '@media (max-width: 600px)': {
+            margin: 0,
+            width: '100%'
           },
         },
       },

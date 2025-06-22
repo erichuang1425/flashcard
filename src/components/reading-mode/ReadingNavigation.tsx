@@ -97,10 +97,13 @@ export const ReadingNavigation: React.FC = () => {
   const handleBack = () => {
     if (currentArticle) {
       setCurrentArticle(null);
+      window.scrollTo(0, 0);
     } else if (location.pathname === '/reading') {
       navigate('/');
+      window.scrollTo(0, 0);
     } else {
       navigate('/reading');
+      window.scrollTo(0, 0);
     }
   };
 
@@ -160,13 +163,14 @@ export const ReadingNavigation: React.FC = () => {
         '& .MuiToolbar-root': {
           justifyContent: 'space-between',
           position: 'relative',
-          zIndex: 1200
+          zIndex: theme => theme.zIndex.modal + 1 // Increased z-index
         },
         width: { 
           xs: '100%',
           md: theme => `calc(100% - ${theme.spacing(8)})`
         },
-        transition: 'width 0.3s ease'
+        transition: 'width 0.3s ease',
+        zIndex: theme => theme.zIndex.modal + 1 // Added explicit z-index
       }}
     >
       <Toolbar>
@@ -200,7 +204,16 @@ export const ReadingNavigation: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
-                zIndex: 1200
+                zIndex: theme => theme.zIndex.modal + 2,
+                backdropFilter: 'none', // Prevent blurring
+                backgroundColor: 'background.paper', // Ensure solid background
+                boxShadow: 4, // Add stronger shadow for visibility
+                '& .MuiIconButton-root': {
+                  backgroundColor: 'background.paper', // Ensure buttons are visible
+                  '&:hover': {
+                    backgroundColor: 'action.hover'
+                  }
+                }
               }}
             >
               <IconButton onClick={() => {

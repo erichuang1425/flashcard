@@ -439,15 +439,20 @@ export const Settings: React.FC = () => {
               transform: 'translate(-50%, -50%)',
               textAlign: 'center',
               width: '80%',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              display: 'flex',           
+              alignItems: 'center',      
+              justifyContent: 'center'   
             }}>
               <Typography 
                 variant="h6" 
                 color="primary"
                 sx={{ 
                   fontWeight: 600,
-                  fontSize: '2vw',
+                  fontSize: '4vw', 
                   lineHeight: 1.2,
+                  maxWidth: '100%',      
+                  wordWrap: 'break-word' 
                 }}
               >
                 {title === t('settings.collections.flashcards.categoryProgress') ? t('settings.collections.flashcards.title') : t('settings.collections.articles.title')}
@@ -514,24 +519,38 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{
-      minHeight: '100vh',
-      py: { xs: 2, sm: 4 },
-      px: { xs: 1, sm: 3 }
-    }}>
+    <Container 
+      maxWidth="lg" 
+      disableGutters
+      sx={{
+        py: { xs: 1, sm: 3 },
+        px: 0,
+        overflow: 'hidden',
+        width: '100%',
+        '& .MuiGrid-root': {
+          maxWidth: '100%'  // Constrain grid width
+        }
+      }}
+    >
       <Box sx={{ 
         display: 'flex',
         flexDirection: 'column',
-        gap: 3
+        gap: { xs: 1.5, sm: 2 },
+        overflow: 'hidden',
+        width: '100%',
+        px: { xs: 1, sm: 2 }
       }}>
         <Box sx={{
           display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' }, // Stack vertically on mobile
           justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: { xs: 2, sm: 3 }
+          alignItems: { xs: 'stretch', sm: 'center' },
+          gap: { xs: 1, sm: 2 },
+          mb: { xs: 1, sm: 3 }
         }}>
           <Typography variant="h4" sx={{ 
-            fontSize: { xs: '1.5rem', sm: '2rem' }
+            fontSize: { xs: '1.5rem', sm: '2rem' },
+            textAlign: { xs: 'center', sm: 'left' }
           }}>
             {t('settings.title')}
           </Typography>
@@ -540,7 +559,8 @@ export const Settings: React.FC = () => {
             onClick={handleSave}
             disabled={!user || !preferences}
             sx={{
-              display: { xs: 'none', sm: 'flex' }
+              display: { xs: 'block', sm: 'flex' }, // Full width on mobile
+              width: { xs: '100%', sm: 'auto' }
             }}
           >
             {t('common.save')}
@@ -558,7 +578,15 @@ export const Settings: React.FC = () => {
           </Alert>
         )}
 
-        <Grid container spacing={{ xs: 2, sm: 3 }}>
+        <Grid 
+          container 
+          spacing={{ xs: 1, sm: 2 }}  // Reduced spacing
+          sx={{ 
+            width: '100%', 
+            mx: 'auto',
+            px: { xs: 0.5, sm: 1 }  // Reduced padding
+          }}
+        >
           <Grid item xs={12} md={6}>
             <SettingsCard title={t('settings.preferences.title')}>
               <Box sx={{
@@ -878,7 +906,7 @@ export const Settings: React.FC = () => {
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 2 }}>
-                          <Typography variant="h6" gutterBottom>
+                          <Typography variant="h6" gutterBottom >
                             {t('settings.collections.flashcards.title')}
                           </Typography>
                           <Box sx={{ mt: 2 }}>
@@ -927,7 +955,7 @@ export const Settings: React.FC = () => {
                       </Grid>
                       <Grid item xs={12} md={6}>
                         <Paper sx={{ p: 2 }}>
-                          <Typography variant="h6" gutterBottom>
+                          <Typography variant="h6" gutterBottom >
                             {t('settings.collections.articles.title')}
                           </Typography>
                           <Box sx={{ mt: 2 }}>
@@ -956,8 +984,9 @@ export const Settings: React.FC = () => {
 
           <Grid item xs={12}>
             <Paper sx={{ 
-              p: 3, 
-              borderRadius: 2 
+              p: { xs: 1.5, sm: 2 },  // Reduced padding
+              borderRadius: 2,
+              mx: 0  // Remove margin
             }}>
               <Typography variant="h6" gutterBottom>
                 {t('settings.collections.statistics')}
@@ -1015,7 +1044,9 @@ export const Settings: React.FC = () => {
           bottom: 0,
           bgcolor: 'background.default',
           py: 2,
-          display: { xs: 'block', sm: 'none' }
+          px: { xs: 1, sm: 0 },
+          display: { xs: 'block', sm: 'none' },
+          zIndex: 10
         }}>
           <Button
             variant="contained"
