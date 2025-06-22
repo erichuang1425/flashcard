@@ -47,24 +47,26 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
       if (!user) return;
       await updateCardReview(user.uid, card.id, nextReview, newDifficulty);
       
-      setStats(prev => ({
-        correct: prev.correct + (isCorrect ? 1 : 0),
-        streak: isCorrect ? prev.streak + 1 : 0,
-        mastered: prev.mastered + (isMastered ? 1 : 0),
-        cardsStudied: prev.cardsStudied + 1,
-        completed: prev.completed
-      }));
+      const updatedStats = {
+        correct: stats.correct + (isCorrect ? 1 : 0),
+        streak: isCorrect ? stats.streak + 1 : 0,
+        mastered: stats.mastered + (isMastered ? 1 : 0),
+        cardsStudied: stats.cardsStudied + 1,
+        completed: stats.completed
+      };
+
+      setStats(updatedStats);
 
       if (currentIndex === cards.length - 1) {
         const duration = (new Date().getTime() - sessionStart.getTime()) / 1000;
         onComplete({
           duration,
           cardsStudied: cards.length,
-          accuracy: (stats.correct / cards.length) * 100,
-          streak: stats.streak,
-          masteredCards: stats.mastered
+          accuracy: (updatedStats.correct / cards.length) * 100,
+          streak: updatedStats.streak,
+          masteredCards: updatedStats.mastered
         });
-        setStats(prev => ({ ...prev, completed: true }));
+        setStats(prev => ({ ...updatedStats, completed: true }));
       } else {
         setCurrentIndex(prev => prev + 1);
         setShowAnswer(false);
