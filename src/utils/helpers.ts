@@ -6,5 +6,5 @@ export const capitalizeFirstWord = (text: string): string => {
 
 export const capitalizeAfterPunctuation = (text: string): string => {
   if (!text) return text;
-  return text.replace(/(^|\.\s+|\!\s+|\?\s+)([a-z])/g, (match, p1, p2) => p1 + p2.toUpperCase());
+  return text.replace(/(^|[.!?]\s*)([a-z])/g, (_match, p1, p2) => p1 + p2.toUpperCase());
 };
