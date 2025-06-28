@@ -40,7 +40,9 @@ export const templates: Record<string, Template> = {
         questions.push({
           type: 'multipleChoice',
           question: `What is the meaning of "${word}"?`,
-          correctAnswer: `Write a sentence using "${word}" correctly:`,
+          // The correct answer should be the English definition, not the prompt
+          // for the writing exercise
+          correctAnswer: def.englishDefinition,
           options,
           points: 5
         });
