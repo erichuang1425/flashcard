@@ -21,9 +21,8 @@ export const parseCSVLine = (line: string): string[] => {
     }
   }
 
-  if (cell) {
-    result.push(cell.trim());
-  }
+  // Always push the final cell even if empty to handle trailing commas
+  result.push(cell.trim());
 
   return result;
 };
