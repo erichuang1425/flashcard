@@ -4,20 +4,31 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './context/AuthContext';
-import { theme } from './theme';
+import { getTheme } from './theme';
 import App from './App';
 import { MobileProvider } from './context/MobileContext';
+import { SettingsProvider, useSettings } from './context/SettingsContext';
+
+const ThemedApp: React.FC = () => {
+  const { theme } = useSettings();
+  const muiTheme = React.useMemo(() => getTheme(theme), [theme]);
+  return (
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <App />
+    </ThemeProvider>
+  );
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <MobileProvider>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <ThemedApp />
+          </SettingsProvider>
+        </AuthProvider>
       </MobileProvider>
     </BrowserRouter>
   </React.StrictMode>
