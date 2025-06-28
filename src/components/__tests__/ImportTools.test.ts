@@ -17,4 +17,10 @@ describe('parseCSVLine', () => {
     const result = parseCSVLine(line);
     expect(result).toEqual(['He said "hi"', 'verb', 'something', 'other']);
   });
+
+  it('preserves empty trailing fields', () => {
+    const line = 'word,noun,definition,';
+    const result = parseCSVLine(line);
+    expect(result).toEqual(['word', 'noun', 'definition', '']);
+  });
 });
