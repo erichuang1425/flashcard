@@ -20,6 +20,9 @@ import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import { FocusMode } from './gamification/FocusMode';
 import { useFocusMode } from '../context/FocusModeContext';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import { useSettings } from '../context/SettingsContext';
 
 interface NavBarProps {
   focusMode: boolean;
@@ -36,6 +39,7 @@ export const NavBar: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { levelSystem } = useGamification();
   const { focusMode, toggleFocusMode } = useFocusMode();
+  const { theme: currentTheme, toggleTheme } = useSettings();
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
@@ -106,6 +110,12 @@ export const NavBar: React.FC = () => {
             <ListItemText primary={item.text} />
           </ListItemButton>
         ))}
+        <ListItemButton onClick={toggleTheme}>
+          <ListItemIcon>
+            {currentTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+          </ListItemIcon>
+          <ListItemText primary="Toggle Theme" />
+        </ListItemButton>
         {user && (
           <>
             <Divider />
@@ -219,7 +229,7 @@ export const NavBar: React.FC = () => {
                 onChange={toggleFocusMode} 
               />
               {menuItems.map((item) => (
-                <Button 
+                <Button
                   key={item.text}
                   color={location.pathname === item.path ? 'secondary' : 'inherit'}
                   onClick={() => navigate(item.path)}
@@ -234,6 +244,9 @@ export const NavBar: React.FC = () => {
                   {item.text}
                 </Button>
               ))}
+              <IconButton color="inherit" onClick={toggleTheme}>
+                {currentTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
               {user && (
                 <>
                   <Divider orientation="vertical" flexItem sx={{ mx: 1, bgcolor: 'rgba(255, 255, 255, 0.12)' }} />

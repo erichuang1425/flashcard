@@ -17,7 +17,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { preferences } = useUserPreferences();
+  const { preferences, updatePreferences } = useUserPreferences();
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
@@ -37,6 +37,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const currentIndex = themes.indexOf(theme);
     const nextTheme = themes[(currentIndex + 1) % themes.length];
     setTheme(nextTheme);
+    updatePreferences({ theme: nextTheme }).catch(console.error);
   };
 
   const startTimer = () => setIsActive(true);
