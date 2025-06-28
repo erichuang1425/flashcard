@@ -7,6 +7,8 @@ import { LevelProgress } from './gamification/LevelProgress';
 import { useGamification } from '../context/GamificationContext';
 import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
+import { useAuth } from '../context/AuthContext';
+import { BottomNav } from './BottomNav';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +17,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { levelSystem } = useGamification();
   const { focusMode } = useFocusMode();
+  const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
@@ -197,6 +200,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Paper>
         )}
       </Box>
+      {isMobile && user && <BottomNav />}
     </Box>
   );
 };
