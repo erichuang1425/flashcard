@@ -27,6 +27,7 @@ import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { I18nProvider } from './i18n/I18nContext';
 import { ReadingModeProvider } from './context/ReadingModeContext';
 import { Reading } from './pages/Reading';
+import { Diary } from './pages/Diary';
 import { getDoc, doc, setDoc, collection } from '@firebase/firestore';
 import { db } from './services/firebase';
 import { FlashcardLibrary } from './pages/FlashcardLibrary';
@@ -102,6 +103,7 @@ const App: React.FC = () => {
                                     <Route path="/profile" element={<Profile />} />
                                     <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
                                     <Route path="/reading" element={<Reading />} />
+                                    <Route path="/diary" element={<Diary />} />
                                     <Route path="*" element={<Navigate to="/" replace />} />
                                   </Routes>
                                 } />

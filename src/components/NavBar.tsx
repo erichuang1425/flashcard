@@ -17,6 +17,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import StyleIcon from '@mui/icons-material/Style';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -52,6 +53,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onTogglePanel, showGamePanel, fo
     { text: t('navigation.menu.library'), icon: <StyleIcon />, path: '/flashcards' }, // Changed from LibraryBooksIcon to StyleIcon
     { text: t('navigation.menu.worksheets'), icon: <AssignmentIcon />, path: '/worksheets' },
     { text: t('navigation.menu.import'), icon: <CloudUploadIcon />, path: '/import' },
+    { text: t('navigation.menu.diary'), icon: <EditNoteIcon />, path: '/diary' },
   ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {

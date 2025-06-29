@@ -15,6 +15,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import SchoolIcon from '@mui/icons-material/School';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import { useI18n } from '../../i18n/I18nContext';
 
 interface MainDrawerProps {
@@ -27,7 +28,8 @@ const menuItems = [
   { path: '/', label: 'home.title', icon: <HomeIcon /> },
   { path: '/study', label: 'study.title', icon: <SchoolIcon /> },
   { path: '/library', label: 'library.title', icon: <LibraryBooksIcon /> },
-  { path: '/reading', label: 'reading.title', icon: <MenuBookIcon /> }
+  { path: '/reading', label: 'reading.title', icon: <MenuBookIcon /> },
+  { path: '/diary', label: 'diary.title', icon: <EditNoteIcon /> }
 ];
 
 export const MainDrawer: React.FC<MainDrawerProps> = ({ 
