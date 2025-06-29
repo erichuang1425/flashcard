@@ -766,6 +766,12 @@ export const zhTW = {
     title: '日記',
     newEntry: '新增日記',
     editEntry: '編輯日記',
+    search: { placeholder: '搜尋日記...' },
+    fields: {
+      title: '標題',
+      tags: '標籤',
+      tagsHelp: '以逗號分隔多個標籤'
+    },
     edit: {
       success: '日記已更新',
       error: '更新日記失敗'
