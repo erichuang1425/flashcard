@@ -141,7 +141,7 @@ export const MobileProfileLayout: React.FC<MobileProfileLayoutProps> = ({
           <Tab label={t('profile.overview')} />
           <Tab label={t('profile.patterns')} />
           <Tab label={t('profile.categories')} />
-          <Tab label={t('profile.achievements')} />
+          <Tab label={t('profile.achievements.achievements')} />
         </Tabs>
 
         <Box sx={{ flex: 1, overflow: 'hidden' }}>
