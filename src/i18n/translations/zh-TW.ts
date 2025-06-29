@@ -8,6 +8,7 @@ export const zhTW = {
     exit: '離開',
     finish: '完成',
     next: '下一步',
+    delete: '刪除',
     focusMode: '專注模式',
   },
   settings: {
