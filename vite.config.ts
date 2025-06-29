@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.REACT_APP_FIREBASE_STORAGE_BUCKET': JSON.stringify(env.REACT_APP_FIREBASE_STORAGE_BUCKET),
       'import.meta.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID),
       'import.meta.env.REACT_APP_FIREBASE_APP_ID': JSON.stringify(env.REACT_APP_FIREBASE_APP_ID),
+      'import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY': JSON.stringify(env.VITE_GOOGLE_TRANSLATE_API_KEY),
     },
     server: {
       port: 3000,
