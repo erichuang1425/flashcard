@@ -186,3 +186,11 @@ export interface MatchingPair {
 export interface MatchingSet {
   pairs: MatchingPair[];
 }
+
+export interface DiaryEntry {
+  id: string;
+  userId: string;
+  text: string;
+  createdAt: Date;
+  imageUrl?: string;
+}
