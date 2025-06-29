@@ -18,6 +18,8 @@ import '@fontsource/roboto/700.css';
 import '@fontsource/source-serif-pro';
 import '@fontsource/noto-serif';
 import '@fontsource/crimson-pro';
+import '@fontsource/merriweather';
+import '@fontsource/ibm-plex-serif';
 import { GamificationProvider } from './context/GamificationContext';
 import { Profile } from './pages/Profile';
 import { SettingsProvider } from './context/SettingsContext';

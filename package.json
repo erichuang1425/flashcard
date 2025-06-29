@@ -7,6 +7,8 @@
     "@firebase/firestore": "^4.7.5",
     "@firebase/storage": "^0.13.3",
     "@fontsource/crimson-pro": "^5.1.0",
+    "@fontsource/ibm-plex-serif": "^5.2.6",
+    "@fontsource/merriweather": "^5.2.9",
     "@fontsource/noto-serif": "^5.1.0",
     "@fontsource/roboto": "^5.1.0",
     "@fontsource/source-serif-pro": "^5.1.0",
