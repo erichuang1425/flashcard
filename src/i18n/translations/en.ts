@@ -828,11 +828,14 @@ export const en = {
     title: 'Diary',
     newEntry: 'New Entry',
     editEntry: 'Edit Entry',
+    tabs: { create: 'Create Entry', entries: 'Entries' },
     search: { placeholder: 'Search entries...' },
     fields: {
       title: 'Title',
       tags: 'Tags',
-      tagsHelp: 'Separate tags with commas'
+      tagsHelp: 'Separate tags with commas',
+      font: 'Font',
+      fontSize: 'Font Size'
     },
     edit: {
       success: 'Entry updated successfully',
