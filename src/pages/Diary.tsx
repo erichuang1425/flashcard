@@ -9,6 +9,7 @@ import {
   Card,
   CardContent,
   IconButton,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -27,17 +28,30 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useConfirm } from '../context/ConfirmContext';
 import { useSnackbar } from '../hooks/useSnackbar';
+import { useDebounce } from '../hooks/useDebounce';
 
 export const Diary: React.FC = () => {
   const { user } = useAuth();
   const { t } = useI18n();
+  const [title, setTitle] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
   const [content, setContent] = useState('');
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTagsInput, setEditTagsInput] = useState('');
   const [editContent, setEditContent] = useState('');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const confirm = useConfirm();
   const showSnackbar = useSnackbar();
+
+  const parseTags = (input: string): string[] =>
+    input
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
 
   const loadEntries = async () => {
     if (!user) return;
@@ -47,26 +61,51 @@ export const Diary: React.FC = () => {
     setLoading(false);
   };
 
+  const filteredEntries = React.useMemo(() => {
+    if (!debouncedSearch) return entries;
+    const term = debouncedSearch.toLowerCase();
+    return entries.filter(e =>
+      e.title.toLowerCase().includes(term) ||
+      e.content.toLowerCase().includes(term) ||
+      e.tags.some(tag => tag.toLowerCase().includes(term))
+    );
+  }, [entries, debouncedSearch]);
+
   useEffect(() => {
     loadEntries();
   }, [user]);
 
   const handleSave = async () => {
-    if (!user || !content.trim()) return;
-    await addDiaryEntry(user.uid, content.trim());
+    if (!user || !title.trim() || !content.trim()) return;
+    await addDiaryEntry(
+      user.uid,
+      title.trim(),
+      content.trim(),
+      parseTags(tagsInput)
+    );
+    setTitle('');
     setContent('');
+    setTagsInput('');
     loadEntries();
   };
 
   const handleEdit = (entry: DiaryEntry) => {
     setEditingEntry(entry);
+    setEditTitle(entry.title);
+    setEditTagsInput(entry.tags.join(', '));
     setEditContent(entry.content);
   };
 
   const handleEditSave = async () => {
     if (!user || !editingEntry) return;
     try {
-      await updateDiaryEntry(user.uid, editingEntry.id, editContent.trim());
+      await updateDiaryEntry(
+        user.uid,
+        editingEntry.id,
+        editTitle.trim(),
+        editContent.trim(),
+        parseTags(editTagsInput)
+      );
       setEditingEntry(null);
       showSnackbar(t('diary.edit.success'), 'success');
       loadEntries();
@@ -101,7 +140,27 @@ export const Diary: React.FC = () => {
       <Typography variant="h4" sx={{ mb: 2 }}>
         {t('diary.title')}
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+      <TextField
+        label={t('diary.search.placeholder')}
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        fullWidth
+        sx={{ mb: 2 }}
+      />
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 4 }}>
+        <TextField
+          label={t('diary.fields.title')}
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          fullWidth
+        />
+        <TextField
+          label={t('diary.fields.tags')}
+          helperText={t('diary.fields.tagsHelp')}
+          value={tagsInput}
+          onChange={e => setTagsInput(e.target.value)}
+          fullWidth
+        />
         <TextField
           label={t('diary.newEntry')}
           value={content}
@@ -113,13 +172,13 @@ export const Diary: React.FC = () => {
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={!content.trim() || loading}
+          disabled={!title.trim() || !content.trim() || loading}
         >
           {t('common.save')}
         </Button>
       </Box>
       <Grid container spacing={2}>
-        {entries.map((entry) => (
+        {filteredEntries.map((entry) => (
           <Grid item xs={12} sm={6} md={4} key={entry.id}>
             <Card>
               <CardContent>
@@ -135,6 +194,14 @@ export const Diary: React.FC = () => {
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Box>
+                </Box>
+                <Typography variant="h6" gutterBottom>
+                  {entry.title}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+                  {entry.tags.map(tag => (
+                    <Chip key={tag} label={tag} size="small" />
+                  ))}
                 </Box>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                   {entry.content}
@@ -153,6 +220,21 @@ export const Diary: React.FC = () => {
         <DialogTitle>{t('diary.editEntry')}</DialogTitle>
         <DialogContent>
           <TextField
+            label={t('diary.fields.title')}
+            value={editTitle}
+            onChange={e => setEditTitle(e.target.value)}
+            fullWidth
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label={t('diary.fields.tags')}
+            helperText={t('diary.fields.tagsHelp')}
+            value={editTagsInput}
+            onChange={e => setEditTagsInput(e.target.value)}
+            fullWidth
+            sx={{ mb: 2 }}
+          />
+          <TextField
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             multiline
@@ -165,7 +247,7 @@ export const Diary: React.FC = () => {
           <Button onClick={() => setEditingEntry(null)}>
             {t('common.cancel')}
           </Button>
-          <Button variant="contained" onClick={handleEditSave} disabled={!editContent.trim()}>
+          <Button variant="contained" onClick={handleEditSave} disabled={!editTitle.trim() || !editContent.trim()}>
             {t('common.save')}
           </Button>
         </DialogActions>
