@@ -552,6 +552,7 @@ export const zhTW = {
       home: '首頁',
       study: '學習',
       library: '字卡庫',
+      reading: '閱讀',
       worksheets: '習題',
       import: '匯入',
       diary: '日記'
