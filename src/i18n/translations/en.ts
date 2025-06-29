@@ -561,9 +561,10 @@ export const en = {
       home: 'Home',
       study: 'Study',
       library: 'Archive',
+      import: 'Import',
+      diary: 'Diary'
       reading: 'Reading',
       worksheets: 'Worksheets',
-      import: 'Import'
     },
     appName: 'FlashCards AI',
     level: 'Level'
@@ -784,5 +785,9 @@ export const en = {
       success: 'Flashcard deleted successfully',
       error: 'Failed to delete flashcard'
     }
+  },
+  diary: {
+    title: 'Diary',
+    newEntry: 'New Entry'
   }
 };
