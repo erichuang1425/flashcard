@@ -100,7 +100,7 @@ export const ManageArticlesTab: React.FC<ManageArticlesTabProps> = ({ articles, 
             color="error"
             onClick={() => setDeleteDialogOpen(true)}
           >
-            {t('reading.manage.deleteSelected', { values:{values: selected.length }})}
+          {t('reading.manage.deleteSelected', { count: selected.length })}
           </Button>
         )}
       </Box>
@@ -175,7 +175,7 @@ export const ManageArticlesTab: React.FC<ManageArticlesTabProps> = ({ articles, 
         </DialogTitle>
         <DialogContent>
           <Typography>
-            {t('reading.manage.deleteConfirmMessage', { values:{values: selected.length }})}
+            {t('reading.manage.deleteConfirmMessage', { count: selected.length })}
           </Typography>
           {isDeleting && <LinearProgress sx={{ mt: 2 }} />}
         </DialogContent>
