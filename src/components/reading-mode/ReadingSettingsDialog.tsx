@@ -71,6 +71,9 @@ export const ReadingSettingsDialog: React.FC<ReadingSettingsDialogProps> = ({ op
               <MenuItem value="system-ui">System</MenuItem>
               <MenuItem value="Georgia">Georgia</MenuItem>
               <MenuItem value="Merriweather">Merriweather</MenuItem>
+              <MenuItem value="Times New Roman">Times New Roman</MenuItem>
+              <MenuItem value="Lora">Lora</MenuItem>
+              <MenuItem value="PT Serif">PT Serif</MenuItem>
             </Select>
           ) : (
             <Box>
@@ -84,6 +87,9 @@ export const ReadingSettingsDialog: React.FC<ReadingSettingsDialogProps> = ({ op
                 <MenuItem value="system-ui">{t('reading.settings.fonts.system')}</MenuItem>
                 <MenuItem value="Georgia">{t('reading.settings.fonts.georgia')}</MenuItem>
                 <MenuItem value="Merriweather">{t('reading.settings.fonts.merriweather')}</MenuItem>
+                <MenuItem value="Times New Roman">{t('reading.settings.fonts.timesNewRoman')}</MenuItem>
+                <MenuItem value="Lora">{t('reading.settings.fonts.lora')}</MenuItem>
+                <MenuItem value="PT Serif">{t('reading.settings.fonts.ptSerif')}</MenuItem>
               </Select>
             </Box>
           )}
