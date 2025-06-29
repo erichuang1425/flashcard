@@ -93,16 +93,6 @@ export const Home: React.FC = () => {
           remainingToStudy: totalStats.remainingCards,
           totalStudied: studyStats.totalStudySessions
         });
-
-        // Debug info
-        console.debug('Raw Data:', {
-          cards: cards.length,
-          studyStats,
-          totalStats,
-          masteredCount,
-          dueToday
-        });
-
       } catch (error) {
         console.error('Error loading stats:', error);
         setStats(prev => ({
