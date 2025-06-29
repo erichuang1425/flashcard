@@ -20,6 +20,7 @@ interface StudySessionProps {
 }
 
 export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete }) => {
+  const { user } = useAuth();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +39,6 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
     const card = cards[currentIndex];
     if (!card.id) return;
     const { nextReview, newDifficulty } = calculateNextReview(rating, card.difficulty);
-    const { user } = useAuth();
 
     try {
       const isCorrect = rating >= 3;
