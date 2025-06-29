@@ -114,10 +114,9 @@ export class AuthService {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
-        'prompt': 'select_account',
-        'login_hint': 'user@example.com',
-        'display': 'popup'
+        prompt: 'select_account'
       });
+      auth.useDeviceLanguage();
 
       if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
         await signInWithRedirect(auth, provider);
