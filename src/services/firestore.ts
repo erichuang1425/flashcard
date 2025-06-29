@@ -3,7 +3,7 @@ import {
   collection, addDoc, getDocs, query, where, orderBy, 
   updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc 
 }  from 'firebase/firestore';
-import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition } from '../types';
+import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, DiaryEntry } from '../types';
 
 
 interface FlashcardDocument {
@@ -745,8 +745,8 @@ export const updateWorksheetContent = async (
 };
 
 export const updateWorksheetProgress = async (
-  userId: string, 
-  worksheetId: string, 
+  userId: string,
+  worksheetId: string,
   stats: WorksheetStats
 ) => {
   try {
@@ -754,6 +754,37 @@ export const updateWorksheetProgress = async (
     await updateDoc(worksheetRef, { stats });
   } catch (error) {
     console.error('Error updating worksheet progress:', error);
+    throw error;
+  }
+};
+
+export const addDiaryEntry = async (entry: Omit<DiaryEntry, 'id'>) => {
+  try {
+    const ref = await addDoc(collection(db, 'users', entry.userId, 'diary'), {
+      ...entry,
+      createdAt: entry.createdAt || new Date(),
+    });
+    return ref.id;
+  } catch (error) {
+    console.error('Error adding diary entry:', error);
+    throw error;
+  }
+};
+
+export const getDiaryEntries = async (userId: string): Promise<DiaryEntry[]> => {
+  try {
+    const q = query(
+      collection(db, 'users', userId, 'diary'),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(doc => ({
+      id: doc.id,
+      ...(doc.data() as any),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+    })) as DiaryEntry[];
+  } catch (error) {
+    console.error('Error fetching diary entries:', error);
     throw error;
   }
 };
