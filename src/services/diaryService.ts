@@ -1,4 +1,14 @@
-import { collection, addDoc, serverTimestamp, getDocs, query, orderBy } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+  query,
+  orderBy,
+  updateDoc,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
 import { db } from './firebase';
 import type { DiaryEntry } from '../types';
 
@@ -19,4 +29,18 @@ export const getDiaryEntries = async (userId: string): Promise<DiaryEntry[]> => 
     content: doc.data().content,
     createdAt: doc.data().createdAt?.toDate?.() || new Date()
   }));
+};
+
+export const updateDiaryEntry = async (
+  userId: string,
+  entryId: string,
+  content: string
+): Promise<void> => {
+  const entryRef = doc(db, 'users', userId, 'diary', entryId);
+  await updateDoc(entryRef, { content });
+};
+
+export const deleteDiaryEntry = async (userId: string, entryId: string): Promise<void> => {
+  const entryRef = doc(db, 'users', userId, 'diary', entryId);
+  await deleteDoc(entryRef);
 };
