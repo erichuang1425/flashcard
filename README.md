@@ -8,6 +8,7 @@ A flashcard web application built with [React](https://reactjs.org/), [Vite](htt
 
 ## Getting Started
 1. Copy `.env.example` to `.env` and fill in your Firebase and Google Cloud credentials.
+   The application expects `VITE_GOOGLE_TRANSLATE_API_KEY` for translation features.
 2. Install dependencies:
    ```bash
    npm install
@@ -25,7 +26,8 @@ npm run build
 The compiled app will be placed in the `dist/` directory.
 
 ### Firebase Functions
-Functions source code lives under `functions/`. Use the Firebase CLI to emulate or deploy cloud functions:
+Functions source code lives under `functions/`. A legacy copy exists in `functions1425/` but is not required.
+Use the Firebase CLI to emulate or deploy cloud functions:
 ```
 cd functions
 npm run build

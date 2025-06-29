@@ -562,7 +562,7 @@ export const en = {
       study: 'Study',
       library: 'Archive',
       import: 'Import',
-      diary: 'Diary'
+      diary: 'Diary',
       reading: 'Reading',
       worksheets: 'Worksheets',
     },
