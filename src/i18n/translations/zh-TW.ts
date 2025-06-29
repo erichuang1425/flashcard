@@ -766,11 +766,14 @@ export const zhTW = {
     title: '日記',
     newEntry: '新增日記',
     editEntry: '編輯日記',
+    tabs: { create: '新增日記', entries: '日記列表' },
     search: { placeholder: '搜尋日記...' },
     fields: {
       title: '標題',
       tags: '標籤',
-      tagsHelp: '以逗號分隔多個標籤'
+      tagsHelp: '以逗號分隔多個標籤',
+      font: '字體',
+      fontSize: '字體大小'
     },
     edit: {
       success: '日記已更新',
