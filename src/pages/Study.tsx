@@ -208,11 +208,12 @@ export const Study: React.FC = () => {
     }));
   }, [totalFilteredCards]);
 
-  const checkAndLoadNextCard = async () => {
+  const checkAndLoadNextCard = async (updatedCards?: Flashcard[]) => {
+    const cardsRef = updatedCards || cards;
     if (cardAnswered.current) {
       try {
         setIsLoading(true);
-        if (currentIndex < cards.length - 1) {
+        if (currentIndex < cardsRef.length - 1) {
           cardAnswered.current = false;
           setCurrentIndex(prev => prev + 1);
         } else if (preloadQueue.current.length > 0) {
@@ -294,6 +295,7 @@ export const Study: React.FC = () => {
     newCards.splice(insertIndex, 0, cardToReposition);
     setCards(newCards);
     cardAnswered.current = true;
+    await checkAndLoadNextCard(newCards);
     const xpGained = isCorrect ? 8 : 3;
     await saveStudyProgress(user.uid, {
       cardId: currentCard.id,
@@ -304,7 +306,6 @@ export const Study: React.FC = () => {
       timeSpent: Date.now() - studyStartTime.current
     });
     await updateUserXP(user.uid, xpGained);
-    await checkAndLoadNextCard();
   };
 
   const handleRating = async (rating: 1 | 2 | 3 | 4 | 5, srsResult: ReviewResult) => {
@@ -325,6 +326,9 @@ export const Study: React.FC = () => {
         }
       }));
 
+      cardAnswered.current = true;
+      await checkAndLoadNextCard();
+
       await Promise.all([
         saveStudyProgress(user.uid, {
           cardId: currentCard.id,
@@ -344,15 +348,6 @@ export const Study: React.FC = () => {
           nextReview: srsResult.nextReview
         })
       ]);
-
-      cardAnswered.current = true;
-
-      const hasMoreCards = currentIndex < cards.length - 1 || preloadQueue.current.length > 0;
-      if (hasMoreCards) {
-        await checkAndLoadNextCard();
-      } else {
-        setIsComplete(true);
-      }
 
     } catch (err) {
       console.error('Error saving progress:', err);
