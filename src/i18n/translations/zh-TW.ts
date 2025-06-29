@@ -680,7 +680,8 @@ export const zhTW = {
     dictionary: {
       addToFlashcards: '加入字卡'
     },
-    settings: {
+   settings: {
+      title: '閱讀設定',
       fontSize: '字體大小',
       fontFamily: '字體家族',
       lineHeight: '行高',
