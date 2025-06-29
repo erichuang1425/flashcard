@@ -825,6 +825,17 @@ export const en = {
   },
   diary: {
     title: 'Diary',
-    newEntry: 'New Entry'
+    newEntry: 'New Entry',
+    editEntry: 'Edit Entry',
+    edit: {
+      success: 'Entry updated successfully',
+      error: 'Failed to update entry'
+    },
+    delete: {
+      confirmTitle: 'Delete Entry',
+      confirmMessage: 'Are you sure you want to delete this entry?',
+      success: 'Entry deleted successfully',
+      error: 'Failed to delete entry'
+    }
   }
 };

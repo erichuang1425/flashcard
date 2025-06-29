@@ -763,6 +763,17 @@ export const zhTW = {
   },
   diary: {
     title: '日記',
-    newEntry: '新增日記'
+    newEntry: '新增日記',
+    editEntry: '編輯日記',
+    edit: {
+      success: '日記已更新',
+      error: '更新日記失敗'
+    },
+    delete: {
+      confirmTitle: '刪除日記',
+      confirmMessage: '確定要刪除這篇日記嗎？',
+      success: '日記已刪除',
+      error: '刪除日記失敗'
+    }
   }
 };
