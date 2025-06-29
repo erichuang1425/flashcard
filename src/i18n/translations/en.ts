@@ -723,7 +723,10 @@ export const en = {
           sourceSerif: 'Source Serif Pro',
           crimson: 'Crimson Pro',
           notoSerif: 'Noto Serif',
-          ibmPlex: 'IBM Plex Serif'
+          ibmPlex: 'IBM Plex Serif',
+          timesNewRoman: 'Times New Roman',
+          lora: 'Lora',
+          ptSerif: 'PT Serif'
         }
       },
       manage: {

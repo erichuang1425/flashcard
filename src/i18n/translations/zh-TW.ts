@@ -695,7 +695,10 @@ export const zhTW = {
         sourceSerif: 'Source Serif Pro 字體',
         crimson: 'Crimson Pro 字體',
         notoSerif: 'Noto Serif 字體',
-        ibmPlex: 'IBM Plex Serif 字體'
+        ibmPlex: 'IBM Plex Serif 字體',
+        timesNewRoman: 'Times New Roman 字體',
+        lora: 'Lora 字體',
+        ptSerif: 'PT Serif 字體'
       }
     },
     manage: {
