@@ -8,6 +8,8 @@ export const en = {
     exit: 'Exit',
     finish: 'Finish',
     next: 'Next',
+    delete: 'Delete',
+    focusMode: 'Focus Mode',
   },
   settings: {
     title: 'Settings',
@@ -693,54 +695,89 @@ export const en = {
         completed: 'Completed'
       }
     },
-    interface: {
-      readingTime: '{{minutes}} min read',
-      wordCount: '{{count}} words',
-      startReading: 'Start Reading',
-      continueReading: 'Continue Reading',
-      focusMode: 'Focus Mode',
-      addToFlashcards: 'Add to Flashcards',
-      textToSpeech: 'Text to Speech',
-      search: 'Search articles...',
-  progress: {
-    progress: '{{percent}}% completed',
-    importing: 'Importing article...',
-    analyzing: 'Analyzing content...'
-  },
-      title: 'Collection Management',
-      statistics: 'Collection Statistics',
-      selectCollections: 'Select Collections to Manage',
-      flashcards: {
-        title: 'Flashcards',
-        totalCards: 'Total Cards',
-        mastered: 'Mastered',
-        dueReview: 'Due for Review',
-        categories: 'Categories',
-        categoryProgress: 'Category Progress',
-        averageAccuracy: 'Average Accuracy',
-        noData: 'No flashcard data available'
+      interface: {
+        readingTime: '{{minutes}} min read',
+        wordCount: '{{count}} words',
+        startReading: 'Start Reading',
+        continueReading: 'Continue Reading',
+        focusMode: 'Focus Mode',
+        addToFlashcards: 'Add to Flashcards',
+        textToSpeech: 'Text to Speech',
+        search: 'Search articles...'
       },
-      articles: {
-        title: 'Articles',
-        total: 'Total Articles',
-        categories: 'Categories',
-        lastUpdated: 'Last Updated',
-        noData: 'No article data available'
+      dictionary: {
+        addToFlashcards: 'Add to Flashcards'
       },
-      migration: {
-        title: 'Migration',
-        verify: 'Verify Selected Collections',
-        migrate: 'Migrate Selected Collections',
-        verifyResults: 'Verification Results',
-        inProgress: 'Migration in progress...',
-        selectPrompt: 'Please select at least one collection type',
-        success: 'Migration completed successfully',
-        failed: 'Migration failed',
-        synced: 'Collections already in sync',
-        found: 'Found {{count}} items to migrate'
+      settings: {
+        fontSize: 'Font Size',
+        fontFamily: 'Font Family',
+        lineHeight: 'Line Height',
+        focusMode: 'Focus Mode',
+        enableTTS: 'Text to Speech',
+        theme: 'Theme',
+        fonts: {
+          system: 'System Default',
+          georgia: 'Georgia',
+          merriweather: 'Merriweather',
+          sourceSerif: 'Source Serif Pro',
+          crimson: 'Crimson Pro',
+          notoSerif: 'Noto Serif',
+          ibmPlex: 'IBM Plex Serif'
+        }
+      },
+      manage: {
+        title: 'Manage Articles',
+        deleteSelected: 'Delete Selected ({{count}})',
+        never: 'Never',
+        confirmDelete: 'Delete',
+        deleteConfirmTitle: 'Confirm Delete',
+        deleteConfirmMessage: 'Are you sure you want to delete {{count}} selected articles? This action cannot be undone.',
+        error: {
+          deleteFailed: 'Failed to delete article'
+        },
+        columns: {
+          title: 'Title',
+          category: 'Category',
+          wordCount: 'Word Count',
+          lastRead: 'Last Read',
+          progress: 'Progress'
+        }
+      },
+      collections: {
+        title: 'Collection Management',
+        statistics: 'Collection Statistics',
+        selectCollections: 'Select Collections to Manage',
+        flashcards: {
+          title: 'Flashcards',
+          totalCards: 'Total Cards',
+          mastered: 'Mastered',
+          dueReview: 'Due for Review',
+          categories: 'Categories',
+          categoryProgress: 'Category Progress',
+          averageAccuracy: 'Average Accuracy',
+          noData: 'No flashcard data available'
+        },
+        articles: {
+          title: 'Articles',
+          total: 'Total Articles',
+          categories: 'Categories',
+          lastUpdated: 'Last Updated',
+          noData: 'No article data available'
+        },
+        migration: {
+          title: 'Migration',
+          verify: 'Verify Selected Collections',
+          migrate: 'Migrate Selected Collections',
+          verifyResults: 'Verification Results',
+          inProgress: 'Migration in progress...',
+          selectPrompt: 'Please select at least one collection type',
+          success: 'Migration completed successfully',
+          failed: 'Migration failed',
+          synced: 'Collections already in sync',
+          found: 'Found {{count}} items to migrate'
+        }
       }
-    }
-  },
+    },
   flashcards: {
     library: {
       title: 'Flashcard Library',
