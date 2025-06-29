@@ -11,6 +11,7 @@ import { Register } from './pages/Register';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Settings } from './pages/Settings';
 import { StudyWorksheet } from './pages/StudyWorksheet';
+import { Diary } from './pages/Diary';
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -61,6 +62,11 @@ const App: React.FC = () => {
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/diary" element={
+                <ProtectedRoute>
+                  <Diary />
                 </ProtectedRoute>
               } />
               <Route path="/study/worksheet/:worksheetId" element={<StudyWorksheet />} />
