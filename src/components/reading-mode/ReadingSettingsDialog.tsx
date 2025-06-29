@@ -68,9 +68,13 @@ export const ReadingSettingsDialog: React.FC<ReadingSettingsDialogProps> = ({ op
               fullWidth
               sx={{ mb: 3 }}
             >
-              <MenuItem value="system-ui">System</MenuItem>
-              <MenuItem value="Georgia">Georgia</MenuItem>
-              <MenuItem value="Merriweather">Merriweather</MenuItem>
+              <MenuItem value="system-ui">{t('reading.settings.fonts.system')}</MenuItem>
+              <MenuItem value="Georgia">{t('reading.settings.fonts.georgia')}</MenuItem>
+              <MenuItem value="Merriweather">{t('reading.settings.fonts.merriweather')}</MenuItem>
+              <MenuItem value="Source Serif Pro">{t('reading.settings.fonts.sourceSerif')}</MenuItem>
+              <MenuItem value="Crimson Pro">{t('reading.settings.fonts.crimson')}</MenuItem>
+              <MenuItem value="Noto Serif">{t('reading.settings.fonts.notoSerif')}</MenuItem>
+              <MenuItem value="IBM Plex Serif">{t('reading.settings.fonts.ibmPlex')}</MenuItem>
             </Select>
           ) : (
             <Box>
@@ -84,6 +88,10 @@ export const ReadingSettingsDialog: React.FC<ReadingSettingsDialogProps> = ({ op
                 <MenuItem value="system-ui">{t('reading.settings.fonts.system')}</MenuItem>
                 <MenuItem value="Georgia">{t('reading.settings.fonts.georgia')}</MenuItem>
                 <MenuItem value="Merriweather">{t('reading.settings.fonts.merriweather')}</MenuItem>
+                <MenuItem value="Source Serif Pro">{t('reading.settings.fonts.sourceSerif')}</MenuItem>
+                <MenuItem value="Crimson Pro">{t('reading.settings.fonts.crimson')}</MenuItem>
+                <MenuItem value="Noto Serif">{t('reading.settings.fonts.notoSerif')}</MenuItem>
+                <MenuItem value="IBM Plex Serif">{t('reading.settings.fonts.ibmPlex')}</MenuItem>
               </Select>
             </Box>
           )}
