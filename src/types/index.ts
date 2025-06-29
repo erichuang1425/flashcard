@@ -404,3 +404,10 @@ export interface LearningCurveData {
   retentionScores: number[];
   reviewCounts: number[];
 }
+
+export interface DiaryEntry {
+  id: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+}

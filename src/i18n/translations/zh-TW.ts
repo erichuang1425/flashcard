@@ -554,7 +554,8 @@ export const zhTW = {
       library: '字卡庫',
       reading: '閱讀',
       worksheets: '習題',
-      import: '匯入'
+      import: '匯入',
+      diary: '日記'
     },
     appName: '補習 AI',
     level: '等級'
@@ -758,5 +759,9 @@ export const zhTW = {
       error: '刪除字卡失敗',
       menuItem: '刪除字卡'
     }
+  },
+  diary: {
+    title: '日記',
+    newEntry: '新增日記'
   }
 };
