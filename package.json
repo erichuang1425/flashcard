@@ -35,10 +35,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "serve": "vite",
+    "dev": "node scripts/vite-polyfill.cjs dev",
+    "build": "tsc && node scripts/vite-polyfill.cjs build",
+    "preview": "node scripts/vite-polyfill.cjs preview",
+    "serve": "node scripts/vite-polyfill.cjs dev",
     "test": "jest"
   },
   "keywords": [],
