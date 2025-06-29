@@ -709,6 +709,7 @@ export const en = {
         addToFlashcards: 'Add to Flashcards'
       },
       settings: {
+        title: 'Reading Settings',
         fontSize: 'Font Size',
         fontFamily: 'Font Family',
         lineHeight: 'Line Height',
