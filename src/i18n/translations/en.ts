@@ -561,7 +561,8 @@ export const en = {
       home: 'Home',
       study: 'Study',
       library: 'Archive',
-      worksheets: 'Worksheets', 
+      reading: 'Reading',
+      worksheets: 'Worksheets',
       import: 'Import'
     },
     appName: 'FlashCards AI',
