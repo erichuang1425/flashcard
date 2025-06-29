@@ -827,6 +827,12 @@ export const en = {
     title: 'Diary',
     newEntry: 'New Entry',
     editEntry: 'Edit Entry',
+    search: { placeholder: 'Search entries...' },
+    fields: {
+      title: 'Title',
+      tags: 'Tags',
+      tagsHelp: 'Separate tags with commas'
+    },
     edit: {
       success: 'Entry updated successfully',
       error: 'Failed to update entry'
