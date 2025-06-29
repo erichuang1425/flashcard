@@ -128,7 +128,18 @@ export const ReadingNavigation: React.FC = () => {
   };
 
   const handleFontChange = () => {
-    const fonts = ['system-ui', 'Georgia', 'Merriweather', 'Source Serif Pro', 'Crimson Pro', 'Noto Serif', 'IBM Plex Serif'];
+    const fonts = [
+      'system-ui',
+      'Georgia',
+      'Merriweather',
+      'Source Serif Pro',
+      'Crimson Pro',
+      'Noto Serif',
+      'IBM Plex Serif',
+      'Times New Roman',
+      'Lora',
+      'PT Serif'
+    ];
     setPreferences(prev => {
       const currentIndex = fonts.indexOf(prev.readingSettings?.fontFamily || 'system-ui');
       const nextIndex = (currentIndex + 1) % fonts.length;
