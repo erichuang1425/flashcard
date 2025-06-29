@@ -6,11 +6,6 @@ import {
   Box,
   Grid,
   Avatar,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   LinearProgress,
   Chip,
   Tab,
@@ -82,17 +77,130 @@ export const Profile: React.FC = () => {
   const userAchievements = achievements as UserAchievement[];
   const progress = (levelSystem.currentXP / levelSystem.requiredXP) * 100;
 
-  console.log('Transformed Categories:', transformedCategories);
+  if (isMobile) {
+    if (error) {
+      const errorNode = (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography color="error">{error}</Typography>
+        </Box>
+      );
+      return (
+        <MobileProfileLayout
+          user={user}
+          levelSystem={levelSystem}
+          activeTab={activeTab}
+          onChangeTab={setActiveTab}
+          t={t}
+        >
+          {errorNode}
+          {errorNode}
+          {errorNode}
+          {errorNode}
+        </MobileProfileLayout>
+      );
+    }
 
-  const chartLabels = {
-    studyTime: t('profile.graphs.studyTime'),
-    cardsStudied: t('profile.graphs.cardsStudied'),
-    accuracy: t('profile.graphs.accuracy'),
-    daily: t('profile.graphs.daily'),
-    weekly: t('profile.graphs.weekly'),
-    monthly: t('profile.graphs.monthly')
-  };
+    if (loading) {
+      const loadingNode = (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+          <CircularProgress />
+        </Box>
+      );
+      return (
+        <MobileProfileLayout
+          user={user}
+          levelSystem={levelSystem}
+          activeTab={activeTab}
+          onChangeTab={setActiveTab}
+          t={t}
+        >
+          {loadingNode}
+          {loadingNode}
+          {loadingNode}
+          {loadingNode}
+        </MobileProfileLayout>
+      );
+    }
 
+    return (
+      <MobileProfileLayout
+        user={user}
+        levelSystem={levelSystem}
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        t={t}
+      >
+        <AnalyticsOverview analytics={analytics!} />
+        <StudyPatterns patterns={analytics!.studyPatterns} />
+        <Box className="chart-container" sx={{ height: 300 }}>
+          {(transformedCategories ?? []).length > 0 ? (
+            <CategoryProgress categories={transformedCategories ?? []} />
+          ) : (
+            <Typography variant="body1" sx={{ textAlign: 'center', py: 4 }}>
+              {t('settings.categories.noData')}
+            </Typography>
+          )}
+        </Box>
+        <Grid container spacing={1} sx={{ width: '100%', mx: 0 }}>
+          {userAchievements.map(achievement => (
+            <Grid item xs={12} key={achievement.id}>
+              <Card3D depth={1} hover={achievement.achieved} sx={{ width: '100%' }}>
+                <Paper
+                  sx={{
+                    p: 1.5,
+                    width: '100%',
+                    opacity: achievement.achieved ? 1 : 0.6,
+                    transition: 'all 0.2s',
+                    background: achievement.achieved
+                      ? `linear-gradient(135deg, ${theme.palette.background.paper}, ${theme.palette.primary.dark})`
+                      : undefined
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <EmojiEventsIcon
+                      color={achievement.achieved ? 'primary' : 'disabled'}
+                      sx={{ fontSize: 40 }}
+                    />
+                    <Box>
+                      <Typography variant="h6">{achievement.title}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {achievement.description}
+                      </Typography>
+                      <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={(achievement.progress / achievement.requirement) * 100}
+                          sx={{ flexGrow: 1, height: 8, borderRadius: 1 }}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {t('profile.achievements.progress', {
+                            values: {
+                              current: achievement.progress,
+                              required: achievement.requirement
+                            }
+                          })}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                  {achievement.achieved && (
+                    <Chip
+                      label={t('profile.achievements.xpReward', {
+                        values: { points: achievement.points }
+                      })}
+                      color="primary"
+                      size="small"
+                      sx={{ mt: 1 }}
+                    />
+                  )}
+                </Paper>
+              </Card3D>
+            </Grid>
+          ))}
+        </Grid>
+      </MobileProfileLayout>
+    );
+  }
 
   // Regular desktop layout
   return (
