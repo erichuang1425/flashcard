@@ -844,6 +844,10 @@ export const en = {
       font: 'Font',
       fontSize: 'Font Size'
     },
+    metrics: {
+      wordCount: 'Word Count',
+      readingLevel: 'Reading Level'
+    },
     edit: {
       success: 'Entry updated successfully',
       error: 'Failed to update entry'
