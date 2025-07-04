@@ -782,6 +782,10 @@ export const zhTW = {
       font: '字體',
       fontSize: '字體大小'
     },
+    metrics: {
+      wordCount: '字數',
+      readingLevel: '閱讀等級'
+    },
     edit: {
       success: '日記已更新',
       error: '更新日記失敗'
