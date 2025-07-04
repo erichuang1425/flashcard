@@ -30,6 +30,8 @@ interface ArticleListProps {
   isLoading: boolean;
   onPageChange: (page: number) => void;
   currentPage: number;
+  /** When true, displays cards in two columns even on small screens */
+  isLandscape?: boolean;
 }
 
 export const ArticleList: React.FC<ArticleListProps> = ({
@@ -38,7 +40,8 @@ export const ArticleList: React.FC<ArticleListProps> = ({
   totalCount,
   isLoading,
   onPageChange,
-  currentPage
+  currentPage,
+  isLandscape = false
 }) => {
   const { t } = useI18n();
   const theme = useTheme();
@@ -284,10 +287,10 @@ export const ArticleList: React.FC<ArticleListProps> = ({
       {isLoading ? (
         <Grid container spacing={3} sx={{ p: 2 }}>
           {[...Array(ITEMS_PER_PAGE)].map((_, index) => (
-            <Grid item xs={12} md={6} key={index}>
-              <Skeleton 
-                variant="rectangular" 
-                height={400} 
+            <Grid item xs={isLandscape ? 6 : 12} md={6} key={index}>
+              <Skeleton
+                variant="rectangular"
+                height={400}
                 sx={{ borderRadius: 2 }}
               />
             </Grid>
@@ -303,7 +306,7 @@ export const ArticleList: React.FC<ArticleListProps> = ({
         <>
           <Grid container spacing={3} sx={{ p: 2 }}>
             {articles.map((article) => (
-              <Grid item xs={12} md={6} key={article.id}>
+              <Grid item xs={isLandscape ? 6 : 12} md={6} key={article.id}>
                 {renderArticleCard(article)}
               </Grid>
             ))}
