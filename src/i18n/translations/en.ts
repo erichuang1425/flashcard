@@ -10,6 +10,7 @@ export const en = {
     next: 'Next',
     delete: 'Delete',
     focusMode: 'Focus Mode',
+    back: 'Back'
   },
   settings: {
     title: 'Settings',
@@ -831,6 +832,9 @@ export const en = {
     title: 'Diary',
     newEntry: 'New Entry',
     editEntry: 'Edit Entry',
+    createPageTitle: 'Create Diary Entry',
+    viewEntry: 'View',
+    markdownHelp: 'Markdown supported: links and images',
     tabs: { create: 'Create Entry', entries: 'Entries' },
     search: { placeholder: 'Search entries...' },
     fields: {

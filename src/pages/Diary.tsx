@@ -14,17 +14,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tabs,
-  Tab,
   Slider,
   MenuItem
 } from '@mui/material';
+import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import {
-  addDiaryEntry,
   getDiaryEntries,
   updateDiaryEntry,
   deleteDiaryEntry
@@ -36,26 +34,10 @@ import { useConfirm } from '../context/ConfirmContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { useDebounce } from '../hooks/useDebounce';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index, ...other }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
-    </div>
-  );
-}
 
 export const Diary: React.FC = () => {
   const { user } = useAuth();
   const { t } = useI18n();
-  const [title, setTitle] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [content, setContent] = useState('');
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
@@ -66,7 +48,6 @@ export const Diary: React.FC = () => {
   const debouncedSearch = useDebounce(search, 300);
   const confirm = useConfirm();
   const showSnackbar = useSnackbar();
-  const [tabIndex, setTabIndex] = useState(0);
   const [fontFamily, setFontFamily] = useState('Source Serif Pro');
   const [fontSize, setFontSize] = useState(16);
 
@@ -98,19 +79,6 @@ export const Diary: React.FC = () => {
     loadEntries();
   }, [user]);
 
-  const handleSave = async () => {
-    if (!user || !title.trim() || !content.trim()) return;
-    await addDiaryEntry(
-      user.uid,
-      title.trim(),
-      content.trim(),
-      parseTags(tagsInput)
-    );
-    setTitle('');
-    setContent('');
-    setTagsInput('');
-    loadEntries();
-  };
 
   const handleEdit = (entry: DiaryEntry) => {
     setEditingEntry(entry);
@@ -160,47 +128,13 @@ export const Diary: React.FC = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>
-        {t('diary.title')}
-      </Typography>
-      <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)}>
-        <Tab label={t('diary.tabs.create')} />
-        <Tab label={t('diary.tabs.entries')} />
-      </Tabs>
-      <TabPanel value={tabIndex} index={0}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 4 }}>
-          <TextField
-            label={t('diary.fields.title')}
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            fullWidth
-          />
-          <TextField
-            label={t('diary.fields.tags')}
-            helperText={t('diary.fields.tagsHelp')}
-            value={tagsInput}
-            onChange={e => setTagsInput(e.target.value)}
-            fullWidth
-          />
-          <TextField
-            label={t('diary.newEntry')}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            fullWidth
-            multiline
-            minRows={3}
-          />
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={!title.trim() || !content.trim() || loading}
-          >
-            {t('common.save')}
-          </Button>
-        </Box>
-      </TabPanel>
-      <TabPanel value={tabIndex} index={1}>
-        <TextField
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <Typography variant="h4">{t('diary.title')}</Typography>
+        <Button variant="contained" component={Link} to="/diary/new">
+          {t('diary.newEntry')}
+        </Button>
+      </Box>
+      <TextField
           label={t('diary.search.placeholder')}
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -260,12 +194,14 @@ export const Diary: React.FC = () => {
                   <Box sx={{ fontFamily, fontSize: `${fontSize}px` }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.content}</ReactMarkdown>
                   </Box>
+                  <Button component={Link} to={`/diary/${entry.id}`} size="small">
+                    {t('diary.viewEntry')}
+                  </Button>
                 </CardContent>
               </Card>
             </Grid>
           ))}
         </Grid>
-      </TabPanel>
       <Dialog
         open={!!editingEntry}
         onClose={() => setEditingEntry(null)}
