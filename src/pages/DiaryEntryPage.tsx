@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Button, Chip, TextField, MenuItem, Slider } from '@mui/material';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +14,9 @@ export const DiaryEntryPage: React.FC = () => {
   const { entryId } = useParams<{ entryId: string }>();
   const { user } = useAuth();
   const { t } = useI18n();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isPortrait = useMediaQuery('(orientation: portrait)');
   const navigate = useNavigate();
   const [entry, setEntry] = useState<any | null>(null);
   const [fontFamily, setFontFamily] = useState('Source Serif Pro');
@@ -98,20 +103,28 @@ export const DiaryEntryPage: React.FC = () => {
               <Chip key={tag} label={tag} size="small" />
             ))}
           </Box>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              mb: 2,
+              alignItems: 'center',
+              flexDirection: isMobile && isPortrait ? 'column' : 'row'
+            }}
+          >
             <TextField
               select
               label={t('diary.fields.font')}
               value={fontFamily}
               onChange={e => setFontFamily(e.target.value)}
-              sx={{ width: 150 }}
+              sx={{ width: isMobile && isPortrait ? '100%' : 150 }}
             >
               <MenuItem value="Source Serif Pro">Source Serif Pro</MenuItem>
               <MenuItem value="Roboto">Roboto</MenuItem>
               <MenuItem value="Noto Serif">Noto Serif</MenuItem>
               <MenuItem value="Crimson Pro">Crimson Pro</MenuItem>
             </TextField>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: 160 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: isMobile && isPortrait ? '100%' : 160 }}>
               <Typography sx={{ mr: 1 }}>{t('diary.fields.fontSize')}</Typography>
               <Slider
                 size="small"

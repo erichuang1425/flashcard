@@ -42,6 +42,8 @@ export const ArticleList: React.FC<ArticleListProps> = ({
 }) => {
   const { t } = useI18n();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isLandscape = useMediaQuery('(orientation: landscape)');
   const ITEMS_PER_PAGE = 8;
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
@@ -284,10 +286,10 @@ export const ArticleList: React.FC<ArticleListProps> = ({
       {isLoading ? (
         <Grid container spacing={3} sx={{ p: 2 }}>
           {[...Array(ITEMS_PER_PAGE)].map((_, index) => (
-            <Grid item xs={12} md={6} key={index}>
-              <Skeleton 
-                variant="rectangular" 
-                height={400} 
+            <Grid item xs={isMobile && isLandscape ? 6 : 12} md={6} key={index}>
+              <Skeleton
+                variant="rectangular"
+                height={400}
                 sx={{ borderRadius: 2 }}
               />
             </Grid>
@@ -303,7 +305,7 @@ export const ArticleList: React.FC<ArticleListProps> = ({
         <>
           <Grid container spacing={3} sx={{ p: 2 }}>
             {articles.map((article) => (
-              <Grid item xs={12} md={6} key={article.id}>
+              <Grid item xs={isMobile && isLandscape ? 6 : 12} md={6} key={article.id}>
                 {renderArticleCard(article)}
               </Grid>
             ))}
