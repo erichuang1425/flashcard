@@ -7,7 +7,8 @@ import {
   orderBy,
   updateDoc,
   deleteDoc,
-  doc
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { DiaryEntry } from '../types';
@@ -43,6 +44,24 @@ export const getDiaryEntries = async (userId: string): Promise<DiaryEntry[]> => 
     createdAt: doc.data().createdAt?.toDate?.() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate?.()
   }));
+};
+
+export const getDiaryEntry = async (
+  userId: string,
+  entryId: string
+): Promise<DiaryEntry | null> => {
+  const entryRef = doc(db, 'users', userId, 'diary', entryId);
+  const snapshot = await getDoc(entryRef);
+  if (!snapshot.exists()) return null;
+  return {
+    id: snapshot.id,
+    userId,
+    title: snapshot.data().title || '',
+    content: snapshot.data().content,
+    tags: snapshot.data().tags || [],
+    createdAt: snapshot.data().createdAt?.toDate?.() || new Date(),
+    updatedAt: snapshot.data().updatedAt?.toDate?.()
+  };
 };
 
 export const updateDiaryEntry = async (

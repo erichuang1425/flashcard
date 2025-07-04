@@ -10,6 +10,7 @@ export const zhTW = {
     next: '下一步',
     delete: '刪除',
     focusMode: '專注模式',
+    back: '返回'
   },
   settings: {
     "srsType": "演算法模型",
@@ -769,6 +770,9 @@ export const zhTW = {
     title: '日記',
     newEntry: '新增日記',
     editEntry: '編輯日記',
+    createPageTitle: '撰寫日記',
+    viewEntry: '檢視',
+    markdownHelp: '支援 Markdown 語法，可插入連結與圖片',
     tabs: { create: '新增日記', entries: '日記列表' },
     search: { placeholder: '搜尋日記...' },
     fields: {
