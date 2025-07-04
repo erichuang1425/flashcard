@@ -31,6 +31,7 @@ import { ManageArticlesTab } from '../components/reading-mode/ManageArticlesTab'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import { useMobile } from '../context/MobileContext';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -71,6 +72,7 @@ export const Reading: React.FC = () => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isLandscape } = useMobile();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -304,15 +306,17 @@ export const Reading: React.FC = () => {
 
         <TabPanel value={activeTab} index={0}>
           {/* Add new controls section */}
-          <Box sx={{ 
-            p: 2, 
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: { xs: 1, sm: 2 },
-            borderBottom: 1,
-            borderColor: 'divider'
-          }}>
+          <Box
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: { xs: isLandscape ? 'row' : 'column', sm: 'row' },
+              alignItems: { xs: isLandscape ? 'center' : 'stretch', sm: 'center' },
+              gap: { xs: 1, sm: 2 },
+              borderBottom: 1,
+              borderColor: 'divider'
+            }}
+          >
             <Box sx={{ flex: 1 }}>
               <TextField
                 fullWidth
@@ -358,7 +362,7 @@ export const Reading: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <ArticleList 
+            <ArticleList
               articles={articleData.articles}
               onArticleSelect={handleArticleSelect}
               totalCount={articleData.totalCount}
@@ -367,6 +371,7 @@ export const Reading: React.FC = () => {
                 await handlePageChange(newPage);
               }}
               currentPage={page}
+              isLandscape={isLandscape}
             />
           )}
         </TabPanel>

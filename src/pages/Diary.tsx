@@ -33,11 +33,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useConfirm } from '../context/ConfirmContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { useDebounce } from '../hooks/useDebounce';
+import { useMobile } from '../context/MobileContext';
 
 
 export const Diary: React.FC = () => {
   const { user } = useAuth();
   const { t } = useI18n();
+  const { isLandscape } = useMobile();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
@@ -141,7 +143,15 @@ export const Diary: React.FC = () => {
           fullWidth
           sx={{ mb: 2 }}
         />
-        <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            mb: 2,
+            alignItems: 'center',
+            flexDirection: { xs: isLandscape ? 'row' : 'column', sm: 'row' }
+          }}
+        >
           <TextField
             select
             label={t('diary.fields.font')}
@@ -167,7 +177,7 @@ export const Diary: React.FC = () => {
         </Box>
         <Grid container spacing={2}>
           {filteredEntries.map((entry) => (
-            <Grid item xs={12} sm={6} md={4} key={entry.id}>
+            <Grid item xs={isLandscape ? 6 : 12} sm={6} md={4} key={entry.id}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
