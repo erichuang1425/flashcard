@@ -22,6 +22,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import { ReadingSpeedTracker } from './reading-mode/ReadingSpeedTracker';
 import { useUIState } from '../context/UIStateContext';
 import { useResponsive } from '../hooks/useResponsive';
+import { useMobile } from '../context/MobileContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -44,6 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user } = useAuth();
   const isReadingPage = location.pathname === '/reading';
   const { isMobileDevice, isIOSDevice } = useResponsive();
+  const { isLandscape } = useMobile();
 
   const updateReadingSettings = (key: string, value: any) => {
     setPreferences(prev => ({
@@ -252,7 +254,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   PaperProps={{
                     sx: {
                       height: 'auto',
-                      maxHeight: '85vh',
+                      maxHeight: isLandscape ? '60vh' : '85vh',
                       borderTopLeftRadius: 16,
                       borderTopRightRadius: 16,
                       overflow: 'visible',
