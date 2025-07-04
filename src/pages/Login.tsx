@@ -5,7 +5,6 @@ import {
   TextField,
   Typography,
   Alert,
-  Paper,
   Divider,
   ToggleButtonGroup,
   ToggleButton,
@@ -92,6 +91,99 @@ export const Login: React.FC = () => {
     visible: { opacity: 1, y: 0 }
   };
 
+  const AuthForm = () => (
+    <Box component="form" onSubmit={handleSubmit}>
+      <Button
+        fullWidth
+        variant="outlined"
+        startIcon={<GoogleIcon />}
+        onClick={handleGoogleSignIn}
+        disabled={isLoading}
+        sx={{
+          mb: 3,
+          py: 1.5,
+          borderRadius: 2,
+          borderWidth: 2,
+          '&:hover': {
+            borderWidth: 2
+          }
+        }}
+      >
+        {t('auth.googleSignIn')}
+      </Button>
+
+      <Divider sx={{ my: 3 }}>
+        <Typography variant="body2" color="text.secondary">
+          {t('auth.or')}
+        </Typography>
+      </Divider>
+
+      <TextField
+        margin="normal"
+        required
+        fullWidth
+        label={t('auth.email')}
+        autoComplete="email"
+        autoFocus
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        disabled={isLoading}
+        sx={{ mb: 2 }}
+      />
+
+      <TextField
+        margin="normal"
+        required
+        fullWidth
+        label={t('auth.password')}
+        type={showPassword ? 'text' : 'password'}
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        disabled={isLoading}
+        InputProps={{
+          endAdornment: (
+            <InputAdornment position="end">
+              <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              </IconButton>
+            </InputAdornment>
+          )
+        }}
+      />
+
+      <Button
+        type="submit"
+        fullWidth
+        variant="contained"
+        disabled={isLoading}
+        sx={{
+          mt: 3,
+          mb: 2,
+          py: 1.5,
+          borderRadius: 2,
+          boxShadow: (theme) => `0 8px 24px -4px ${theme.palette.primary.main}40`
+        }}
+      >
+        {t('auth.signIn')}
+      </Button>
+
+      <Typography variant="body2" align="center" sx={{ mt: 2 }}>
+        {t('auth.noAccount')}{' '}
+        <Link
+          to="/register"
+          style={{
+            color: theme.palette.primary.main,
+            textDecoration: 'none',
+            fontWeight: 500
+          }}
+        >
+          {t('auth.createOne')}
+        </Link>
+      </Typography>
+    </Box>
+  );
+
   if (isMobile) {
     return (
       <MobileAuthLayout onExit={async () => {
@@ -124,99 +216,7 @@ export const Login: React.FC = () => {
             </ToggleButtonGroup>
           </Box>
 
-          <Box component="form" onSubmit={handleSubmit}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<GoogleIcon />}
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-              sx={{ 
-                mb: 3, 
-                py: 1.5,
-                borderRadius: 2,
-                borderWidth: 2,
-                '&:hover': {
-                  borderWidth: 2
-                }
-              }}
-            >
-              {t('auth.googleSignIn')}
-            </Button>
-
-            <Divider sx={{ my: 3 }}>
-              <Typography variant="body2" color="text.secondary">
-                {t('auth.or')}
-              </Typography>
-            </Divider>
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label={t('auth.email')}
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={isLoading}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label={t('auth.password')}
-              type={showPassword ? "text" : "password"}
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={isLoading}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={isLoading}
-              sx={{ 
-                mt: 3, 
-                mb: 2,
-                py: 1.5,
-                borderRadius: 2,
-                boxShadow: theme => `0 8px 24px -4px ${theme.palette.primary.main}40`
-              }}
-            >
-              {t('auth.signIn')}
-            </Button>
-
-            <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-              {t('auth.noAccount')}{' '}
-              <Link 
-                to="/register" 
-                style={{ 
-                  color: theme.palette.primary.main,
-                  textDecoration: 'none',
-                  fontWeight: 500
-                }}
-              >
-                {t('auth.createOne')}
-              </Link>
-            </Typography>
-          </Box>
+          <AuthForm />
         </motion.div>
       </MobileAuthLayout>
     );
@@ -372,99 +372,7 @@ export const Login: React.FC = () => {
               </Alert>
             )}
 
-            <Box component="form" onSubmit={handleSubmit}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
-                onClick={handleGoogleSignIn}
-                disabled={isLoading}
-                sx={{ 
-                  mb: 3, 
-                  py: 1.5,
-                  borderRadius: 2,
-                  borderWidth: 2,
-                  '&:hover': {
-                    borderWidth: 2
-                  }
-                }}
-              >
-                {t('auth.googleSignIn')}
-              </Button>
-
-              <Divider sx={{ my: 3 }}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('auth.or')}
-                </Typography>
-              </Divider>
-
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                label={t('auth.email')}
-                autoComplete="email"
-                autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                sx={{ mb: 2 }}
-              />
-
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                label={t('auth.password')}
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                disabled={isLoading}
-                sx={{ 
-                  mt: 3, 
-                  mb: 2,
-                  py: 1.5,
-                  borderRadius: 2,
-                  boxShadow: theme => `0 8px 24px -4px ${theme.palette.primary.main}40`
-                }}
-              >
-                {t('auth.signIn')}
-              </Button>
-
-              <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-                {t('auth.noAccount')}{' '}
-                <Link 
-                  to="/register" 
-                  style={{ 
-                    color: theme.palette.primary.main,
-                    textDecoration: 'none',
-                    fontWeight: 500
-                  }}
-                >
-                  {t('auth.createOne')}
-                </Link>
-              </Typography>
-            </Box>
+            <AuthForm />
           </Box>
         </Card>
       </Container>
