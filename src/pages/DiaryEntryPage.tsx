@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { getDiaryEntry, updateDiaryEntry } from '../services/diaryService';
+import { countWords, fleschKincaidGrade } from '../utils/writingMetrics';
 
 export const DiaryEntryPage: React.FC = () => {
   const { entryId } = useParams<{ entryId: string }>();
@@ -76,6 +77,9 @@ export const DiaryEntryPage: React.FC = () => {
             minRows={6}
             fullWidth
           />
+          <Typography variant="body2" color="text.secondary">
+            {t('diary.metrics.wordCount')}: {countWords(content)} · {t('diary.metrics.readingLevel')}: {fleschKincaidGrade(content).toFixed(1)}
+          </Typography>
           <Button variant="contained" onClick={handleSave} disabled={!title.trim() || !content.trim()}>
             {t('common.save')}
           </Button>
@@ -121,11 +125,14 @@ export const DiaryEntryPage: React.FC = () => {
           <Box sx={{ fontFamily, fontSize: `${fontSize}px`, mb: 2 }}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.content}</ReactMarkdown>
           </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t('diary.metrics.wordCount')}: {countWords(entry.content)} · {t('diary.metrics.readingLevel')}: {fleschKincaidGrade(entry.content).toFixed(1)}
+          </Typography>
           <Button variant="contained" onClick={() => setEditing(true)} sx={{ mr: 2 }}>
             {t('diary.editEntry')}
           </Button>
         </>
-      )
+      )}
     </Container>
   );
 };
