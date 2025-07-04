@@ -788,3 +788,27 @@ export const getDiaryEntries = async (userId: string): Promise<DiaryEntry[]> => 
     throw error;
   }
 };
+
+export const updateDiaryEntry = async (
+  userId: string,
+  entryId: string,
+  text: string
+) => {
+  try {
+    const ref = doc(db, 'users', userId, 'diary', entryId);
+    await updateDoc(ref, { text });
+  } catch (error) {
+    console.error('Error updating diary entry:', error);
+    throw error;
+  }
+};
+
+export const deleteDiaryEntry = async (userId: string, entryId: string) => {
+  try {
+    const ref = doc(db, 'users', userId, 'diary', entryId);
+    await deleteDoc(ref);
+  } catch (error) {
+    console.error('Error deleting diary entry:', error);
+    throw error;
+  }
+};
