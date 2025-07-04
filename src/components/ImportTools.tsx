@@ -441,12 +441,12 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
     <Box sx={{ mt: 2 }}>
       <LinearProgress
         variant="determinate"
-        value={(stats.processed / stats.total) * 100}
+        value={stats.total ? (stats.processed / stats.total) * 100 : 0}
         sx={{ height: 8, borderRadius: 2 }}
       />
       <Typography variant="body2" sx={{ mt: 1 }}>
         {t("import.progress.processed")}:{" "}
-        {Math.round((stats.processed / stats.total) * 100)}% ({stats.processed}/
+        {stats.total ? Math.round((stats.processed / stats.total) * 100) : 0}% ({stats.processed}/
         {stats.total})
       </Typography>
       <Typography variant="body2" color="text.secondary">
