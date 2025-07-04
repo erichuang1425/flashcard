@@ -17,6 +17,8 @@ import {
   Slider,
   MenuItem
 } from '@mui/material';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -38,6 +40,9 @@ import { useDebounce } from '../hooks/useDebounce';
 export const Diary: React.FC = () => {
   const { user } = useAuth();
   const { t } = useI18n();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isLandscape = useMediaQuery('(orientation: landscape)');
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
@@ -167,7 +172,7 @@ export const Diary: React.FC = () => {
         </Box>
         <Grid container spacing={2}>
           {filteredEntries.map((entry) => (
-            <Grid item xs={12} sm={6} md={4} key={entry.id}>
+            <Grid item xs={isMobile && isLandscape ? 6 : 12} sm={6} md={4} key={entry.id}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

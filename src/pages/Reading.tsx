@@ -71,6 +71,7 @@ export const Reading: React.FC = () => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isPortrait = useMediaQuery('(orientation: portrait)');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -304,15 +305,17 @@ export const Reading: React.FC = () => {
 
         <TabPanel value={activeTab} index={0}>
           {/* Add new controls section */}
-          <Box sx={{ 
-            p: 2, 
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: { xs: 1, sm: 2 },
-            borderBottom: 1,
-            borderColor: 'divider'
-          }}>
+          <Box
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: isMobile && isPortrait ? 'column' : 'row',
+              alignItems: isMobile && isPortrait ? 'stretch' : 'center',
+              gap: { xs: 1, sm: 2 },
+              borderBottom: 1,
+              borderColor: 'divider'
+            }}
+          >
             <Box sx={{ flex: 1 }}>
               <TextField
                 fullWidth
@@ -330,12 +333,15 @@ export const Reading: React.FC = () => {
                 }}
               />
             </Box>
-            <Box sx={{ 
-              display: 'flex', 
-              gap: { xs: 1, sm: 2 },
-              flexShrink: 0,
-              alignItems: 'center'
-            }}>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: { xs: 1, sm: 2 },
+                flexShrink: 0,
+                alignItems: 'center',
+                mt: isMobile && isPortrait ? 1 : 0
+              }}
+            >
               <FormControl size="small" sx={{ width: { xs: 90, sm: 120 } }}>
                 <Select
                   value={sortBy}
