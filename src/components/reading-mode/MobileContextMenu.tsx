@@ -25,6 +25,10 @@ export const MobileContextMenu: React.FC<Props> = ({ onLookup }) => {
           menu.className = 'mobile-context-menu';
           menu.style.position = 'fixed';
           menu.style.zIndex = '9999';
+          // Add accessibility roles
+          menu.setAttribute('role', 'menu');
+          menu.setAttribute('aria-label', 'Word options');
+          menu.setAttribute('aria-live', 'assertive');
           
           // Position near selection
           const rect = selectedRange.getBoundingClientRect();
@@ -34,13 +38,18 @@ export const MobileContextMenu: React.FC<Props> = ({ onLookup }) => {
           // Add lookup button
           const lookupBtn = document.createElement('button');
           lookupBtn.textContent = 'Look Up';
+          lookupBtn.setAttribute('aria-label', `Look up ${text}`);
+          lookupBtn.setAttribute('role', 'menuitem');
           lookupBtn.onclick = () => {
             onLookup(text);
             menu.remove();
           };
+
+          lookupBtn.tabIndex = 0;
           
           menu.appendChild(lookupBtn);
           document.body.appendChild(menu);
+          lookupBtn.focus();
           
           // Auto-remove after delay
           setTimeout(() => menu.remove(), 3000);
