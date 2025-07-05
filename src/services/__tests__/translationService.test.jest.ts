@@ -14,7 +14,7 @@ describe('Translation Service', () => {
         ok: true,
         json: () => Promise.resolve(mockResponse),
       })
-    ) as jest.Mock;
+    ) as unknown as typeof fetch;
 
     const result = await translateToTraditionalChinese('test');
     expect(result).toBe('測試');
@@ -23,7 +23,7 @@ describe('Translation Service', () => {
   it('should handle translation errors', async () => {
     global.fetch = jest.fn(() =>
       Promise.reject(new Error('Translation failed'))
-    ) as jest.Mock;
+    ) as unknown as typeof fetch;
 
     await expect(translateToTraditionalChinese('test')).rejects.toThrow('Translation failed');
   });
