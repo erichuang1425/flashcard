@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       display: 'flex', 
       justifyContent: 'center', 
       alignItems: 'center',
-      minHeight: isMobile ? '-webkit-fill-available' : '100vh',
+      minHeight: isMobile ? '-webkit-fill-available' : '100dvh',
       width: '100%'
     }}>
       <CircularProgress size={isMobile ? 40 : 48} />

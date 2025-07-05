@@ -137,7 +137,7 @@ export const Home: React.FC = () => {
 
   return (
     <Container maxWidth={false} sx={{
-      minHeight: '100vh',
+      minHeight: '100dvh',
       py: { xs: 2, sm: 4 },
       px: { xs: 0, sm: 2 },
       bgcolor: 'background.default'
