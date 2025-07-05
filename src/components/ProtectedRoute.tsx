@@ -33,7 +33,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center',
-        minHeight: isMobile ? '-webkit-fill-available' : '100vh',
+        minHeight: isMobile ? '-webkit-fill-available' : '100dvh',
         width: '100%',
         position: isMobile ? 'fixed' : 'relative',
         top: 0,

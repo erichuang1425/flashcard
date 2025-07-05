@@ -226,7 +226,7 @@ export const Login: React.FC = () => {
     <Container 
       maxWidth={false}
       sx={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         p: { xs: 2, sm: 3 }, 
         bgcolor: 'background.default'

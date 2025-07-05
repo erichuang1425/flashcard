@@ -53,8 +53,8 @@ export const MobileProfileLayout: React.FC<MobileProfileLayoutProps> = ({
   };
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
+    <Box sx={{
+      minHeight: '100dvh',
       position: 'relative',
       overflow: 'hidden',
       display: 'flex',

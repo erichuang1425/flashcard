@@ -532,7 +532,7 @@ export const Study: React.FC = () => {
       sx={{
         py: { xs: 1, sm: 3 },
         px: 0,
-        minHeight: '100vh',
+        minHeight: '100dvh',
         overflow: 'hidden',
         width: '100%',
         '& .MuiGrid-root': {
@@ -542,8 +542,8 @@ export const Study: React.FC = () => {
     >
       <Box sx={{
         minHeight: {
-          xs: 'calc(100vh - 56px)',
-          sm: 'calc(100vh - 64px)'
+          xs: 'calc(100dvh - 56px)',
+          sm: 'calc(100dvh - 64px)'
         },
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
@@ -555,7 +555,7 @@ export const Study: React.FC = () => {
           position: { xs: 'static', md: 'sticky' },
           top: { xs: 0, md: 24 },
           width: { xs: '100%', md: '300px' },
-          height: { xs: 'auto', md: 'calc(100vh - 96px)' },
+          height: { xs: 'auto', md: 'calc(100dvh - 96px)' },
           order: { xs: 2, md: 1 },
           overflowY: 'auto',
           bgcolor: 'background.paper',
@@ -607,8 +607,8 @@ export const Study: React.FC = () => {
         <Box sx={{
           flex: 1,
           minHeight: {
-            xs: 'calc(100vh - 180px)',
-            sm: 'calc(100vh - 200px)'
+            xs: 'calc(100dvh - 180px)',
+            sm: 'calc(100dvh - 200px)'
           },
           display: 'flex',
           flexDirection: 'column',
