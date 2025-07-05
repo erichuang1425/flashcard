@@ -203,8 +203,8 @@ export const MobileAuthLayout: React.FC<{
         animate="visible"
         exit="exit"
         sx={{
-          minHeight: '100vh',
-          height: '100vh',
+          minHeight: '100dvh',
+          height: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           bgcolor: 'background.default',
@@ -287,7 +287,7 @@ export const MobileAuthLayout: React.FC<{
             '& > *': {
               pointerEvents: 'auto'
             },
-            maxHeight: '100vh',
+            maxHeight: '100dvh',
             overflow: 'hidden'
           }}
         >
@@ -296,7 +296,7 @@ export const MobileAuthLayout: React.FC<{
             style={{ 
               width: '100%',
               transformStyle: 'preserve-3d',
-              maxHeight: 'calc(100vh - 45%)',
+              maxHeight: 'calc(100dvh - 45%)',
             }}
           >
             <Paper
@@ -326,7 +326,7 @@ export const MobileAuthLayout: React.FC<{
                 '& .MuiDivider-root': {
                   my: 1.5,
                 },
-                maxHeight: 'calc(100vh - 45%)',
+                maxHeight: 'calc(100dvh - 45%)',
                 overflow: 'auto',
                 '&::-webkit-scrollbar': {
                   width: '8px',

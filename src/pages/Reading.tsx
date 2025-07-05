@@ -239,9 +239,9 @@ export const Reading: React.FC = () => {
   if (currentArticle) {
     return (
       <Box 
-        sx={{ 
-          backgroundColor: 'background.default', 
-          minHeight: '100vh',
+        sx={{
+          backgroundColor: 'background.default',
+          minHeight: '100dvh',
           pt: { xs: 2, sm: 3, md: 4 }
         }}
       >

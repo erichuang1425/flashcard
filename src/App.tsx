@@ -55,7 +55,7 @@ const App: React.FC = () => {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center', 
-        height: '100vh' 
+        height: '100dvh'
       }}>
         <CircularProgress />
       </Box>
@@ -73,7 +73,7 @@ const App: React.FC = () => {
                   <SettingsProvider>
                     <GamificationProvider>
                       <ReadingModeProvider>
-                        <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+                        <Box sx={{ display: 'flex', minHeight: '100dvh' }}>
                           {!isMobile && (
                             <MainDrawer 
                               open={drawerOpen} 

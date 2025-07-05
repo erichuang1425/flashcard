@@ -78,8 +78,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [location.pathname]);
 
   return (
-    <Box sx={{ 
-      minHeight: isIOSDevice ? '-webkit-fill-available' : '100vh',
+    <Box sx={{
+      minHeight: isIOSDevice ? '-webkit-fill-available' : '100dvh',
       display: 'flex', 
       flexDirection: 'column',
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
@@ -169,7 +169,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     visibility: isPanelCollapsed ? 'hidden' : 'visible',
                     top: 76,
                     right: 0,
-                    height: 'calc(100vh - 88px)',
+                    height: 'calc(100dvh - 88px)',
                     width: isPanelCollapsed ? 0 : '300px',
                     maxWidth: '324px',
                     transform: `translateX(${isPanelCollapsed ? '100%' : '0'})`,
