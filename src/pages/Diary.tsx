@@ -35,6 +35,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useConfirm } from '../context/ConfirmContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { useDebounce } from '../hooks/useDebounce';
+import { useUserPreferences } from '../context/UserPreferencesContext';
+import { countWords, estimateReadingTime } from '../utils/writingMetrics';
 
 
 export const Diary: React.FC = () => {
@@ -53,8 +55,10 @@ export const Diary: React.FC = () => {
   const debouncedSearch = useDebounce(search, 300);
   const confirm = useConfirm();
   const showSnackbar = useSnackbar();
+  const { preferences } = useUserPreferences();
   const [fontFamily, setFontFamily] = useState('Source Serif Pro');
   const [fontSize, setFontSize] = useState(16);
+  const readingSpeed = preferences.readingSettings?.readingSpeed || 200;
 
   const parseTags = (input: string): string[] =>
     input
@@ -199,6 +203,9 @@ export const Diary: React.FC = () => {
                   <Box sx={{ fontFamily, fontSize: `${fontSize}px` }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{entry.content}</ReactMarkdown>
                   </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    {t('diary.metrics.wordCount')}: {countWords(entry.content)} · {t('diary.metrics.readingTime', { values: { minutes: estimateReadingTime(entry.content, readingSpeed) } })}
+                  </Typography>
                   <Button component={Link} to={`/diary/${entry.id}`} size="small">
                     {t('diary.viewEntry')}
                   </Button>
