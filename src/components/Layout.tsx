@@ -114,7 +114,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         display: 'flex', 
         flex: 1,
         position: 'relative',
-        overflow: 'hidden',
+        overflowX: 'hidden',
+        overflowY: { xs: 'auto', md: 'hidden' },
         justifyContent: 'center',
         pt: user ? { xs: 8, sm: 8 } : 0,
         pb: { 
