@@ -748,7 +748,7 @@ export const ReadingInterface: React.FC = () => {
             top: 0,
             left: '50%',
             transform: 'translateX(-50%)',
-            height: '100vh',
+            height: '100dvh',
             width: '100%',
             maxWidth: { xs: '100% !important', sm: '95%', md: '900px !important' },
             margin: '0 auto',

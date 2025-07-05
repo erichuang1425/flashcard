@@ -148,7 +148,7 @@ const FlashCard = memo(({ card, onRating, showAnswer = false, isMetadataOnly = f
   return (
     <Box sx={{
       width: '100%', 
-      minHeight: '100vh',
+      minHeight: '100dvh',
       display: 'flex',
       alignItems: 'flex-start',
       justifyContent: 'center',
