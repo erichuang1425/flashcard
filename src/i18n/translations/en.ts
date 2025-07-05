@@ -846,7 +846,8 @@ export const en = {
     },
     metrics: {
       wordCount: 'Word Count',
-      readingLevel: 'Reading Level'
+      readingLevel: 'Reading Level',
+      readingTime: '{{minutes}} min read'
     },
     edit: {
       success: 'Entry updated successfully',

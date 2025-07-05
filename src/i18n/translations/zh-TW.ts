@@ -784,7 +784,8 @@ export const zhTW = {
     },
     metrics: {
       wordCount: '字數',
-      readingLevel: '閱讀等級'
+      readingLevel: '閱讀等級',
+      readingTime: '閱讀時間：{{minutes}} 分鐘'
     },
     edit: {
       success: '日記已更新',
