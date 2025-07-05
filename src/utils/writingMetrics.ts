@@ -27,3 +27,11 @@ export const fleschKincaidGrade = (text: string): number => {
   const syllables = countTotalSyllables(text);
   return 0.39 * (words / sentences) + 11.8 * (syllables / words) - 15.59;
 };
+
+export const estimateReadingTime = (
+  text: string,
+  wordsPerMinute: number = 200
+): number => {
+  const words = countWords(text);
+  return Math.ceil(words / wordsPerMinute);
+};
