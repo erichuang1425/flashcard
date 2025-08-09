@@ -155,6 +155,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
     current: 0,
     inProgress: false,
   });
+  const [satLoaded, setSatLoaded] = useState(false);
 
   const showNotification = (
     message: string,
@@ -307,6 +308,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
     if (!file || !user) return;
 
     try {
+      setSatLoaded(false);
       setUploading(true);
       setError(null);
 
@@ -344,6 +346,46 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
       reader.readAsText(file);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleLoadSAT = async () => {
+    try {
+      setUploading(true);
+      setError(null);
+      const response = await fetch('/sat.csv');
+      if (!response.ok) throw new Error('Failed to load SAT vocabulary');
+      const text = await response.text();
+      const lines = text.split('\n').filter((line) => line.trim());
+      const allPreviewData = lines.slice(1).map((line) => {
+        const [
+          word,
+          partOfSpeech,
+          englishDefinition,
+          chineseTranslation,
+        ] = parseCSVLine(line);
+        return {
+          word,
+          partOfSpeech,
+          englishDefinition,
+          chineseTranslation,
+          categories: ['SAT'],
+        };
+      });
+      setFullPreview(allPreviewData);
+      setPreview(allPreviewData.slice(0, rowsPerPage));
+      setSelectedCategories(['SAT']);
+      if (!globalCategories.includes('SAT')) {
+        setGlobalCategories((prev) => [...prev, 'SAT']);
+      }
+      setActiveStep(1);
+      setSatLoaded(true);
+      setText(text);
+      showNotification('SAT vocabulary loaded');
+    } catch (err) {
+      showNotification('Failed to load SAT vocabulary', 'error');
     } finally {
       setUploading(false);
     }
@@ -787,6 +829,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
             value={selectedCategories}
             onChange={handleCategoryChange}
             label={t("import.manual.categories")}
+            disabled={satLoaded}
             renderValue={(selected) => (
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                 {(selected as string[]).map((value) => (
@@ -794,7 +837,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
                     key={value}
                     label={value}
                     size="small"
-                    onDelete={() => {
+                    onDelete={satLoaded ? undefined : () => {
                       const newCategories = selectedCategories.filter(
                         (cat) => cat !== value
                       );
@@ -839,6 +882,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
             }}
             sx={{ minWidth: 200 }}
             placeholder={t("import.manual.help.categories")}
+            disabled={satLoaded}
           />
           <Button
             variant="outlined"
@@ -853,6 +897,7 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
               }
             }}
             sx={{ height: 40 }}
+            disabled={satLoaded}
           >
             {t("common.save")}
           </Button>
@@ -918,6 +963,14 @@ export const ImportTools: React.FC<ImportToolsProps> = ({
               </Typography>
             </Box>
           </Paper>
+          <Button
+            variant="contained"
+            sx={{ mt: 2 }}
+            onClick={handleLoadSAT}
+            disabled={uploading}
+          >
+            Load SAT Vocabulary
+          </Button>
         </>
       )}
 
