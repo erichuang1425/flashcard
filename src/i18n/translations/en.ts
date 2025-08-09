@@ -837,6 +837,11 @@ export const en = {
     markdownHelp: 'Markdown supported: links and images',
     tabs: { create: 'Create Entry', entries: 'Entries' },
     search: { placeholder: 'Search entries...' },
+    prompt: {
+      label: 'Prompt',
+      none: 'None',
+      random: 'Random Prompt'
+    },
     fields: {
       title: 'Title',
       tags: 'Tags',
