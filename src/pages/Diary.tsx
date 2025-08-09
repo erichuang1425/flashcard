@@ -104,7 +104,8 @@ export const Diary: React.FC = () => {
         editingEntry.id,
         editTitle.trim(),
         editContent.trim(),
-        parseTags(editTagsInput)
+        parseTags(editTagsInput),
+        editingEntry.promptId
       );
       setEditingEntry(null);
       showSnackbar(t('diary.edit.success'), 'success');

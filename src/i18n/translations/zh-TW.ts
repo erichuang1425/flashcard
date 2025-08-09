@@ -775,6 +775,11 @@ export const zhTW = {
     markdownHelp: '支援 Markdown 語法，可插入連結與圖片',
     tabs: { create: '新增日記', entries: '日記列表' },
     search: { placeholder: '搜尋日記...' },
+    prompt: {
+      label: '題目',
+      none: '無',
+      random: '隨機題目'
+    },
     fields: {
       title: '標題',
       tags: '標籤',
