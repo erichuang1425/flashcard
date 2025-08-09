@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../i18n/I18nContext';
 import { getDiaryEntry, updateDiaryEntry } from '../services/diaryService';
 import { countWords, fleschKincaidGrade, estimateReadingTime } from '../utils/writingMetrics';
+import { diaryPrompts } from '../utils/diaryPrompts';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 
 export const DiaryEntryPage: React.FC = () => {
@@ -27,6 +28,7 @@ export const DiaryEntryPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [content, setContent] = useState('');
+  const [promptId, setPromptId] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -37,6 +39,7 @@ export const DiaryEntryPage: React.FC = () => {
         setTitle(data.title);
         setTagsInput(data.tags.join(', '));
         setContent(data.content);
+        setPromptId(data.promptId || '');
       }
     };
     load();
@@ -52,10 +55,17 @@ export const DiaryEntryPage: React.FC = () => {
 
   const handleSave = async () => {
     if (!user || !entry) return;
-    await updateDiaryEntry(user.uid, entry.id, title.trim(), content.trim(), parseTags(tagsInput));
+    await updateDiaryEntry(user.uid, entry.id, title.trim(), content.trim(), parseTags(tagsInput), promptId);
     setEditing(false);
-    setEntry({ ...entry, title, content, tags: parseTags(tagsInput) });
+    setEntry({ ...entry, title, content, tags: parseTags(tagsInput), promptId });
   };
+
+  const handleRandomPrompt = () => {
+    const random = diaryPrompts[Math.floor(Math.random() * diaryPrompts.length)];
+    setPromptId(random.id);
+  };
+
+  const selectedPromptText = diaryPrompts.find(p => p.id === promptId)?.text;
 
   if (!entry) return null;
 
@@ -66,6 +76,23 @@ export const DiaryEntryPage: React.FC = () => {
       </Button>
       {editing ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <TextField
+              select
+              label={t('diary.prompt.label')}
+              value={promptId}
+              onChange={e => setPromptId(e.target.value)}
+              sx={{ flexGrow: 1 }}
+            >
+              <MenuItem value="">{t('diary.prompt.none')}</MenuItem>
+              {diaryPrompts.map(p => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.text}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button onClick={handleRandomPrompt}>{t('diary.prompt.random')}</Button>
+          </Box>
           <TextField
             label={t('diary.fields.title')}
             value={title}
@@ -79,6 +106,11 @@ export const DiaryEntryPage: React.FC = () => {
             onChange={e => setTagsInput(e.target.value)}
             fullWidth
           />
+          {selectedPromptText && (
+            <Typography variant="body2" color="text.secondary">
+              {selectedPromptText}
+            </Typography>
+          )}
           <TextField
             value={content}
             onChange={e => setContent(e.target.value)}
@@ -107,6 +139,11 @@ export const DiaryEntryPage: React.FC = () => {
               <Chip key={tag} label={tag} size="small" />
             ))}
           </Box>
+          {selectedPromptText && (
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {selectedPromptText}
+            </Typography>
+          )}
           <Box
             sx={{
               display: 'flex',
