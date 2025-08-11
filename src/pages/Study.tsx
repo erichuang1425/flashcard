@@ -13,6 +13,7 @@ import type { StudyMode } from '../types';
 import { FillInBlanks } from '../components/study-modes/FillInBlanks';
 import { MatchingGame } from '../components/study-modes/MatchingGame';
 import { MultipleChoice } from '../components/study-modes/MultipleChoice';
+import { FillInPuzzle } from '../components/study-modes/FillInPuzzle';
 import { updateUserXP } from '../services/gamification';
 import { useI18n } from '../i18n/I18nContext';
 import type { FlashcardsResponse } from '../types/responses';
@@ -186,7 +187,7 @@ export const Study: React.FC = () => {
     checkExistingSession();
   }, [user]);
 
-  const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'matching'] as const;
+  const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'fillInPuzzle', 'matching'] as const;
 
   useEffect(() => {
     if (!validModes.includes(studyMode)) {
@@ -376,6 +377,22 @@ export const Study: React.FC = () => {
       }));
   };
 
+  const handlePuzzleComplete = async (count: number) => {
+    if (!user) return;
+
+    const xpGained = count * 5;
+    await updateUserXP(user.uid, xpGained);
+    setProgress(prev => ({
+      ...prev,
+      stats: {
+        ...prev.stats,
+        correct: prev.stats.correct + count,
+        cardsReviewed: prev.stats.cardsReviewed + count
+      }
+    }));
+    setIsComplete(true);
+  };
+
   const handleStartNewSession = async () => {
     if (!user) return;
     try {
@@ -439,12 +456,14 @@ export const Study: React.FC = () => {
         return <MultipleChoice card={cards[currentIndex]} onAnswer={handleAnswer} />;
       case 'fillInBlanks':
         return (
-          <FillInBlanks 
-            card={cards[currentIndex]} 
+          <FillInBlanks
+            card={cards[currentIndex]}
             onAnswer={handleAnswer}
-            useWordAsQuestion={fillBlanksPreference} 
+            useWordAsQuestion={fillBlanksPreference}
           />
         );
+      case 'fillInPuzzle':
+        return <FillInPuzzle cards={cards} onComplete={handlePuzzleComplete} />;
       case 'matching':
         return <MatchingGame cards={cards.slice(currentIndex, currentIndex + 6)} onComplete={handleMatchingComplete} />;
     }
@@ -578,8 +597,9 @@ export const Study: React.FC = () => {
             modes={[
               { value: 'flashcard', label: t('study.modes.flashcard') },
               { value: 'multipleChoice', label: t('study.modes.multipleChoice') },
-              { value: 'matching', label: t('study.modes.matching') },
-              { value: 'fillInBlanks', label: t('study.modes.fillBlanks') }
+              { value: 'fillInBlanks', label: t('study.modes.fillBlanks') },
+              { value: 'fillInPuzzle', label: t('study.modes.fillPuzzle') },
+              { value: 'matching', label: t('study.modes.matching') }
             ]}
           />
           <CategorySelector

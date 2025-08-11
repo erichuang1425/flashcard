@@ -289,7 +289,8 @@ export const en = {
       flashcard: 'Flashcard',
       multipleChoice: 'Multiple Choice',
       matching: 'Matching',
-      fillBlanks: 'Fill in Blanks'
+      fillBlanks: 'Fill in Blanks',
+      fillPuzzle: 'Fill Puzzle'
     },
     controls: {
       showAnswer: 'Show Answer',
@@ -343,6 +344,16 @@ export const en = {
       pairFound: 'Good match!',
       pairNotFound: 'Try another pair',
       complete: 'All pairs matched!'
+    },
+    fillInPuzzle: {
+      batchSize: 'Batch Size',
+      selectionMode: 'Selection Mode',
+      random: 'Random',
+      manual: 'Manual',
+      generate: 'Generate Puzzle',
+      check: 'Check Answers',
+      correct: 'Puzzle solved!',
+      incorrect: 'Some answers are incorrect'
     },
     categories: {
       label: 'Filter by Category',
