@@ -283,7 +283,8 @@ export const zhTW = {
       flashcard: '字卡',
       multipleChoice: '選擇題',
       matching: '配對',
-      fillBlanks: '填空'
+      fillBlanks: '填空',
+      fillPuzzle: '填字遊戲'
     },
     controls: {
       showAnswer: '顯示答案',
@@ -318,6 +319,16 @@ export const zhTW = {
       pairFound: '配對正確！',
       pairNotFound: '配對錯誤，請再試一次',
       complete: '所有配對完成！'
+    },
+    fillInPuzzle: {
+      batchSize: '單字數量',
+      selectionMode: '選擇模式',
+      random: '隨機',
+      manual: '手動',
+      generate: '生成拼字遊戲',
+      check: '檢查答案',
+      correct: '完成拼圖！',
+      incorrect: '有些答案不正確'
     },
     feedback: {
       correct: '正確！',

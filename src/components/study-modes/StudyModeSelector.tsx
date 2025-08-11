@@ -4,7 +4,8 @@ import {
   School as SchoolIcon,
   CheckBox as CheckBoxIcon,
   TextFields as TextFieldsIcon,
-  Compare as CompareIcon
+  Compare as CompareIcon,
+  GridOn as GridOnIcon
 } from '@mui/icons-material';
 import { auth } from '../../services/firebase';
 import { saveFillInBlanksPreference, getFillInBlanksPreference } from '../../services/firestore';
@@ -25,6 +26,7 @@ const modes: { value: StudyMode; label: string; icon: JSX.Element }[] = [
   { value: 'flashcard', label: 'Flashcards', icon: <SchoolIcon /> },
   { value: 'multipleChoice', label: 'Multiple Choice', icon: <CheckBoxIcon /> },
   { value: 'fillInBlanks', label: 'Fill Blanks', icon: <TextFieldsIcon /> },
+  { value: 'fillInPuzzle', label: 'Fill Puzzle', icon: <GridOnIcon /> },
   { value: 'matching', label: 'Matching', icon: <CompareIcon /> }
 ];
 
