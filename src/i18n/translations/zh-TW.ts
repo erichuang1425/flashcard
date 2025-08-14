@@ -796,6 +796,11 @@ export const zhTW = {
       confirmMessage: '確定要刪除這篇日記嗎？',
       success: '日記已刪除',
       error: '刪除日記失敗'
+    },
+    grammar: {
+      check: '啟用文法檢查',
+      suggestions: '文法建議',
+      none: '未發現問題'
     }
   }
 };

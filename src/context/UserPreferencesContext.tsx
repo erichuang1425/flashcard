@@ -9,6 +9,7 @@ const defaultPreferences: UserPreferences = {
   theme: 'system',
   notifications: true,
   audioEnabled: true,
+  grammarCheckEnabled: false,
   dailyGoal: 30,
   studySessionLength: 20,
   pomodoroSettings: {
@@ -75,6 +76,7 @@ export const UserPreferencesProvider: React.FC<{ children: React.ReactNode }> = 
 
     return {
       ...prefs,
+      grammarCheckEnabled: !!prefs.grammarCheckEnabled,
       dailyGoal: ensureNumber(prefs.dailyGoal, 5, 240, defaultPreferences.dailyGoal),
       studySessionLength: ensureNumber(prefs.studySessionLength, 5, 120, defaultPreferences.studySessionLength),
       studyVocabLimit: ensureNumber(prefs.studyVocabLimit, 5, 100, defaultPreferences.studyVocabLimit),

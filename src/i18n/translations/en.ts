@@ -858,6 +858,11 @@ export const en = {
       confirmMessage: 'Are you sure you want to delete this entry?',
       success: 'Entry deleted successfully',
       error: 'Failed to delete entry'
+    },
+    grammar: {
+      check: 'Enable grammar checking',
+      suggestions: 'Grammar Suggestions',
+      none: 'No issues found'
     }
   }
 };

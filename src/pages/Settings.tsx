@@ -60,6 +60,7 @@ const defaultPreferences: UserPreferences = {
   theme: 'system',
   notifications: true,
   audioEnabled: true,
+  grammarCheckEnabled: false,
   dailyGoal: 30,
   studySessionLength: 25,
   studyVocabLimit: 20,
@@ -765,6 +766,24 @@ export const Settings: React.FC = () => {
                     label={
                       <Typography variant="body2">
                         {t('settings.audio')}
+                      </Typography>
+                    }
+                  />
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={preferences.grammarCheckEnabled}
+                        onChange={(e) => setPreferences((prev: UserPreferences) => ({
+                          ...prev,
+                          grammarCheckEnabled: e.target.checked
+                        }))}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        {t('diary.grammar.check')}
                       </Typography>
                     }
                   />

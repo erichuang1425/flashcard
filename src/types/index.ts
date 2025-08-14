@@ -310,6 +310,7 @@ export interface UserPreferences {
   theme: 'system' | 'light' | 'dark';
   notifications: boolean;
   audioEnabled: boolean;
+  grammarCheckEnabled?: boolean;
   dailyGoal: number;
   studySessionLength: number;
   pomodoroSettings: {
