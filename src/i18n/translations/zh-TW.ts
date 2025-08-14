@@ -787,6 +787,7 @@ export const zhTW = {
       readingLevel: '閱讀等級',
       readingTime: '閱讀時間：{{minutes}} 分鐘'
     },
+    useWords: '使用這些單字',
     edit: {
       success: '日記已更新',
       error: '更新日記失敗'
