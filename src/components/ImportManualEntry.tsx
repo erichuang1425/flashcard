@@ -98,6 +98,9 @@ export const ImportManualEntry: React.FC<ManualEntryProps> = ({ onSubmit, availa
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     setManualEntry(prev => ({ ...prev, [field]: event.target.value }));
+    if (field === 'word') {
+      setDuplicateError(null);
+    }
   };
 
   const handleSubmit = () => {
