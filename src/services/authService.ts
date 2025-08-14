@@ -49,13 +49,28 @@ export class AuthService {
 
         if (user) {
           try {
-            const prefsDoc = await getDoc(doc(db, 'users', user.uid, 'preferences', 'settings'));
+            const prefsDocRef = doc(db, 'users', user.uid, 'preferences', 'settings');
+            let prefsDoc = await getDoc(prefsDocRef);
+
+            if (!prefsDoc.exists()) {
+              const defaultPrefs = {
+                theme: 'system',
+                language: 'en',
+                studySettings: {
+                  sessionLength: 20,
+                  dailyGoal: 50
+                }
+              };
+              await setDoc(prefsDocRef, defaultPrefs);
+              prefsDoc = await getDoc(prefsDocRef);
+            }
+
             this.currentState = {
               user,
               loading: false,
               initialized: true,
               error: null,
-              userPreferences: prefsDoc.exists() ? prefsDoc.data() : null
+              userPreferences: prefsDoc.data()
             };
           } catch (error) {
             this.currentState = {
@@ -111,32 +126,34 @@ export class AuthService {
   }
 
   async signInWithGoogle(): Promise<void> {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+    auth.useDeviceLanguage();
+
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
-      auth.useDeviceLanguage();
-
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        await signInWithRedirect(auth, provider);
-      } else {
-        const result = await signInWithPopup(auth, provider);
+      await signInWithPopup(auth, provider);
+    } catch (popupError: any) {
+      if (
+        popupError instanceof Error &&
+        'code' in popupError &&
+        (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/operation-not-supported-in-this-environment')
+      ) {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          this.currentState = {
+            ...this.currentState,
+            error: redirectError as Error
+          };
+          this.notifyListeners();
+          throw redirectError;
+        }
       }
 
-      const prefsDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid, 'preferences', 'settings'));
-      if (!prefsDoc.exists()) {
-        await setDoc(doc(db, 'users', auth.currentUser!.uid, 'preferences', 'settings'), {
-          theme: 'system',
-          language: 'en',
-          studySettings: {
-            sessionLength: 20,
-            dailyGoal: 50
-          }
-        });
-      }
-    } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'auth/popup-closed-by-user') {
+      if (popupError instanceof Error && 'code' in popupError && popupError.code === 'auth/popup-closed-by-user') {
         this.currentState = {
           ...this.currentState,
           error: new Error('Sign in cancelled')
@@ -144,11 +161,11 @@ export class AuthService {
       } else {
         this.currentState = {
           ...this.currentState,
-          error: error as Error
+          error: popupError as Error
         };
       }
       this.notifyListeners();
-      throw error;
+      throw popupError;
     }
   }
 
