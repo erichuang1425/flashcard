@@ -411,6 +411,7 @@ export interface DiaryEntry {
   title: string;
   content: string;
   tags: string[];
+  usedWords?: string[];
   createdAt: Date;
   updatedAt?: Date;
 }

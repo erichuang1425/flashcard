@@ -17,12 +17,14 @@ export const addDiaryEntry = async (
   userId: string,
   title: string,
   content: string,
-  tags: string[]
+  tags: string[],
+  usedWords: string[] = []
 ): Promise<string> => {
   const docRef = await addDoc(collection(db, 'users', userId, 'diary'), {
     title,
     content,
     tags,
+    usedWords,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
@@ -41,6 +43,7 @@ export const getDiaryEntries = async (userId: string): Promise<DiaryEntry[]> => 
     title: doc.data().title || '',
     content: doc.data().content,
     tags: doc.data().tags || [],
+    usedWords: doc.data().usedWords || [],
     createdAt: doc.data().createdAt?.toDate?.() || new Date(),
     updatedAt: doc.data().updatedAt?.toDate?.()
   }));
@@ -59,6 +62,7 @@ export const getDiaryEntry = async (
     title: snapshot.data().title || '',
     content: snapshot.data().content,
     tags: snapshot.data().tags || [],
+     usedWords: snapshot.data().usedWords || [],
     createdAt: snapshot.data().createdAt?.toDate?.() || new Date(),
     updatedAt: snapshot.data().updatedAt?.toDate?.()
   };
@@ -69,13 +73,15 @@ export const updateDiaryEntry = async (
   entryId: string,
   title: string,
   content: string,
-  tags: string[]
+  tags: string[],
+  usedWords: string[] = []
 ): Promise<void> => {
   const entryRef = doc(db, 'users', userId, 'diary', entryId);
   await updateDoc(entryRef, {
     title,
     content,
     tags,
+    usedWords,
     updatedAt: serverTimestamp()
   });
 };

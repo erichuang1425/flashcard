@@ -849,6 +849,7 @@ export const en = {
       readingLevel: 'Reading Level',
       readingTime: '{{minutes}} min read'
     },
+    useWords: 'Use these words',
     edit: {
       success: 'Entry updated successfully',
       error: 'Failed to update entry'
