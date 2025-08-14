@@ -10,6 +10,8 @@ import { useI18n } from '../i18n/I18nContext';
 import { getDiaryEntry, updateDiaryEntry } from '../services/diaryService';
 import { countWords, fleschKincaidGrade, estimateReadingTime } from '../utils/writingMetrics';
 import { useUserPreferences } from '../context/UserPreferencesContext';
+import { useDebouncedCallback } from 'use-debounce';
+import checkGrammar, { GrammarIssue } from '../services/grammarService';
 
 export const DiaryEntryPage: React.FC = () => {
   const { entryId } = useParams<{ entryId: string }>();
@@ -27,6 +29,7 @@ export const DiaryEntryPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [content, setContent] = useState('');
+  const [grammarIssues, setGrammarIssues] = useState<GrammarIssue[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -49,6 +52,16 @@ export const DiaryEntryPage: React.FC = () => {
       .filter(Boolean);
 
   const readingSpeed = preferences.readingSettings?.readingSpeed || 200;
+
+  const debouncedGrammarCheck = useDebouncedCallback(async (value: string) => {
+    if (!preferences.grammarCheckEnabled) {
+      setGrammarIssues([]);
+      return;
+    }
+    const lang = preferences.language === 'zh-TW' ? 'zh-TW' : 'en-US';
+    const issues = await checkGrammar(value, lang);
+    setGrammarIssues(issues);
+  }, 800);
 
   const handleSave = async () => {
     if (!user || !entry) return;
@@ -81,11 +94,33 @@ export const DiaryEntryPage: React.FC = () => {
           />
           <TextField
             value={content}
-            onChange={e => setContent(e.target.value)}
+            onChange={e => {
+              setContent(e.target.value);
+              debouncedGrammarCheck(e.target.value);
+            }}
             multiline
             minRows={6}
             fullWidth
           />
+          {preferences.grammarCheckEnabled && (
+            <Box sx={{ border: '1px solid', borderColor: 'divider', p: 2, borderRadius: 1 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                {t('diary.grammar.suggestions')}
+              </Typography>
+              {grammarIssues.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t('diary.grammar.none')}
+                </Typography>
+              ) : (
+                grammarIssues.map((issue, idx) => (
+                  <Typography key={idx} variant="body2">
+                    {issue.message}
+                    {issue.replacements?.[0]?.value ? ` → ${issue.replacements[0].value}` : ''}
+                  </Typography>
+                ))
+              )}
+            </Box>
+          )}
           <Typography variant="body2" color="text.secondary">
             {t('diary.metrics.wordCount')}: {countWords(content)} · {t('diary.metrics.readingLevel')}: {fleschKincaidGrade(content).toFixed(1)} · {t('diary.metrics.readingTime', { values: { minutes: estimateReadingTime(content, readingSpeed) } })}
           </Typography>
