@@ -23,8 +23,6 @@ import type { Worksheet, WorksheetStats } from '../types';
 import { WorksheetGenerator } from '../components/WorksheetGenerator';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { initializePdfMake, generateWorksheetPDF } from '../services/pdfService';
-import { generateDOCX, downloadDOCX } from '../services/exportService';
 
 export const Worksheets: React.FC = () => {
   const { user } = useAuth();
@@ -76,6 +74,9 @@ export const Worksheets: React.FC = () => {
 
       if (format === 'pdf') {
         try {
+          // Heavy PDF library (pdfmake) is loaded on demand to keep it out of
+          // the initial bundle.
+          const { initializePdfMake, generateWorksheetPDF } = await import('../services/pdfService');
           const pdfMake = await initializePdfMake();
           const docDefinition = await generateWorksheetPDF(worksheet);
           pdfMake.createPdf(docDefinition).download(`${worksheet.title}.pdf`);
@@ -84,6 +85,8 @@ export const Worksheets: React.FC = () => {
 
         }
       } else {
+        // Heavy DOCX library is loaded on demand as well.
+        const { generateDOCX, downloadDOCX } = await import('../services/exportService');
         const doc = await generateDOCX(worksheet);
         await downloadDOCX(doc, `${worksheet.title}.docx`);
       }
