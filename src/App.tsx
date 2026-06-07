@@ -10,6 +10,8 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import { GamificationProvider } from './context/GamificationContext';
 import { FocusModeProvider } from './context/FocusModeContext';
+import { useOnboarding } from './context/OnboardingContext';
+import { Onboarding } from './components/onboarding/Onboarding';
 
 // Route-level code-splitting: each page loads as a separate chunk on demand,
 // keeping the initial bundle small.
@@ -41,6 +43,19 @@ const RouteFallback: React.FC = () => (
 
 const App: React.FC = () => {
   const { user } = useAuth();
+  const { ready, showOnboarding } = useOnboarding();
+
+  // Hold rendering until we know whether a signed-in account still needs the
+  // first-run guide, so the app doesn't flash behind it on a slow read.
+  if (user && !ready) {
+    return <RouteFallback />;
+  }
+
+  // A new account (Google or email) picks a language and walks the guide before
+  // entering the app; the choice then drives the whole UI's language.
+  if (showOnboarding) {
+    return <Onboarding />;
+  }
 
   return (
     // SettingsProvider is mounted once in main.tsx (wrapping ThemedApp) so the

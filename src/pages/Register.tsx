@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Box, Button, TextField, Typography, Alert, Paper } from '@mui/material';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../i18n/LanguageContext';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,6 +11,7 @@ export const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const { signUp } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,13 +19,13 @@ export const Register: React.FC = () => {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      return setError('Please enter your email address');
+      return setError(t('register.errorEmail'));
     }
     if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
+      return setError(t('register.errorPasswordShort'));
     }
     if (password !== confirmPassword) {
-      return setError('Passwords do not match');
+      return setError(t('register.errorMismatch'));
     }
 
     try {
@@ -30,7 +33,7 @@ export const Register: React.FC = () => {
       await signUp(trimmedEmail, password);
       navigate('/');
     } catch (err) {
-      setError('Failed to create an account');
+      setError(t('register.errorFail'));
     }
   };
 
@@ -42,8 +45,11 @@ export const Register: React.FC = () => {
       minHeight: '80vh' 
     }}>
       <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+          <LanguageSwitcher />
+        </Box>
         <Typography variant="h5" component="h1" gutterBottom>
-          Register
+          {t('register.title')}
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
@@ -51,7 +57,7 @@ export const Register: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            label="Email Address"
+            label={t('register.email')}
             type="email"
             autoComplete="email"
             autoFocus
@@ -62,7 +68,7 @@ export const Register: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            label="Password"
+            label={t('register.password')}
             type="password"
             autoComplete="new-password"
             value={password}
@@ -72,7 +78,7 @@ export const Register: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            label="Confirm Password"
+            label={t('register.confirmPassword')}
             type="password"
             autoComplete="new-password"
             value={confirmPassword}
@@ -84,11 +90,11 @@ export const Register: React.FC = () => {
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
           >
-            Sign Up
+            {t('register.signUp')}
           </Button>
           <Typography variant="body2" align="center">
-            Already have an account?{' '}
-            <Link to="/login">Login here</Link>
+            {t('register.haveAccount')}{' '}
+            <Link to="/login">{t('register.loginHere')}</Link>
           </Typography>
         </Box>
       </Paper>

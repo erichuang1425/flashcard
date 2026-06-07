@@ -24,6 +24,7 @@ import { useFocusMode } from '../context/FocusModeContext';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { useSettings } from '../context/SettingsContext';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface NavBarProps {
   // Opens the mobile "progress & timer" bottom sheet. Provided by Layout only
@@ -45,13 +46,14 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
   const { levelSystem } = useGamification();
   const { focusMode, toggleFocusMode } = useFocusMode();
   const { theme: currentTheme, toggleTheme } = useSettings();
+  const { t } = useLanguage();
 
   const menuItems = [
-    { text: 'Home', icon: <HomeIcon />, path: '/' },
-    { text: 'Study', icon: <SchoolIcon />, path: '/study' },
-    { text: 'Worksheets', icon: <AssignmentIcon />, path: '/worksheets' },
-    { text: 'Import', icon: <CloudUploadIcon />, path: '/import' },
-    { text: 'Diary', icon: <EventNoteIcon />, path: '/diary' },
+    { text: t('nav.home'), icon: <HomeIcon />, path: '/' },
+    { text: t('nav.study'), icon: <SchoolIcon />, path: '/study' },
+    { text: t('nav.worksheets'), icon: <AssignmentIcon />, path: '/worksheets' },
+    { text: t('nav.import'), icon: <CloudUploadIcon />, path: '/import' },
+    { text: t('nav.diary'), icon: <EventNoteIcon />, path: '/diary' },
   ];
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -120,14 +122,24 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
           <ListItemIcon>
             {currentTheme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </ListItemIcon>
-          <ListItemText primary="Toggle Theme" />
+          <ListItemText primary={t('nav.toggleTheme')} />
+        </ListItemButton>
+        <ListItemButton
+          onClick={() => {
+            navigate('/settings');
+            setMobileOpen(false);
+          }}
+          selected={location.pathname === '/settings'}
+        >
+          <ListItemIcon><SettingsIcon /></ListItemIcon>
+          <ListItemText primary={t('nav.settings')} />
         </ListItemButton>
         {user && (
           <>
             <Divider />
             <ListItemButton onClick={signOut}>
               <ListItemIcon><LogoutIcon /></ListItemIcon>
-              <ListItemText primary="Logout" />
+              <ListItemText primary={t('nav.logout')} />
             </ListItemButton>
           </>
         )}
@@ -161,20 +173,20 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
               {user?.email?.[0]?.toUpperCase() || 'G'}
             </Avatar>
           </ListItemIcon>
-          Profile
+          {t('nav.profile')}
         </MenuItem>
         <MenuItem onClick={handleSettingsClick}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
-          Settings
+          {t('nav.settings')}
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" />
           </ListItemIcon>
-          Logout
+          {t('nav.logout')}
         </MenuItem>
       </Menu>
     </>
@@ -206,7 +218,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
             variant="h6"
             component="button"
             type="button"
-            aria-label="Go to home"
+            aria-label={t('nav.goHome')}
             sx={{
               flexGrow: 1,
               cursor: 'pointer',
@@ -226,7 +238,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
             <IconButton
               color="inherit"
               onClick={onOpenStats}
-              aria-label="Open progress and Pomodoro timer"
+              aria-label={t('nav.openProgress')}
               sx={{ ml: 1 }}
             >
               <EmojiEventsIcon />
@@ -242,7 +254,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
             }}>
               <EmojiEventsIcon color="inherit" />
               <Typography variant="body1">
-                Level {levelSystem.currentLevel}
+                {t('nav.level', { level: levelSystem.currentLevel })}
               </Typography>
             </Box>
           )}

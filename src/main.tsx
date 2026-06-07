@@ -9,6 +9,8 @@ import App from './App';
 import { MobileProvider } from './context/MobileContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { PronunciationProvider } from './context/PronunciationContext';
+import { LanguageProvider } from './i18n/LanguageContext';
+import { OnboardingProvider } from './context/OnboardingContext';
 
 const ThemedApp: React.FC = () => {
   const { theme } = useSettings();
@@ -24,15 +26,19 @@ const ThemedApp: React.FC = () => {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <MobileProvider>
-        <AuthProvider>
-          <SettingsProvider>
-            <PronunciationProvider>
-              <ThemedApp />
-            </PronunciationProvider>
-          </SettingsProvider>
-        </AuthProvider>
-      </MobileProvider>
+      <LanguageProvider>
+        <MobileProvider>
+          <AuthProvider>
+            <OnboardingProvider>
+              <SettingsProvider>
+                <PronunciationProvider>
+                  <ThemedApp />
+                </PronunciationProvider>
+              </SettingsProvider>
+            </OnboardingProvider>
+          </AuthProvider>
+        </MobileProvider>
+      </LanguageProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

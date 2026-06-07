@@ -16,6 +16,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { Flashcard } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface StudyStats {
   total: number;
@@ -34,6 +35,7 @@ interface StudyStats {
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [stats, setStats] = useState<StudyStats>({
     total: 0,
     dueToday: 0,
@@ -164,10 +166,13 @@ export const Home: React.FC = () => {
         <Box sx={{ mb: { xs: 2, sm: 3 }, mt: 1 }}>
           <Box flex={1}>
             <Typography variant="h4" gutterBottom>
-              Welcome back, {user?.displayName || 'Student'}!
+              {t('home.welcome', { name: user?.displayName || t('home.student') })}
             </Typography>
             <Typography variant="subtitle1" color="text.secondary">
-              Total cards: {stats.totalInDatabase} ({stats.remainingToStudy} remaining to study)
+              {t('home.totalCards', {
+                total: stats.totalInDatabase,
+                remaining: stats.remainingToStudy,
+              })}
             </Typography>
           </Box>
         </Box>
@@ -191,7 +196,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Due Today
+                  {t('home.dueToday')}
                 </Typography>
               </CardContent>
             </Card>
@@ -213,7 +218,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Mastered
+                  {t('home.mastered')}
                 </Typography>
               </CardContent>
             </Card>
@@ -235,7 +240,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Total Studied
+                  {t('home.totalStudied')}
                 </Typography>
               </CardContent>
             </Card>
@@ -257,7 +262,7 @@ export const Home: React.FC = () => {
                   gutterBottom
                 />
                 <Typography variant="subtitle2" color="text.secondary">
-                  Day Streak
+                  {t('home.dayStreak')}
                 </Typography>
               </CardContent>
             </Card>
@@ -287,7 +292,7 @@ export const Home: React.FC = () => {
               boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}20`
             }}
           >
-            Start Review ({stats.dueToday} cards)
+            {t('home.startReview', { count: stats.dueToday })}
           </Button>
           <Button
             variant="outlined"
@@ -300,7 +305,7 @@ export const Home: React.FC = () => {
               fontSize: '1.1rem'
             }}
           >
-            Add New Cards
+            {t('home.addCards')}
           </Button>
         </Box>
 
@@ -316,11 +321,11 @@ export const Home: React.FC = () => {
                   borderRadius: 3
                 }
               }}>
-                <Typography variant="h6" gutterBottom>Progress Overview</Typography>
+                <Typography variant="h6" gutterBottom>{t('home.progressOverview')}</Typography>
                 <Box sx={{ mb: 4 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Mastery Progress
+                      {t('home.masteryProgress')}
                     </Typography>
                     <Typography variant="body2" color="text.primary">
                       {calculatePercentage(stats.mastered, stats.total)}%
@@ -332,13 +337,13 @@ export const Home: React.FC = () => {
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                   <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                    {stats.mastered} of {stats.total} cards mastered
+                    {t('home.masteredOf', { mastered: stats.mastered, total: stats.total })}
                   </Typography>
                 </Box>
                 <Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Weekly Study Goal ({stats.weeklyGoal} minutes)
+                      {t('home.weeklyGoal', { minutes: stats.weeklyGoal })}
                     </Typography>
                     <Typography variant="body2" color="text.primary">
                       {calculatePercentage(stats.weeklyProgress, stats.weeklyGoal)}%
@@ -351,7 +356,10 @@ export const Home: React.FC = () => {
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                   <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                    {stats.weeklyProgress} of {stats.weeklyGoal} minutes completed
+                    {t('home.minutesCompleted', {
+                      progress: stats.weeklyProgress,
+                      goal: stats.weeklyGoal,
+                    })}
                   </Typography>
                 </Box>
               </CardContent>
@@ -366,7 +374,7 @@ export const Home: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column'
               }}>
-                <Typography variant="h6" gutterBottom>Study Time</Typography>
+                <Typography variant="h6" gutterBottom>{t('home.studyTime')}</Typography>
                 <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Box sx={{ textAlign: 'center' }}>
                     <AnimatedCounter
@@ -376,7 +384,7 @@ export const Home: React.FC = () => {
                       gutterBottom
                     />
                     <Typography variant="subtitle2" color="text.secondary">
-                      Total Minutes
+                      {t('home.totalMinutes')}
                     </Typography>
                   </Box>
                 </Box>
