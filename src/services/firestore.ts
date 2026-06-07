@@ -1,7 +1,7 @@
 import { auth, db } from './firebase';
-import { 
-  collection, addDoc, getDocs, query, where, orderBy, 
-  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc 
+import {
+  collection, addDoc, getDocs, getCountFromServer, query, where, orderBy,
+  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc
 }  from 'firebase/firestore';
 import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, DiaryEntry } from '../types';
 import { shuffle } from '../utils/helpers';
@@ -19,7 +19,7 @@ interface FlashcardDocument {
 
 export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
   const batch = writeBatch(db);
-  
+
   try {
 
     const flashcardRef = doc(collection(db, 'users', flashcard.userId, 'flashcards'));
@@ -36,29 +36,28 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
       mastered: false,
     });
 
-
+    // Upsert category counters inside the SAME batch so the whole insert is a
+    // single commit. Previously each category triggered its own awaited
+    // setDoc round-trip that hard-coded `count: 1` (so counts never grew and
+    // every imported card re-wrote the same doc). `increment` keeps the count
+    // correct and the merge handles first-time creation.
     if (flashcard.categories?.length) {
-      const categoryPromises = flashcard.categories.map(async (categoryName) => {
+      const seen = new Set<string>();
+      for (const categoryName of flashcard.categories) {
         const encodedId = encodeURIComponent(categoryName.toLowerCase().trim());
+        if (!encodedId || seen.has(encodedId)) continue;
+        seen.add(encodedId);
         const categoryRef = doc(db, 'categories', encodedId);
-        
-
-        try {
-          await setDoc(categoryRef, {
+        batch.set(
+          categoryRef,
+          {
             name: categoryName,
             userId: flashcard.userId,
-            count: 1,
-            createdAt: new Date()
-          }, { merge: true });
-        } catch (e) {
-          await updateDoc(categoryRef, {
-            count: increment(1)
-          });
-        }
-        return encodedId;
-      });
-
-      await Promise.all(categoryPromises);
+            count: increment(1),
+          },
+          { merge: true }
+        );
+      }
     }
 
     await batch.commit();
@@ -433,9 +432,15 @@ export const addCategory = async (name: string, userId: string): Promise<string>
   }
 };
 
-export const getCategories = async (): Promise<Category[]> => {
+export const getCategories = async (userId?: string): Promise<Category[]> => {
   try {
-    const snapshot = await getDocs(collection(db, 'categories'));
+    // When a userId is supplied, only the caller's own category docs are read
+    // (a small, scoped query) instead of the whole global categories
+    // collection.
+    const base = collection(db, 'categories');
+    const snapshot = await getDocs(
+      userId ? query(base, where('userId', '==', userId)) : query(base)
+    );
     return snapshot.docs.map(doc => ({
       id: doc.id,
       name: doc.data().name,
@@ -651,22 +656,17 @@ export const updateWeeklyStudyGoal = async (userId: string) => {
 };
 
 export const getTotalCardsCount = async (userId: string) => {
-  const q = query(
-    collection(db, 'users', userId, 'flashcards')
-  );
-  const snapshot = await getDocs(q);
-  
-  let studiedCards = 0;
-  let totalCards = 0;
-  
-  snapshot.docs.forEach(doc => {
-    const data = doc.data();
-    totalCards++;
-    if (data.lastReviewed) {
-      studiedCards++;
-    }
-  });
-  
+  // Server-side count aggregations keep this at a couple of billable reads
+  // instead of streaming every flashcard document just to size the collection.
+  const cardsRef = collection(db, 'users', userId, 'flashcards');
+  const [totalSnap, studiedSnap] = await Promise.all([
+    getCountFromServer(query(cardsRef)),
+    getCountFromServer(query(cardsRef, where('lastReviewed', '!=', null))),
+  ]);
+
+  const totalCards = totalSnap.data().count;
+  const studiedCards = studiedSnap.data().count;
+
   return {
     totalCards,
     remainingCards: totalCards - studiedCards,
@@ -676,13 +676,14 @@ export const getTotalCardsCount = async (userId: string) => {
 
 export const getMasteryCount = async (userId: string): Promise<number> => {
   // A card is mastered once the SM-2 scheduler has grown its interval past the
-  // mastery threshold; that state is persisted on the `mastered` flag.
+  // mastery threshold; that state is persisted on the `mastered` flag. Use a
+  // count aggregation so this costs one read instead of one-per-mastered-card.
   const q = query(
     collection(db, 'users', userId, 'flashcards'),
     where('mastered', '==', true)
   );
-  const snapshot = await getDocs(q);
-  return snapshot.size;
+  const snapshot = await getCountFromServer(q);
+  return snapshot.data().count;
 };
 
 export const getWordsByCategory = async (userId: string, category: string): Promise<VocabularyWord[]> => {

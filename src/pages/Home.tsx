@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getUserFlashcards, getUserStudyStats, updateDailyStreak, getTotalCardsCount, getMasteryCount } from '../services/firestore';
+import { getUserFlashcards, getUserStudyStats } from '../services/firestore';
 import SchoolIcon from '@mui/icons-material/School';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -61,27 +61,33 @@ export const Home: React.FC = () => {
       
       try {
         setLoading(true);
-        const [cards, studyStats, totalStats, masteredCount] = await Promise.all([
+        // A single read of the user's flashcards covers every card-derived
+        // metric below. Previously this also issued getTotalCardsCount and
+        // getMasteryCount, which re-scanned the same collection two more times.
+        const [cards, studyStats] = await Promise.all([
           getUserFlashcards(user.uid),
           getUserStudyStats(user.uid),
-          getTotalCardsCount(user.uid),
-          getMasteryCount(user.uid)
         ]);
 
         if (!mounted) return;
 
         const now = new Date();
-        const dueToday = cards.filter(card => {
-          if (!card.nextReview) return true;
-          const nextReview = card.nextReview instanceof Date 
-            ? card.nextReview 
-            : new Date(card.nextReview);
-          return nextReview <= now;
-        }).length;
+        let dueToday = 0;
+        let masteredCount = 0;
+        let studiedCards = 0;
+        for (const card of cards) {
+          if (card.mastered) masteredCount++;
+          if (card.lastReviewed) studiedCards++;
+          const nextReview = card.nextReview instanceof Date
+            ? card.nextReview
+            : card.nextReview ? new Date(card.nextReview) : null;
+          if (!nextReview || nextReview <= now) dueToday++;
+        }
+        const totalCards = cards.length;
 
         // Map Firestore data to component state
         setStats({
-          total: totalStats.totalCards,
+          total: totalCards,
           dueToday,
           streak: studyStats.streak,
           mastered: masteredCount,
@@ -89,8 +95,8 @@ export const Home: React.FC = () => {
           studyMinutes: studyStats.totalStudyMinutes || studyStats.studyMinutes || 0,
           weeklyProgress: studyStats.weeklyProgress,
           weeklyGoal: studyStats.weeklyStudyGoal,
-          totalInDatabase: totalStats.totalCards,
-          remainingToStudy: totalStats.remainingCards,
+          totalInDatabase: totalCards,
+          remainingToStudy: totalCards - studiedCards,
           totalStudied: studyStats.totalStudySessions
         });
       } catch (error) {
@@ -105,12 +111,18 @@ export const Home: React.FC = () => {
     };
 
     loadStats();
-    // Set up auto-refresh every 5 minutes
-    const refreshInterval = setInterval(loadStats, 5 * 60 * 1000);
-    
-    return () => { 
+
+    // Refresh when the user returns to the tab rather than polling on a timer.
+    // The previous 5-minute interval kept re-reading the entire library from an
+    // idle background tab, which dominated Firestore read costs for no benefit.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadStats();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
       mounted = false;
-      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [user]);
 
