@@ -10,7 +10,7 @@ import {
 import PreviewIcon from '@mui/icons-material/Preview';
 import ErrorIcon from '@mui/icons-material/Error';
 import { uploadFile } from '../services/storage';
-import { addCategory, addFlashcard, getUserFlashcards } from '../services/firestore';
+import { addCategory, addFlashcard, getCategories } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
 import { parseCSVLine } from '../utils/csv';
 
@@ -73,12 +73,11 @@ export const ImportTools: React.FC = () => {
     const loadCategories = async () => {
       if (!user) return;
       try {
-
-        const cards = await getUserFlashcards(user.uid);
-        const uniqueCategories = new Set<string>();
-        cards.forEach(card => {
-          card.categories?.forEach(category => uniqueCategories.add(category));
-        });
+        // Read from the dedicated (small) categories collection scoped to this
+        // user instead of streaming the entire flashcard library just to
+        // collect distinct category names.
+        const cats = await getCategories(user.uid);
+        const uniqueCategories = new Set<string>(cats.map(cat => cat.name));
         setGlobalCategories(Array.from(uniqueCategories));
       } catch (err) {
         setError('Failed to load categories');
