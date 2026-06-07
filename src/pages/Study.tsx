@@ -12,7 +12,10 @@ import type { StudyMode } from '../types';
 import { FillInBlanks } from '../components/study-modes/FillInBlanks';
 import { MatchingGame } from '../components/study-modes/MatchingGame';
 import { MultipleChoice } from '../components/study-modes/MultipleChoice';
+import { FillInPuzzle } from '../components/study-modes/FillInPuzzle';
 import { updateUserXP } from '../services/gamification';
+
+const PUZZLE_BATCH_SIZE = 8;
 
 export const Study: React.FC = () => {
   const { user } = useAuth();
@@ -62,7 +65,7 @@ export const Study: React.FC = () => {
     loadCards();
   }, [user]);
 
-  const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'matching'] as const;
+  const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'matching', 'fillInPuzzle'] as const;
   
   useEffect(() => {
 
@@ -124,6 +127,28 @@ export const Study: React.FC = () => {
     }));
   };
 
+  const handlePuzzleComplete = async (correct: number) => {
+    if (!user) return;
+
+    const batch = cards.slice(currentIndex, currentIndex + PUZZLE_BATCH_SIZE);
+    const xpGained = correct * 6;
+    await updateUserXP(user.uid, xpGained);
+
+    setProgress(prev => ({
+      ...prev,
+      correct: prev.correct + correct,
+      incorrect: prev.incorrect + (batch.length - correct),
+      streak: correct === batch.length ? prev.streak + 1 : 0,
+      cardsReviewed: prev.cardsReviewed + batch.length
+    }));
+
+    if (currentIndex + PUZZLE_BATCH_SIZE >= cards.length) {
+      setIsComplete(true);
+    } else {
+      setCurrentIndex(prev => prev + PUZZLE_BATCH_SIZE);
+    }
+  };
+
   const renderStudyMode = () => {
     switch (studyMode) {
       case 'flashcard':
@@ -140,6 +165,14 @@ export const Study: React.FC = () => {
         return <FillInBlanks card={cards[currentIndex]} onAnswer={handleAnswer} />;
       case 'matching':
         return <MatchingGame cards={cards.slice(currentIndex, currentIndex + 6)} onComplete={handleMatchingComplete} />;
+      case 'fillInPuzzle':
+        return (
+          <FillInPuzzle
+            key={currentIndex}
+            cards={cards.slice(currentIndex, currentIndex + PUZZLE_BATCH_SIZE)}
+            onComplete={handlePuzzleComplete}
+          />
+        );
     }
   };
 
