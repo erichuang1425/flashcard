@@ -10,6 +10,7 @@ Flashcard Studio is a React + TypeScript web application designed for focused le
 - Authentication and protected user areas.
 - Personal flashcard library management.
 - Multiple study modes (standard cards, matching, multiple choice, fill-in-the-blanks).
+- Tap-to-hear pronunciation on every card, with a choice of accent/voice and adjustable speed (browser text-to-speech, no setup required).
 - Progress tracking, study feedback, and gamification mechanics.
 - Import/export tooling for external study content.
 - Ready-made vocabulary packs (SAT plus PTE Academic sets with Traditional Chinese translations) importable in one click.

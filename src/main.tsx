@@ -8,6 +8,7 @@ import { getTheme } from './theme';
 import App from './App';
 import { MobileProvider } from './context/MobileContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
+import { PronunciationProvider } from './context/PronunciationContext';
 
 const ThemedApp: React.FC = () => {
   const { theme } = useSettings();
@@ -26,7 +27,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <MobileProvider>
         <AuthProvider>
           <SettingsProvider>
-            <ThemedApp />
+            <PronunciationProvider>
+              <ThemedApp />
+            </PronunciationProvider>
           </SettingsProvider>
         </AuthProvider>
       </MobileProvider>
