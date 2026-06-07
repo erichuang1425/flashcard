@@ -5,6 +5,7 @@ import {
 }  from 'firebase/firestore';
 import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, DiaryEntry } from '../types';
 import { shuffle } from '../utils/helpers';
+import { DEFAULT_EASE } from '../utils/spaced-repetition';
 
 
 interface FlashcardDocument {
@@ -26,7 +27,13 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
       ...flashcard,
       categories: flashcard.categories || [],
       lastReviewed: null,
-      nextReview: new Date()
+      nextReview: new Date(),
+      // Initial SM-2 scheduling state so new cards start in the learning step.
+      easeFactor: DEFAULT_EASE,
+      interval: 0,
+      repetitions: 0,
+      difficulty: flashcard.difficulty ?? 0,
+      mastered: false,
     });
 
 
@@ -108,16 +115,26 @@ export const getSuggestedVocabulary = async (
 };
 
 export const updateCardReview = async (
-  userId: string,  
-  cardId: string, 
-  nextReview: Date, 
-  difficulty: number
+  userId: string,
+  cardId: string,
+  schedule: {
+    nextReview: Date;
+    difficulty: number;
+    easeFactor: number;
+    interval: number;
+    repetitions: number;
+    mastered: boolean;
+  }
 ) => {
-  const cardRef = doc(db, 'users', userId, 'flashcards', cardId); 
+  const cardRef = doc(db, 'users', userId, 'flashcards', cardId);
   await updateDoc(cardRef, {
     lastReviewed: new Date(),
-    nextReview,
-    difficulty
+    nextReview: schedule.nextReview,
+    difficulty: schedule.difficulty,
+    easeFactor: schedule.easeFactor,
+    interval: schedule.interval,
+    repetitions: schedule.repetitions,
+    mastered: schedule.mastered,
   });
 };
 
@@ -658,24 +675,14 @@ export const getTotalCardsCount = async (userId: string) => {
 };
 
 export const getMasteryCount = async (userId: string): Promise<number> => {
+  // A card is mastered once the SM-2 scheduler has grown its interval past the
+  // mastery threshold; that state is persisted on the `mastered` flag.
   const q = query(
-    collection(db, 'users', userId, 'flashcards'),  // Updated path
-    where('difficulty', '<=', 2), 
-    where('lastReviewed', '!=', null)
+    collection(db, 'users', userId, 'flashcards'),
+    where('mastered', '==', true)
   );
   const snapshot = await getDocs(q);
-  
-  // Count cards that have been successfully reviewed multiple times
-  return snapshot.docs.filter(doc => {
-    const data = doc.data();
-    // Consider mastered if:
-    // 1. Low difficulty (<=2)
-    // 2. Has been reviewed
-    // 3. High accuracy (>80%) in last reviews
-    return data.lastReviewed && 
-           data.difficulty <= 2 && 
-           (data.successCount / (data.totalReviews || 1) >= 0.8);
-  }).length;
+  return snapshot.size;
 };
 
 export const getWordsByCategory = async (userId: string, category: string): Promise<VocabularyWord[]> => {
