@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Container, Typography, Box, Button, Paper, Alert, AlertTitle } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { getUserFlashcards, updateCardReview } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
 import { StudyProgress } from '../components/StudyProgress';
 import { StudyFeedback } from '../components/StudyFeedback';
-import { calculateNextReview } from '../utils/spaced-repetition';
+import { scheduleCardReview } from '../utils/spaced-repetition';
+import type { BatchResult } from '../components/study-modes/types';
 import type { Flashcard, StudyProgress as StudyProgressType } from '../types';
 import { StudyModeSelector } from '../components/study-modes/StudyModeSelector';
 import type { StudyMode } from '../types';
@@ -16,10 +17,14 @@ import { FillInPuzzle } from '../components/study-modes/FillInPuzzle';
 import { updateUserXP } from '../services/gamification';
 
 const PUZZLE_BATCH_SIZE = 8;
+const MATCHING_BATCH_SIZE = 6;
 
 export const Study: React.FC = () => {
   const { user } = useAuth();
   const [cards, setCards] = useState<Flashcard[]>([]);
+  // Full deck kept around so study modes that need distractors (e.g. Multiple
+  // Choice) don't have to refetch every card from Firestore.
+  const [deck, setDeck] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [progress, setProgress] = useState<StudyProgressType>({
@@ -32,38 +37,55 @@ export const Study: React.FC = () => {
   const [studyMode, setStudyMode] = useState<StudyMode>('flashcard');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadCards = async () => {
-      if (user) {
-        try {
-          const allCards = await getUserFlashcards(user.uid);
-          const now = new Date();
-          const dueCards = allCards.filter(card => {
-            // Include cards with no next review date
-            if (!card.nextReview) return true;
-            
-            // Ensure nextReview is a Date object
-            const reviewDate = card.nextReview instanceof Date 
-              ? card.nextReview 
-              : new Date(card.nextReview);
-              
-            return reviewDate <= now;
-          });
-          
-          if (dueCards.length > 0) {
-            setCards(dueCards);
-            setError(null);
-          } else {
-            setError('No cards due for review');
-          }
-        } catch (err) {
-          console.error('Error loading cards:', err);
-          setError('Failed to load flashcards. Please check your connection and try again.');
-        }
+  const loadCards = useCallback(async () => {
+    if (!user) return;
+    try {
+      const allCards = await getUserFlashcards(user.uid);
+      const now = new Date();
+      const dueCards = allCards.filter(card => {
+        // Include cards with no next review date
+        if (!card.nextReview) return true;
+
+        // Ensure nextReview is a Date object
+        const reviewDate = card.nextReview instanceof Date
+          ? card.nextReview
+          : new Date(card.nextReview);
+
+        return reviewDate <= now;
+      });
+
+      setDeck(allCards);
+
+      if (dueCards.length > 0) {
+        setCards(dueCards);
+        setError(null);
+      } else {
+        setError('No cards due for review');
       }
-    };
-    loadCards();
+    } catch (err) {
+      console.error('Error loading cards:', err);
+      setError('Failed to load flashcards. Please check your connection and try again.');
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadCards();
+  }, [loadCards]);
+
+  // Switching modes mid-session would otherwise leave the answer revealed and,
+  // for batch modes, slice from a stale position — reset the per-card UI state
+  // whenever the mode changes.
+  useEffect(() => {
+    setShowAnswer(false);
+  }, [studyMode]);
+
+  const resetSession = useCallback(() => {
+    setCurrentIndex(0);
+    setShowAnswer(false);
+    setIsComplete(false);
+    setProgress({ correct: 0, incorrect: 0, streak: 0, cardsReviewed: 0 });
+    loadCards();
+  }, [loadCards]);
 
   const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'matching', 'fillInPuzzle'] as const;
   
@@ -90,8 +112,8 @@ export const Study: React.FC = () => {
     const card = cards[currentIndex];
     if (!card.id) return; 
     
-    const { nextReview, newDifficulty } = calculateNextReview(rating, card.difficulty);
-    await updateCardReview(user.uid, card.id, nextReview, newDifficulty);
+    const schedule = scheduleCardReview(card, rating);
+    await updateCardReview(user.uid, card.id, schedule);
 
     // Add XP based on rating
     const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
@@ -112,41 +134,37 @@ export const Study: React.FC = () => {
     }
   };
 
-  const handleMatchingComplete = async (correct: number) => {
-    if (!user) return;
-    
-    const xpGained = correct * 5;
-    await updateUserXP(user.uid, xpGained);
-    
-    setCurrentIndex(prev => prev + 6);
-    setProgress(prev => ({
-      ...prev,
-      correct: prev.correct + correct,
-      incorrect: prev.incorrect + (6 - correct),
-      streak: correct === 6 ? prev.streak + 1 : 0,
-      cardsReviewed: prev.cardsReviewed + 6
-    }));
-  };
-
-  const handlePuzzleComplete = async (correct: number) => {
+  // Shared completion handler for the batch modes (Matching, Crossword). Each
+  // reviewed card is run through the spaced-repetition scheduler individually so
+  // these modes actually affect scheduling — previously they never did. The
+  // `batchSize` is how far to advance through the deck (which can exceed the
+  // number of scored cards when a batch contains cards the mode couldn't use).
+  const handleBatchComplete = async (results: BatchResult[], batchSize: number) => {
     if (!user) return;
 
-    const batch = cards.slice(currentIndex, currentIndex + PUZZLE_BATCH_SIZE);
-    const xpGained = correct * 6;
-    await updateUserXP(user.uid, xpGained);
+    let correct = 0;
+    for (const result of results) {
+      const card = cards.find(c => c.id === result.id);
+      if (!card?.id) continue;
+      const schedule = scheduleCardReview(card, result.correct ? 4 : 2);
+      await updateCardReview(user.uid, card.id, schedule);
+      if (result.correct) correct++;
+    }
+
+    await updateUserXP(user.uid, correct * 5);
 
     setProgress(prev => ({
       ...prev,
       correct: prev.correct + correct,
-      incorrect: prev.incorrect + (batch.length - correct),
-      streak: correct === batch.length ? prev.streak + 1 : 0,
-      cardsReviewed: prev.cardsReviewed + batch.length
+      incorrect: prev.incorrect + (results.length - correct),
+      streak: results.length > 0 && correct === results.length ? prev.streak + 1 : 0,
+      cardsReviewed: prev.cardsReviewed + results.length
     }));
 
-    if (currentIndex + PUZZLE_BATCH_SIZE >= cards.length) {
+    if (currentIndex + batchSize >= cards.length) {
       setIsComplete(true);
     } else {
-      setCurrentIndex(prev => prev + PUZZLE_BATCH_SIZE);
+      setCurrentIndex(prev => prev + batchSize);
     }
   };
 
@@ -161,19 +179,29 @@ export const Study: React.FC = () => {
           />
         );
       case 'multipleChoice':
-        return <MultipleChoice card={cards[currentIndex]} onAnswer={handleAnswer} />;
+        return <MultipleChoice card={cards[currentIndex]} deck={deck} onAnswer={handleAnswer} />;
       case 'fillInBlanks':
         return <FillInBlanks card={cards[currentIndex]} onAnswer={handleAnswer} />;
-      case 'matching':
-        return <MatchingGame cards={cards.slice(currentIndex, currentIndex + 6)} onComplete={handleMatchingComplete} />;
-      case 'fillInPuzzle':
+      case 'matching': {
+        const batch = cards.slice(currentIndex, currentIndex + MATCHING_BATCH_SIZE);
         return (
-          <FillInPuzzle
-            key={currentIndex}
-            cards={cards.slice(currentIndex, currentIndex + PUZZLE_BATCH_SIZE)}
-            onComplete={handlePuzzleComplete}
+          <MatchingGame
+            key={`matching-${currentIndex}`}
+            cards={batch}
+            onComplete={(results) => handleBatchComplete(results, batch.length)}
           />
         );
+      }
+      case 'fillInPuzzle': {
+        const batch = cards.slice(currentIndex, currentIndex + PUZZLE_BATCH_SIZE);
+        return (
+          <FillInPuzzle
+            key={`puzzle-${currentIndex}`}
+            cards={batch}
+            onComplete={(results) => handleBatchComplete(results, batch.length)}
+          />
+        );
+      }
     }
   };
 
@@ -220,7 +248,7 @@ export const Study: React.FC = () => {
     return (
       <Container>
         <Typography variant="h6">Study session complete!</Typography>
-        <Button onClick={() => window.location.reload()}>Start New Session</Button>
+        <Button onClick={resetSession}>Start New Session</Button>
       </Container>
     );
   }
@@ -252,9 +280,14 @@ export const Study: React.FC = () => {
           order: { xs: 2, md: 1 }
         }}>
           <StudyProgress progress={progress} total={cards.length} />
-          <StudyModeSelector mode={studyMode} onModeChange={setStudyMode} />
-          <Typography 
-            variant="body2" 
+          {/* On desktop the mode selector lives in the sidebar; on mobile it's
+              rendered at the top of the content area instead (see below) so it
+              isn't pushed below the fold. */}
+          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+            <StudyModeSelector mode={studyMode} onModeChange={setStudyMode} />
+          </Box>
+          <Typography
+            variant="body2"
             sx={{ textAlign: 'center', color: 'text.secondary' }}
           >
             Card {currentIndex + 1} of {cards.length}
@@ -262,16 +295,19 @@ export const Study: React.FC = () => {
         </Box>
 
         {/* Main Content Area */}
-        <Box sx={{ 
+        <Box sx={{
           flex: 1,
           minHeight: { xs: '50vh', sm: '60vh' },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 3,
+          gap: { xs: 2, md: 3 },
           order: { xs: 1, md: 2 },
           pt: { xs: 0, md: 2 }
         }}>
+          <Box sx={{ display: { xs: 'block', md: 'none' }, width: '100%' }}>
+            <StudyModeSelector mode={studyMode} onModeChange={setStudyMode} />
+          </Box>
           {renderStudyMode()}
           {renderShowAnswerButton()}
         </Box>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, CircularProgress, Button, Alert } from '@mui/material';
 import { FlashCard } from './FlashCard';
-import { calculateNextReview } from '../utils/spaced-repetition';
+import { scheduleCardReview } from '../utils/spaced-repetition';
 import { updateCardReview } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
 import type { Flashcard } from '../types';
@@ -38,14 +38,14 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
     setIsLoading(true);
     const card = cards[currentIndex];
     if (!card.id) return;
-    const { nextReview, newDifficulty } = calculateNextReview(rating, card.difficulty);
+    const schedule = scheduleCardReview(card, rating);
 
     try {
       const isCorrect = rating >= 3;
-      const isMastered = rating >= 4;
-      
+      const isMastered = schedule.mastered;
+
       if (!user) return;
-      await updateCardReview(user.uid, card.id, nextReview, newDifficulty);
+      await updateCardReview(user.uid, card.id, schedule);
       
       const updatedStats = {
         correct: stats.correct + (isCorrect ? 1 : 0),

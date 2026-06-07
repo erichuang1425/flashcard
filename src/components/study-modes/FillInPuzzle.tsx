@@ -1,17 +1,17 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Button, Paper, Typography, Alert, Stack } from '@mui/material';
+import React, { useMemo, useRef, useState } from 'react';
+import { Box, Button, Paper, Typography, Alert, Stack, useMediaQuery, Theme } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { generateCrossword } from '../../utils/crossword';
 import type { CrosswordCell } from '../../utils/crossword';
+import type { BatchResult } from './types';
 
 interface Props {
   cards: Flashcard[];
-  onComplete: (correct: number) => void;
+  onComplete: (results: BatchResult[]) => void;
 }
 
-const CELL_SIZE = 38;
-
 const keyOf = (row: number, col: number): string => `${row},${col}`;
+const sanitizeWord = (value: string): string => value.toUpperCase().replace(/[^A-Z]/g, '');
 
 export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
   const layout = useMemo(
@@ -22,6 +22,18 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
     [cards]
   );
 
+  // Map a placed answer back to its card id so each solved word can be scored
+  // individually by the scheduler. The generator skips duplicate answers, so the
+  // first card with a given normalized word owns it.
+  const idByAnswer = useMemo(() => {
+    const map = new Map<string, string>();
+    cards.forEach((card) => {
+      const key = sanitizeWord(card.word);
+      if (!map.has(key)) map.set(key, card.id);
+    });
+    return map;
+  }, [cards]);
+
   const cellMap = useMemo(() => {
     const map = new Map<string, CrosswordCell>();
     layout.cells.forEach((cell) => map.set(keyOf(cell.row, cell.col), cell));
@@ -31,6 +43,80 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
   const [entries, setEntries] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Larger, easier-to-tap cells on touch screens.
+  const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
+  const cellSize = isMobile ? 44 : 38;
+
+  // Refs to each cell input so we can move focus as the player types or uses
+  // the arrow keys — without this, mobile crosswords are painful to fill in.
+  const inputRefs = useRef(new Map<string, HTMLInputElement>());
+  const directionRef = useRef<'across' | 'down'>('across');
+
+  const hasCell = (row: number, col: number): boolean => cellMap.has(keyOf(row, col));
+
+  const focusCell = (row: number, col: number) => {
+    const el = inputRefs.current.get(keyOf(row, col));
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  };
+
+  const step = (row: number, col: number, dir: 'across' | 'down', back = false) => {
+    const delta = back ? -1 : 1;
+    const nextRow = dir === 'across' ? row : row + delta;
+    const nextCol = dir === 'across' ? col + delta : col;
+    if (hasCell(nextRow, nextCol)) focusCell(nextRow, nextCol);
+  };
+
+  const handleCellFocus = (row: number, col: number) => {
+    const across = hasCell(row, col + 1) || hasCell(row, col - 1);
+    const down = hasCell(row + 1, col) || hasCell(row - 1, col);
+    if (across && !down) directionRef.current = 'across';
+    else if (down && !across) directionRef.current = 'down';
+  };
+
+  const handleCellKeyDown = (e: React.KeyboardEvent, row: number, col: number) => {
+    switch (e.key) {
+      case 'ArrowRight':
+        e.preventDefault();
+        directionRef.current = 'across';
+        step(row, col, 'across');
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        directionRef.current = 'across';
+        step(row, col, 'across', true);
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        directionRef.current = 'down';
+        step(row, col, 'down');
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        directionRef.current = 'down';
+        step(row, col, 'down', true);
+        break;
+      case 'Backspace':
+        // When the current cell is already empty, clear and jump to the
+        // previous cell so backspacing flows naturally.
+        if (!entries[keyOf(row, col)]) {
+          e.preventDefault();
+          const dir = directionRef.current;
+          const prevRow = dir === 'across' ? row : row - 1;
+          const prevCol = dir === 'across' ? col - 1 : col;
+          if (hasCell(prevRow, prevCol)) {
+            setEntries((prev) => ({ ...prev, [keyOf(prevRow, prevCol)]: '' }));
+            focusCell(prevRow, prevCol);
+          }
+        }
+        break;
+      default:
+        break;
+    }
+  };
 
   // A batch whose words share no letters can't form a crossword — let the
   // player skip on to the next study batch.
@@ -43,7 +129,7 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
         <Typography color="text.secondary" sx={{ mb: 2 }}>
           These cards don&apos;t share enough letters to build a crossword.
         </Typography>
-        <Button variant="contained" onClick={() => onComplete(0)}>
+        <Button variant="contained" onClick={() => onComplete([])}>
           Skip puzzle
         </Button>
       </Paper>
@@ -55,34 +141,47 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
     const letter = value.toUpperCase().replace(/[^A-Z]/g, '').slice(-1);
     setEntries((prev) => ({ ...prev, [keyOf(row, col)]: letter }));
     setChecked(false);
+    // Advance to the next cell so the player can keep typing a word fluidly.
+    if (letter) step(row, col, directionRef.current);
   };
 
-  const countSolved = (): number =>
-    layout.placed.filter((word) => {
-      const length = word.answer.replace(/[^A-Za-z]/g, '').length;
-      for (let i = 0; i < length; i++) {
-        const row = word.direction === 'across' ? word.row : word.row + i;
-        const col = word.direction === 'across' ? word.col + i : word.col;
-        const cell = cellMap.get(keyOf(row, col));
-        if (!cell || (entries[keyOf(row, col)] || '') !== cell.letter) {
-          return false;
-        }
+  const isWordSolved = (word: (typeof layout.placed)[number]): boolean => {
+    const length = sanitizeWord(word.answer).length;
+    for (let i = 0; i < length; i++) {
+      const row = word.direction === 'across' ? word.row : word.row + i;
+      const col = word.direction === 'across' ? word.col + i : word.col;
+      const cell = cellMap.get(keyOf(row, col));
+      if (!cell || (entries[keyOf(row, col)] || '') !== cell.letter) {
+        return false;
       }
-      return true;
-    }).length;
+    }
+    return true;
+  };
+
+  const countSolved = (): number => layout.placed.filter(isWordSolved).length;
+
+  // Build a per-card result for every placed word so each is scheduled
+  // according to whether the player got it right.
+  const buildResults = (): BatchResult[] =>
+    layout.placed
+      .map((word) => {
+        const id = idByAnswer.get(sanitizeWord(word.answer));
+        return id ? { id, correct: isWordSolved(word) } : null;
+      })
+      .filter((r): r is BatchResult => r !== null);
 
   const handleCheck = () => {
     setChecked(true);
     if (countSolved() === layout.placed.length) {
       setDone(true);
-      onComplete(layout.placed.length);
+      onComplete(buildResults());
     }
   };
 
   const handleFinish = () => {
     if (done) return;
     setDone(true);
-    onComplete(countSolved());
+    onComplete(buildResults());
   };
 
   const solved = countSolved();
@@ -126,8 +225,8 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
           <Box
             sx={{
               display: 'grid',
-              gridTemplateColumns: `repeat(${layout.cols}, ${CELL_SIZE}px)`,
-              gridTemplateRows: `repeat(${layout.rows}, ${CELL_SIZE}px)`,
+              gridTemplateColumns: `repeat(${layout.cols}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${layout.rows}, ${cellSize}px)`,
               gap: '2px',
             }}
           >
@@ -135,7 +234,7 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
               Array.from({ length: layout.cols }).map((__, col) => {
                 const cell = cellMap.get(keyOf(row, col));
                 if (!cell) {
-                  return <Box key={keyOf(row, col)} sx={{ width: CELL_SIZE, height: CELL_SIZE }} />;
+                  return <Box key={keyOf(row, col)} sx={{ width: cellSize, height: cellSize }} />;
                 }
 
                 const value = entries[keyOf(row, col)] || '';
@@ -147,8 +246,8 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
                     key={keyOf(row, col)}
                     sx={{
                       position: 'relative',
-                      width: CELL_SIZE,
-                      height: CELL_SIZE,
+                      width: cellSize,
+                      height: cellSize,
                       border: '1px solid',
                       borderColor: 'divider',
                       borderRadius: '4px',
@@ -176,17 +275,28 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
                       </Typography>
                     )}
                     <input
+                      ref={(el) => {
+                        if (el) inputRefs.current.set(keyOf(row, col), el);
+                        else inputRefs.current.delete(keyOf(row, col));
+                      }}
                       aria-label={`Row ${row + 1} column ${col + 1}`}
                       value={value}
                       maxLength={1}
                       disabled={done}
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      autoComplete="off"
+                      spellCheck={false}
+                      onFocus={() => handleCellFocus(row, col)}
+                      onKeyDown={(e) => handleCellKeyDown(e, row, col)}
                       onChange={(e) => handleChange(row, col, e.target.value)}
                       style={{
                         width: '100%',
                         height: '100%',
                         textAlign: 'center',
                         textTransform: 'uppercase',
-                        fontSize: '1.1rem',
+                        fontSize: isMobile ? '1.25rem' : '1.1rem',
                         fontWeight: 600,
                         border: 'none',
                         outline: 'none',
