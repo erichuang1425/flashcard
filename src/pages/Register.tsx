@@ -13,14 +13,21 @@ export const Register: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      return setError('Please enter your email address');
+    }
+    if (password.length < 6) {
+      return setError('Password must be at least 6 characters');
+    }
     if (password !== confirmPassword) {
       return setError('Passwords do not match');
     }
 
     try {
       setError('');
-      await signUp(email, password);
+      await signUp(trimmedEmail, password);
       navigate('/');
     } catch (err) {
       setError('Failed to create an account');
@@ -45,6 +52,7 @@ export const Register: React.FC = () => {
             required
             fullWidth
             label="Email Address"
+            type="email"
             autoComplete="email"
             autoFocus
             value={email}

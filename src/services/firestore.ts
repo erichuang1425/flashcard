@@ -4,6 +4,7 @@ import {
   updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc 
 }  from 'firebase/firestore';
 import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, DiaryEntry } from '../types';
+import { shuffle } from '../utils/helpers';
 
 
 interface FlashcardDocument {
@@ -299,7 +300,7 @@ export const getRandomVocabularyWords = async (count: number = 3): Promise<Vocab
   })) as (VocabularyWord & { id: string })[];
   
   // Shuffle and return requested count
-  return words.sort(() => Math.random() - 0.5).slice(0, count);
+  return shuffle(words).slice(0, count);
 };
 
 export const getVocabularyDefinitions = async (words: string[]): Promise<VocabularyDefinition[]> => {

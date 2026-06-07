@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Button, Typography, Paper, Alert } from '@mui/material';
 import { getUserFlashcards } from '../../services/firestore';
 import type { Flashcard } from '../../types';
-import { capitalizeFirstWord } from '../../utils/helpers';
+import { capitalizeFirstWord, shuffle } from '../../utils/helpers';
 
 interface Props {
   card: Flashcard;
@@ -16,6 +16,11 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
   const [error, setError] = useState<string | null>(null);
   const [canProceed, setCanProceed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Clear any pending auto-advance timer when the component unmounts so we
+  // don't call onAnswer / setState after the study session has moved on.
+  useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -63,7 +68,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
     
     if (correct) {
       // Move to next question automatically if correct
-      setTimeout(() => {
+      advanceTimer.current = setTimeout(() => {
         onAnswer(true);
         setSelected(null);
         setShowResult(false);
@@ -118,6 +123,24 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
               </Button>
             ))}
             
+            {showResult && (
+              <Box
+                role="status"
+                aria-live="polite"
+                sx={{
+                  position: 'absolute',
+                  width: 1,
+                  height: 1,
+                  overflow: 'hidden',
+                  clip: 'rect(0 0 0 0)',
+                }}
+              >
+                {isCorrect
+                  ? 'Correct'
+                  : `Incorrect. The correct answer is ${capitalizeFirstWord(card.englishDefinition)}`}
+              </Box>
+            )}
+
             {showResult && !isCorrect && canProceed && (
               <Button
                 variant="contained"
@@ -135,6 +158,3 @@ export const MultipleChoice: React.FC<Props> = ({ card, onAnswer }): JSX.Element
   );
 };
 
-const shuffle = <T,>(array: T[]): T[] => {
-  return [...array].sort(() => Math.random() - 0.5);
-};
