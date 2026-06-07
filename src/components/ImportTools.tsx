@@ -140,6 +140,21 @@ export const ImportTools: React.FC = () => {
     }
   };
 
+  // Build the preview table from raw CSV text. Shared by file upload and the
+  // bundled SAT word list so both paths use the exact same parsing.
+  const buildPreviewFromText = (csvText: string) => {
+    const lines = csvText.split('\n').filter(line => line.trim());
+    const allPreviewData = lines.slice(1).map(line => {
+      const [word, partOfSpeech, englishDefinition, chineseTranslation] = parseCSVLine(line);
+      return { word, partOfSpeech, englishDefinition, chineseTranslation, categories: [] };
+    });
+    setFullPreview(allPreviewData);
+    setPreview(allPreviewData.slice(0, rowsPerPage));
+    setPage(0);
+    setActiveStep(1);
+    setText(csvText);
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -147,19 +162,11 @@ export const ImportTools: React.FC = () => {
     try {
       setUploading(true);
       setError(null);
-      
+
       const reader = new FileReader();
       reader.onload = async (e) => {
         const text = e.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
-        const allPreviewData = lines.slice(1).map(line => {
-          const [word, partOfSpeech, englishDefinition, chineseTranslation] = parseCSVLine(line);
-          return { word, partOfSpeech, englishDefinition, chineseTranslation, categories: [] };
-        });
-        setFullPreview(allPreviewData);
-        setPreview(allPreviewData.slice(0, rowsPerPage));
-        setActiveStep(1);
-        setText(text);
+        buildPreviewFromText(text);
       };
       reader.readAsText(file);
     } catch (err) {
@@ -169,7 +176,28 @@ export const ImportTools: React.FC = () => {
     }
   };
 
+  const handleLoadSatWords = async () => {
+    if (!user) return;
+
+    try {
+      setLoadingSat(true);
+      setError(null);
+      const response = await fetch('/sat.csv');
+      if (!response.ok) {
+        throw new Error('Could not load the SAT word list');
+      }
+      const csvText = await response.text();
+      setSelectedCategories(prev => (prev.includes('SAT') ? prev : [...prev, 'SAT']));
+      buildPreviewFromText(csvText);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load SAT word list');
+    } finally {
+      setLoadingSat(false);
+    }
+  };
+
   const [text, setText] = useState<string | null>(null);
+  const [loadingSat, setLoadingSat] = useState(false);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -475,19 +503,32 @@ export const ImportTools: React.FC = () => {
                 Import Flashcards
               </Typography>
               {renderCategorySelect()}
-              <Button
-                variant="contained"
-                component="label"
-                disabled={uploading}
-              >
-                Upload CSV File
-                <input
-                  type="file"
-                  hidden
-                  accept=".csv,.txt"
-                  onChange={handleFileUpload}
-                />
-              </Button>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                <Button
+                  variant="contained"
+                  component="label"
+                  disabled={uploading || loadingSat}
+                >
+                  Upload CSV File
+                  <input
+                    type="file"
+                    hidden
+                    accept=".csv,.txt"
+                    onChange={handleFileUpload}
+                  />
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleLoadSatWords}
+                  disabled={uploading || loadingSat}
+                  startIcon={loadingSat ? <CircularProgress size={16} /> : undefined}
+                >
+                  Load SAT Word List
+                </Button>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                The SAT list adds a curated set of high-frequency vocabulary tagged with the &quot;SAT&quot; category.
+              </Typography>
             </>
           )}
 
