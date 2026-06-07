@@ -280,9 +280,14 @@ export const Study: React.FC = () => {
           order: { xs: 2, md: 1 }
         }}>
           <StudyProgress progress={progress} total={cards.length} />
-          <StudyModeSelector mode={studyMode} onModeChange={setStudyMode} />
-          <Typography 
-            variant="body2" 
+          {/* On desktop the mode selector lives in the sidebar; on mobile it's
+              rendered at the top of the content area instead (see below) so it
+              isn't pushed below the fold. */}
+          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+            <StudyModeSelector mode={studyMode} onModeChange={setStudyMode} />
+          </Box>
+          <Typography
+            variant="body2"
             sx={{ textAlign: 'center', color: 'text.secondary' }}
           >
             Card {currentIndex + 1} of {cards.length}
@@ -290,16 +295,19 @@ export const Study: React.FC = () => {
         </Box>
 
         {/* Main Content Area */}
-        <Box sx={{ 
+        <Box sx={{
           flex: 1,
           minHeight: { xs: '50vh', sm: '60vh' },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 3,
+          gap: { xs: 2, md: 3 },
           order: { xs: 1, md: 2 },
           pt: { xs: 0, md: 2 }
         }}>
+          <Box sx={{ display: { xs: 'block', md: 'none' }, width: '100%' }}>
+            <StudyModeSelector mode={studyMode} onModeChange={setStudyMode} />
+          </Box>
           {renderStudyMode()}
           {renderShowAnswerButton()}
         </Box>
