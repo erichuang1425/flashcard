@@ -193,4 +193,6 @@ export interface DiaryEntry {
   text: string;
   createdAt: Date;
   imageUrl?: string;
+  /** Suggested vocabulary words the writer chose to practice in this entry. */
+  usedWords?: string[];
 }
