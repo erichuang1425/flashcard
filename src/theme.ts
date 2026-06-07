@@ -1,4 +1,5 @@
 import { createTheme } from '@mui/material/styles';
+import { getMobileThemeOverrides } from './theme/mobile-theme';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -12,7 +13,7 @@ export const getTheme = (mode: ThemeMode) => {
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : mode;
 
-  return createTheme({
+  const base = createTheme({
     palette: {
       mode: paletteMode,
       primary: {
@@ -32,4 +33,9 @@ export const getTheme = (mode: ThemeMode) => {
       },
     },
   });
+
+  // Layer the mobile ergonomics (16px inputs to stop iOS zoom, 48px tap
+  // targets, safe-area-aware surfaces) on top of the base theme. The overrides
+  // are media-query guarded, so desktop rendering is unaffected.
+  return createTheme(base, getMobileThemeOverrides(base));
 };
