@@ -3,26 +3,29 @@ import { Box, Button, TextField, Typography, Alert, Paper, Divider } from '@mui/
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import GoogleIcon from '@mui/icons-material/Google';
+import { useLanguage } from '../i18n/LanguageContext';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { signIn, signInWithGoogle } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      return setError('Please enter your email and password');
+      return setError(t('login.errorEmpty'));
     }
     try {
       setError('');
       await signIn(trimmedEmail, password);
       navigate('/');
     } catch (err) {
-      setError('Failed to sign in. Please check your email and password.');
+      setError(t('login.errorFail'));
     }
   };
 
@@ -32,7 +35,7 @@ export const Login: React.FC = () => {
       await signInWithGoogle();
       navigate('/');
     } catch (err) {
-      setError('Failed to sign in with Google');
+      setError(t('login.errorGoogle'));
     }
   };
 
@@ -44,8 +47,11 @@ export const Login: React.FC = () => {
       minHeight: '80vh' 
     }}>
       <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+          <LanguageSwitcher />
+        </Box>
         <Typography variant="h5" component="h1" gutterBottom>
-          Login
+          {t('login.title')}
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
@@ -53,7 +59,7 @@ export const Login: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            label="Email Address"
+            label={t('login.email')}
             type="email"
             autoComplete="email"
             autoFocus
@@ -64,7 +70,7 @@ export const Login: React.FC = () => {
             margin="normal"
             required
             fullWidth
-            label="Password"
+            label={t('login.password')}
             type="password"
             autoComplete="current-password"
             value={password}
@@ -76,11 +82,11 @@ export const Login: React.FC = () => {
             variant="contained"
             sx={{ mt: 3, mb: 2 }}
           >
-            Sign In
+            {t('login.signIn')}
           </Button>
-          
-          <Divider sx={{ my: 2 }}>or</Divider>
-          
+
+          <Divider sx={{ my: 2 }}>{t('login.or')}</Divider>
+
           <Button
             fullWidth
             variant="outlined"
@@ -88,12 +94,12 @@ export const Login: React.FC = () => {
             onClick={handleGoogleSignIn}
             sx={{ mb: 2 }}
           >
-            Sign in with Google
+            {t('login.google')}
           </Button>
 
           <Typography variant="body2" align="center">
-            Don't have an account?{' '}
-            <Link to="/register">Register here</Link>
+            {t('login.noAccount')}{' '}
+            <Link to="/register">{t('login.registerHere')}</Link>
           </Typography>
         </Box>
       </Paper>

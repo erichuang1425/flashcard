@@ -27,6 +27,9 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { usePronunciation } from '../context/PronunciationContext';
 import { accentLabel } from '../utils/speech';
+import { useLanguage } from '../i18n/LanguageContext';
+import { useOnboarding } from '../context/OnboardingContext';
+import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../i18n/translations';
 
 interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
@@ -60,6 +63,8 @@ export const Settings: React.FC = () => {
     }
   });
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const { t, language, setLanguage } = useLanguage();
+  const { restartOnboarding } = useOnboarding();
 
   const {
     supported: speechSupported,
@@ -90,10 +95,14 @@ export const Settings: React.FC = () => {
   const handleSave = async () => {
     if (!user) return;
     try {
-      await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), preferences);
-      setSaveStatus({type: 'success', message: 'Settings saved successfully'});
+      // Merge so unrelated fields written elsewhere (e.g. onboardingCompleted)
+      // are preserved rather than overwritten by this screen's snapshot.
+      await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), preferences, {
+        merge: true,
+      });
+      setSaveStatus({type: 'success', message: t('settings.saved')});
     } catch (error) {
-      setSaveStatus({type: 'error', message: 'Failed to save settings'});
+      setSaveStatus({type: 'error', message: t('settings.saveFail')});
     }
     setTimeout(() => setSaveStatus(null), 3000);
   };
@@ -114,9 +123,9 @@ export const Settings: React.FC = () => {
             mb: { xs: 1, sm: 2 }
           }}
         >
-          Settings
+          {t('settings.title')}
         </Typography>
-        
+
         {saveStatus && (
           <Alert severity={saveStatus.type} sx={{ mb: 2 }}>
             {saveStatus.message}
@@ -125,10 +134,10 @@ export const Settings: React.FC = () => {
 
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Study Settings</Typography>
+            <Typography variant="h6">{t('settings.studySettings')}</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <Paper sx={{ 
+            <Paper sx={{
               p: { xs: 2, sm: 3 },
               '& .MuiFormControl-root': {
                 mb: { xs: 2, sm: 3 }
@@ -137,27 +146,46 @@ export const Settings: React.FC = () => {
                 my: { xs: 1, sm: 2 }
               }
             }}>
-              <Typography variant="h6" gutterBottom>App Preferences</Typography>
-              
+              <Typography variant="h6" gutterBottom>{t('settings.appPreferences')}</Typography>
+
               <FormControl fullWidth margin="normal">
-                <InputLabel>Theme</InputLabel>
+                <InputLabel>{t('settings.language')}</InputLabel>
+                <Select
+                  value={preferences.language}
+                  label={t('settings.language')}
+                  onChange={(e) => {
+                    const next = e.target.value as Language;
+                    setPreferences(prev => ({ ...prev, language: next }));
+                    // Apply immediately so the whole UI updates without waiting
+                    // for the Save button.
+                    setLanguage(next);
+                  }}
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <MenuItem key={lang} value={lang}>{LANGUAGE_NAMES[lang]}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth margin="normal">
+                <InputLabel>{t('settings.theme')}</InputLabel>
                 <Select
                   value={preferences.theme}
-                  label="Theme"
+                  label={t('settings.theme')}
                   onChange={(e) => setPreferences(prev => ({
                     ...prev,
                     theme: e.target.value as 'light' | 'dark' | 'system'
                   }))}
                 >
-                  <MenuItem value="light">Light</MenuItem>
-                  <MenuItem value="dark">Dark</MenuItem>
-                  <MenuItem value="system">System Default</MenuItem>
+                  <MenuItem value="light">{t('settings.themeLight')}</MenuItem>
+                  <MenuItem value="dark">{t('settings.themeDark')}</MenuItem>
+                  <MenuItem value="system">{t('settings.themeSystem')}</MenuItem>
                 </Select>
               </FormControl>
 
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Daily Study Goal (minutes)"
+                  label={t('settings.dailyGoal')}
                   type="number"
                   value={preferences.dailyGoal}
                   onChange={(e) => setPreferences(prev => ({
@@ -170,7 +198,7 @@ export const Settings: React.FC = () => {
 
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Study Session Length (minutes)"
+                  label={t('settings.sessionLength')}
                   type="number"
                   value={preferences.studySessionLength}
                   onChange={(e) => setPreferences(prev => ({
@@ -192,7 +220,7 @@ export const Settings: React.FC = () => {
                       }))}
                     />
                   }
-                  label="Enable Notifications"
+                  label={t('settings.notifications')}
                 />
               </Box>
 
@@ -207,7 +235,7 @@ export const Settings: React.FC = () => {
                       }))}
                     />
                   }
-                  label="Enable Audio"
+                  label={t('settings.audio')}
                 />
               </Box>
             </Paper>
@@ -216,7 +244,23 @@ export const Settings: React.FC = () => {
 
         <Accordion defaultExpanded>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Pronunciation</Typography>
+            <Typography variant="h6">{t('settings.guide')}</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('settings.guideDesc')}
+              </Typography>
+              <Button variant="outlined" onClick={restartOnboarding}>
+                {t('settings.showGuide')}
+              </Button>
+            </Paper>
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">{t('settings.pronunciation')}</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Paper sx={{ p: { xs: 2, sm: 3 } }}>
@@ -303,7 +347,7 @@ export const Settings: React.FC = () => {
 
         <Accordion>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Pomodoro Settings</Typography>
+            <Typography variant="h6">{t('settings.pomodoro')}</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Paper sx={{ p: { xs: 2, sm: 3 } }}>
@@ -365,7 +409,7 @@ export const Settings: React.FC = () => {
             variant="contained"
             onClick={handleSave}
           >
-            Save Settings
+            {t('settings.save')}
           </Button>
         </Box>
       </Box>
