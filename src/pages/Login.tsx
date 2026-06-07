@@ -13,12 +13,16 @@ export const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      return setError('Please enter your email and password');
+    }
     try {
       setError('');
-      await signIn(email, password);
+      await signIn(trimmedEmail, password);
       navigate('/');
     } catch (err) {
-      setError('Failed to sign in');
+      setError('Failed to sign in. Please check your email and password.');
     }
   };
 
@@ -50,6 +54,7 @@ export const Login: React.FC = () => {
             required
             fullWidth
             label="Email Address"
+            type="email"
             autoComplete="email"
             autoFocus
             value={email}

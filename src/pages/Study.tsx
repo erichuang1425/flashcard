@@ -76,10 +76,11 @@ export const Study: React.FC = () => {
 
   const handleAnswer = async (isCorrect: boolean) => {
     if (!user || currentIndex >= cards.length) return;
-    
-    const xpGained = isCorrect ? 8 : 3;
-    await updateUserXP(user.uid, xpGained);
-    
+
+    // Map the binary correct/incorrect result onto a review rating. XP is
+    // awarded inside handleRating, so it must not be awarded again here —
+    // doing so previously double-counted XP for multiple-choice and
+    // fill-in-the-blanks compared with standard flashcard reviews.
     await handleRating(isCorrect ? 4 : 2);
   };
 

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, Button, Typography, Paper, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
+import { normalizeAnswer } from '../../utils/helpers';
 
 interface Props {
   card: Flashcard;
@@ -11,13 +12,18 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
   const [answer, setAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Avoid calling onAnswer / setState after the session has advanced past
+  // this card.
+  useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const correct = answer.toLowerCase().trim() === card.word.toLowerCase().trim();
+    const correct = normalizeAnswer(answer) === normalizeAnswer(card.word);
     setIsCorrect(correct);
     setShowResult(true);
-    setTimeout(() => {
+    advanceTimer.current = setTimeout(() => {
       onAnswer(correct);
       setAnswer('');
       setShowResult(false);
@@ -49,7 +55,7 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
         />
         
         {showResult && (
-          <Alert severity={isCorrect ? 'success' : 'error'} sx={{ mb: 2 }}>
+          <Alert severity={isCorrect ? 'success' : 'error'} role="alert" sx={{ mb: 2 }}>
             {isCorrect ? 'Correct!' : `The correct answer is: ${card.word}`}
           </Alert>
         )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Button, Typography, Paper, Grid } from '@mui/material';
 import type { Flashcard } from '../../types';
+import { shuffle } from '../../utils/helpers';
 
 interface Props {
   cards: Flashcard[];
@@ -34,13 +35,17 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
     );
 
     if (card) {
-      setMatched(prev => new Set([...Array.from(prev), card.word, card.englishDefinition]));
+      const newMatched = new Set([...Array.from(matched), card.word, card.englishDefinition]);
+      setMatched(newMatched);
+      // Check completion against the freshly computed set. Reading the
+      // `matched` state here instead would be stale (React batches updates),
+      // which previously under-reported the score by one pair and never
+      // recognised a perfect round for the streak.
+      if (newMatched.size === cards.length * 2) {
+        onComplete(newMatched.size / 2);
+      }
     }
     setSelected(null);
-
-    if (matched.size === (cards.length * 2) - 2) {
-      onComplete(matched.size / 2);
-    }
   };
 
   const isSelected = (item: string) => selected === item;
@@ -59,6 +64,8 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
               fullWidth
               variant={isSelected(word) ? 'contained' : 'outlined'}
               disabled={isMatched(word)}
+              aria-pressed={isSelected(word)}
+              aria-label={`Word: ${word}${isMatched(word) ? ', matched' : ''}`}
               onClick={() => handleSelect(word, true)}
               sx={{ mb: 1, textTransform: 'none' }}
             >
@@ -73,6 +80,8 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
               fullWidth
               variant={isSelected(def) ? 'contained' : 'outlined'}
               disabled={isMatched(def)}
+              aria-pressed={isSelected(def)}
+              aria-label={`Definition: ${def}${isMatched(def) ? ', matched' : ''}`}
               onClick={() => handleSelect(def, false)}
               sx={{ mb: 1, textTransform: 'none' }}
             >
@@ -83,8 +92,4 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
       </Grid>
     </Paper>
   );
-};
-
-const shuffle = <T,>(array: T[]): T[] => {
-  return [...array].sort(() => Math.random() - 0.5);
 };
