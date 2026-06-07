@@ -5,7 +5,7 @@ import { getUserFlashcards, updateCardReview } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
 import { StudyProgress } from '../components/StudyProgress';
 import { StudyFeedback } from '../components/StudyFeedback';
-import { calculateNextReview } from '../utils/spaced-repetition';
+import { scheduleCardReview } from '../utils/spaced-repetition';
 import type { Flashcard, StudyProgress as StudyProgressType } from '../types';
 import { StudyModeSelector } from '../components/study-modes/StudyModeSelector';
 import type { StudyMode } from '../types';
@@ -90,8 +90,8 @@ export const Study: React.FC = () => {
     const card = cards[currentIndex];
     if (!card.id) return; 
     
-    const { nextReview, newDifficulty } = calculateNextReview(rating, card.difficulty);
-    await updateCardReview(user.uid, card.id, nextReview, newDifficulty);
+    const schedule = scheduleCardReview(card, rating);
+    await updateCardReview(user.uid, card.id, schedule);
 
     // Add XP based on rating
     const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;

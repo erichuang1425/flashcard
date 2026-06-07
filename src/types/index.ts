@@ -6,11 +6,17 @@ export interface Flashcard {
   englishDefinition: string;
   chineseTranslation?: string;
   difficulty: number;
-  categories: string[];  
+  categories: string[];
   created: Date;
   lastReviewed?: Date;
   nextReview: Date;
   mastered: boolean;
+  /** SM-2 ease multiplier. Optional for cards created before SRS state existed. */
+  easeFactor?: number;
+  /** Current review interval in whole days (0 while in the learning step). */
+  interval?: number;
+  /** Consecutive successful recalls. */
+  repetitions?: number;
 }
 
 export interface User {
