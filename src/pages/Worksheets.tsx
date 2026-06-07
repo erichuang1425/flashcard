@@ -165,7 +165,7 @@ export const Worksheets: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ 
-      minHeight: '100vh',
+      minHeight: '100dvh',
       py: { xs: 2, sm: 4 }
     }}>
       <Box sx={{ 
@@ -386,7 +386,7 @@ export const Worksheets: React.FC = () => {
                   </Button>
                 </Box>
                 <List dense sx={{ 
-                  maxHeight: 'calc(100vh - 250px)',
+                  maxHeight: 'calc(100dvh - 250px)',
                   overflowY: 'auto',
                   '&::-webkit-scrollbar': {
                     width: '8px',
