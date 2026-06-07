@@ -22,15 +22,29 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   // Auto collapse panel on small screens
   useEffect(() => {
-    const handleResize = () => {
+    const applyBreakpoint = () => {
       const isSmall = window.innerWidth < 900;
       setIsSmallScreen(isSmall);
       if (isSmall) setIsPanelCollapsed(true);
     };
 
+    // Throttle the resize burst (address-bar show/hide thrash) to one update
+    // per animation frame.
+    let frame = 0;
+    const handleResize = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        applyBreakpoint();
+      });
+    };
+
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
-    return () => window.removeEventListener('resize', handleResize);
+    applyBreakpoint(); // Initial check
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   return (
