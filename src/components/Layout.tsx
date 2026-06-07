@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Paper, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
+import { Box, Paper, Drawer, Typography, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { NavBar } from './NavBar';
@@ -16,58 +16,77 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { levelSystem } = useGamification();
   const { focusMode } = useFocusMode();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // Below `md` the fixed side panel is hidden; Level/Pomodoro move into an
+  // on-demand bottom sheet opened from the NavBar so they no longer crowd the
+  // phone viewport (and the content keeps its full height).
+  const isPanelHidden = useMediaQuery(theme.breakpoints.down('md'));
+  const [statsOpen, setStatsOpen] = useState(false);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 900);
   
   // Auto collapse panel on small screens
   useEffect(() => {
-    const handleResize = () => {
+    const applyBreakpoint = () => {
       const isSmall = window.innerWidth < 900;
       setIsSmallScreen(isSmall);
       if (isSmall) setIsPanelCollapsed(true);
     };
 
+    // Throttle the resize burst (address-bar show/hide thrash) to one update
+    // per animation frame.
+    let frame = 0;
+    const handleResize = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        applyBreakpoint();
+      });
+    };
+
     window.addEventListener('resize', handleResize);
-    handleResize(); // Initial check
-    return () => window.removeEventListener('resize', handleResize);
+    applyBreakpoint(); // Initial check
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
+    <Box sx={{
+      minHeight: '100dvh',
+      display: 'flex',
       flexDirection: 'column',
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
       transition: 'all 0.3s ease'
     }}>
       {/* NavBar already renders its own offset spacer below the fixed AppBar;
           a second spacer here previously left ~128px of dead space at the top. */}
-      <NavBar />
+      <NavBar onOpenStats={() => setStatsOpen(true)} />
 
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         flex: 1,
         position: 'relative',
         overflow: 'hidden',
-        pb: { xs: isPanelCollapsed ? 6 : 40, md: 0 }, // Add bottom padding on mobile for panel
+        // No mobile overlay panel anymore (it lives in the bottom sheet), so the
+        // large compensating bottom padding is gone; only desktop reserves room.
+        pb: 0,
         pr: { xs: 0, md: !focusMode && !isPanelCollapsed ? '324px' : '64px' }, // Add padding for panel
         transition: 'all 0.3s ease'
       }}>
-        {/* Main Content */}
-        <Container
-          maxWidth="lg"
+        {/* Main Content — each page owns its own max-width/padding via its own
+            Container; this Box is just the scroll region + side-panel offset. */}
+        <Box
           sx={{
             flex: 1,
             py: { xs: 2, sm: 3 },
-            px: { xs: 2, sm: 3, md: 4 },
             mx: 'auto',
             width: {
               xs: '100%',
               md: `calc(100% - ${!focusMode && !isPanelCollapsed ? '324px' : '64px'})` // Add extra spacing
             },
             transition: 'all 0.3s ease',
-            height: 'calc(100vh - 64px)',
+            height: 'calc(100dvh - 64px)',
             overflowY: 'auto',
             opacity: focusMode ? 0.97 : 1,
             filter: focusMode ? 'grayscale(0.2)' : 'none',
@@ -96,7 +115,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           }}
         >
           {children}
-        </Container>
+        </Box>
 
         {/* Collapsible Side Panel */}
         {!focusMode && (
@@ -109,7 +128,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               right: { xs: 0, md: 12 }, // Add right margin on desktop
               height: { 
                 xs: isPanelCollapsed ? '48px' : '300px',
-                md: 'calc(100vh - 88px)' // Adjust height to account for margins
+                md: 'calc(100dvh - 88px)' // Adjust height to account for margins
               },
               width: { 
                 xs: '100%',
@@ -117,7 +136,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               },
               maxWidth: { xs: '100%', md: '324px' },
               transition: 'all 0.3s ease',
-              display: 'flex',
+              // Hidden below `md`; the bottom sheet covers small screens.
+              display: { xs: 'none', md: 'flex' },
               flexDirection: { xs: 'column', md: 'row' },
               borderRadius: { 
                 xs: isPanelCollapsed ? 0 : '12px 12px 0 0',
@@ -198,6 +218,30 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Paper>
         )}
       </Box>
+
+      {/* Mobile/tablet on-demand "progress & timer" bottom sheet. Replaces the
+          old fixed bottom strip so it no longer steals viewport height. */}
+      <Drawer
+        anchor="bottom"
+        open={isPanelHidden && statsOpen}
+        onClose={() => setStatsOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        PaperProps={{
+          sx: {
+            borderRadius: '16px 16px 0 0',
+            maxHeight: '85dvh',
+            pb: 'env(safe-area-inset-bottom)',
+          },
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Progress & Timer
+          </Typography>
+          {levelSystem && <LevelProgress />}
+          <PomodoroTimer />
+        </Box>
+      </Drawer>
     </Box>
   );
 };

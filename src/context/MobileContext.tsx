@@ -22,17 +22,25 @@ export const MobileProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   useEffect(() => {
+    // Coalesce the rapid resize/orientation bursts (e.g. the mobile address bar
+    // showing/hiding) into one state update per animation frame.
+    let frame = 0;
     const handleResize = () => {
-      setState(prev => ({
-        ...prev,
-        isLandscape: window.innerWidth > window.innerHeight
-      }));
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setState(prev => ({
+          ...prev,
+          isLandscape: window.innerWidth > window.innerHeight
+        }));
+      });
     };
 
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
 
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
     };

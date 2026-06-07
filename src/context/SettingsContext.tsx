@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUserPreferences } from '../hooks/useUserPreferences';
+import { playNotificationCue } from '../utils/notification-sound';
 
 interface SettingsContextType {
   theme: 'light' | 'dark' | 'system';
@@ -56,8 +57,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else if (timeLeft === 0) {
       setIsBreak(prev => !prev);
       setTimeLeft(isBreak ? 25 * 60 : 5 * 60);
-      // Play notification sound
-      new Audio('/notification.mp3').play().catch(console.error);
+      // Signal the interval change with a synthesized chime + vibration
+      // fallback (no audio asset to load; see notification-sound.ts).
+      playNotificationCue();
     }
     return () => clearInterval(interval);
   }, [isActive, timeLeft, isBreak]);
