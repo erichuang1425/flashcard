@@ -11,6 +11,8 @@ export interface UserPreferences {
   audioEnabled: boolean;
   autoPlayAudio: boolean;
   language: 'en' | 'zh';
+  /** Set once the user finishes (or skips) the first-run beginner guide. */
+  onboardingCompleted?: boolean;
   pomodoroSettings: {
     workDuration: number;
     breakDuration: number;
@@ -46,6 +48,7 @@ export const useUserPreferences = () => {
             audioEnabled: true,
             autoPlayAudio: false,
             language: 'en',
+            onboardingCompleted: false,
             pomodoroSettings: {
               workDuration: 25,
               breakDuration: 5,
