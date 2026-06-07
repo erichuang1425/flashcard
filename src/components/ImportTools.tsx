@@ -35,6 +35,54 @@ interface RowError {
   reason: string;
 }
 
+interface BundledPack {
+  /** Stable id used to track which pack is currently loading. */
+  id: string;
+  /** Button label shown to the user. */
+  label: string;
+  /** Public path fetched for the pack's CSV. */
+  file: string;
+  /** Category automatically tagged onto every card in the pack. */
+  category: string;
+  /** Short helper text describing the pack. */
+  description: string;
+}
+
+// Curated word lists bundled with the app and importable in one click. Each
+// CSV lives under /public and uses the standard
+// word,partOfSpeech,englishDefinition,chineseTranslation columns. The PTE
+// Academic packs ship with Traditional Chinese translations.
+const BUNDLED_PACKS: BundledPack[] = [
+  {
+    id: 'sat',
+    label: 'SAT Word List',
+    file: '/sat.csv',
+    category: 'SAT',
+    description: 'High-frequency SAT vocabulary tagged with the "SAT" category.',
+  },
+  {
+    id: 'pte-academic-core',
+    label: 'PTE Academic — Core Vocabulary',
+    file: '/pte-academic-core.csv',
+    category: 'PTE Academic',
+    description: 'Essential academic words for PTE Academic, with Traditional Chinese translations.',
+  },
+  {
+    id: 'pte-describe-image',
+    label: 'PTE Academic — Describe Image',
+    file: '/pte-describe-image.csv',
+    category: 'PTE Academic',
+    description: 'Trend and data-description vocabulary for the Describe Image task (Traditional Chinese).',
+  },
+  {
+    id: 'pte-essay-connectors',
+    label: 'PTE Academic — Essay Connectors',
+    file: '/pte-essay-connectors.csv',
+    category: 'PTE Academic',
+    description: 'Linking words and argument vocabulary for PTE essays (Traditional Chinese).',
+  },
+];
+
 
 export const ImportTools: React.FC = () => {
   const { user } = useAuth();
@@ -200,28 +248,28 @@ export const ImportTools: React.FC = () => {
     }
   };
 
-  const handleLoadSatWords = async () => {
+  const handleLoadPack = async (pack: BundledPack) => {
     if (!user) return;
 
     try {
-      setLoadingSat(true);
+      setLoadingPackId(pack.id);
       setError(null);
-      const response = await fetch('/sat.csv');
+      const response = await fetch(pack.file);
       if (!response.ok) {
-        throw new Error('Could not load the SAT word list');
+        throw new Error(`Could not load the ${pack.label}`);
       }
       const csvText = await response.text();
-      setSelectedCategories(prev => (prev.includes('SAT') ? prev : [...prev, 'SAT']));
+      setSelectedCategories(prev => (prev.includes(pack.category) ? prev : [...prev, pack.category]));
       buildPreviewFromText(csvText);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load SAT word list');
+      setError(err instanceof Error ? err.message : `Failed to load ${pack.label}`);
     } finally {
-      setLoadingSat(false);
+      setLoadingPackId(null);
     }
   };
 
   const [text, setText] = useState<string | null>(null);
-  const [loadingSat, setLoadingSat] = useState(false);
+  const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -601,7 +649,7 @@ export const ImportTools: React.FC = () => {
                 <Button
                   variant="contained"
                   component="label"
-                  disabled={uploading || loadingSat}
+                  disabled={uploading || loadingPackId !== null}
                 >
                   Upload CSV File
                   <input
@@ -611,17 +659,28 @@ export const ImportTools: React.FC = () => {
                     onChange={handleFileUpload}
                   />
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={handleLoadSatWords}
-                  disabled={uploading || loadingSat}
-                  startIcon={loadingSat ? <CircularProgress size={16} /> : undefined}
-                >
-                  Load SAT Word List
-                </Button>
+              </Box>
+              <Typography variant="subtitle2" sx={{ mt: 3 }}>
+                Ready-made packs
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mt: 1 }}>
+                {BUNDLED_PACKS.map((pack) => (
+                  <Tooltip key={pack.id} title={pack.description} arrow>
+                    <span>
+                      <Button
+                        variant="outlined"
+                        onClick={() => handleLoadPack(pack)}
+                        disabled={uploading || loadingPackId !== null}
+                        startIcon={loadingPackId === pack.id ? <CircularProgress size={16} /> : undefined}
+                      >
+                        {pack.label}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                ))}
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                The SAT list adds a curated set of high-frequency vocabulary tagged with the &quot;SAT&quot; category.
+                The PTE Academic packs are curated for PTE Academic preparation and include Traditional Chinese translations.
               </Typography>
             </>
           )}
