@@ -16,12 +16,17 @@ import {
   TextField,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Slider,
+  Stack
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { usePronunciation } from '../context/PronunciationContext';
+import { accentLabel } from '../utils/speech';
 
 interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
@@ -55,6 +60,17 @@ export const Settings: React.FC = () => {
     }
   });
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
+
+  const {
+    supported: speechSupported,
+    voices,
+    voiceURI,
+    rate,
+    autoSpeak,
+    speaking,
+    speak,
+    updateSettings: updatePronunciation,
+  } = usePronunciation();
 
   useEffect(() => {
     const loadPreferences = async () => {
@@ -194,6 +210,93 @@ export const Settings: React.FC = () => {
                   label="Enable Audio"
                 />
               </Box>
+            </Paper>
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6">Pronunciation</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+              {!speechSupported ? (
+                <Alert severity="info">
+                  Your browser doesn't support speech synthesis, so pronunciation
+                  isn't available here. Try the latest Chrome, Edge, or Safari.
+                </Alert>
+              ) : (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Choose a voice and speed, then press preview to hear it. These
+                    settings apply instantly across your flashcards.
+                  </Typography>
+
+                  <FormControl fullWidth margin="normal">
+                    <InputLabel>Voice</InputLabel>
+                    <Select
+                      value={voices.some((v) => v.voiceURI === voiceURI) ? voiceURI : ''}
+                      label="Voice"
+                      onChange={(e) => updatePronunciation({ voiceURI: e.target.value })}
+                    >
+                      {voices.length === 0 && (
+                        <MenuItem value="" disabled>
+                          Loading voices…
+                        </MenuItem>
+                      )}
+                      {voices.map((v) => (
+                        <MenuItem key={v.voiceURI} value={v.voiceURI}>
+                          {v.name} — {accentLabel(v.lang)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Box sx={{ mt: 3 }}>
+                    <Typography gutterBottom>Speed: {rate.toFixed(1)}x</Typography>
+                    <Slider
+                      value={rate}
+                      min={0.5}
+                      max={1.5}
+                      step={0.1}
+                      marks={[
+                        { value: 0.5, label: 'Slow' },
+                        { value: 1, label: 'Normal' },
+                        { value: 1.5, label: 'Fast' },
+                      ]}
+                      onChange={(_, value) =>
+                        updatePronunciation({ rate: value as number })
+                      }
+                      valueLabelDisplay="auto"
+                    />
+                  </Box>
+
+                  <Box sx={{ mt: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={autoSpeak}
+                          onChange={(e) =>
+                            updatePronunciation({ autoSpeak: e.target.checked })
+                          }
+                        />
+                      }
+                      label="Pronounce each word automatically"
+                    />
+                  </Box>
+
+                  <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<VolumeUpIcon />}
+                      onClick={() => speak('pronunciation')}
+                      disabled={speaking}
+                    >
+                      {speaking ? 'Playing…' : 'Preview voice'}
+                    </Button>
+                  </Stack>
+                </>
+              )}
             </Paper>
           </AccordionDetails>
         </Accordion>

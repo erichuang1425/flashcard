@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, Typography, Box, Button, Tooltip, useMediaQuery, Theme } from '@mui/material';
 import { Flashcard } from '../types';
 import { capitalizeFirstWord } from '../utils/helpers';
+import { PronunciationButton } from './PronunciationButton';
+import { usePronunciation } from '../context/PronunciationContext';
 
 interface FlashCardProps {
   card: Flashcard;
@@ -21,6 +23,15 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
   // Read responsive state once at the top — calling hooks inside the rating
   // map (as the previous version did) violates the Rules of Hooks.
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
+  const { autoSpeak, speak, supported } = usePronunciation();
+
+  // Auto-pronounce each new word when the user has opted in.
+  useEffect(() => {
+    if (supported && autoSpeak && card.word) {
+      speak(card.word);
+    }
+    // Re-run when the visible word changes; `speak` is stable per settings.
+  }, [card.word, autoSpeak, supported, speak]);
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -46,21 +57,23 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
           justifyContent: 'center',
           p: { xs: 2, sm: 3 },
         }}>
-          {/* Word is always visible */}
-          <Typography
-            variant="h3"
-            sx={{
-              fontSize: { xs: '2rem', sm: '3.5rem' },
-              fontWeight: 700,
-              mb: 2,
-              textAlign: 'center',
-              background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            {card.word}
-          </Typography>
+          {/* Word is always visible, with a tap-to-pronounce speaker button */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 2 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontSize: { xs: '2rem', sm: '3.5rem' },
+                fontWeight: 700,
+                textAlign: 'center',
+                background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              {card.word}
+            </Typography>
+            <PronunciationButton text={card.word} size={isMobile ? 'medium' : 'large'} />
+          </Box>
 
           {/* Definitions and translations fade in */}
           <Box sx={{
