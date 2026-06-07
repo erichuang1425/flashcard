@@ -26,14 +26,18 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import { useSettings } from '../context/SettingsContext';
 
 interface NavBarProps {
-  focusMode: boolean;
-  onFocusChange: (active: boolean) => void;
+  // Opens the mobile "progress & timer" bottom sheet. Provided by Layout only
+  // on breakpoints where the persistent side panel is hidden.
+  onOpenStats?: () => void;
 }
 
-export const NavBar: React.FC = () => {
+export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // The fixed side panel only renders from `md` up, so below that we surface
+  // Level/Pomodoro through the bottom sheet instead.
+  const isPanelHidden = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const location = useLocation();
@@ -217,6 +221,17 @@ export const NavBar: React.FC = () => {
           >
             FlashCards AI
           </Typography>
+
+          {isPanelHidden && onOpenStats && (
+            <IconButton
+              color="inherit"
+              onClick={onOpenStats}
+              aria-label="Open progress and Pomodoro timer"
+              sx={{ ml: 1 }}
+            >
+              <EmojiEventsIcon />
+            </IconButton>
+          )}
 
           {!isMobile && levelSystem && (
             <Box sx={{ 
