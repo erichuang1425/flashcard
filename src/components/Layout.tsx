@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Paper, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
+import { Box, Paper, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { NavBar } from './NavBar';
@@ -34,9 +34,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, []);
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
+    <Box sx={{
+      minHeight: '100dvh',
+      display: 'flex',
       flexDirection: 'column',
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
       transition: 'all 0.3s ease'
@@ -54,20 +54,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         pr: { xs: 0, md: !focusMode && !isPanelCollapsed ? '324px' : '64px' }, // Add padding for panel
         transition: 'all 0.3s ease'
       }}>
-        {/* Main Content */}
-        <Container
-          maxWidth="lg"
+        {/* Main Content — each page owns its own max-width/padding via its own
+            Container; this Box is just the scroll region + side-panel offset. */}
+        <Box
           sx={{
             flex: 1,
             py: { xs: 2, sm: 3 },
-            px: { xs: 2, sm: 3, md: 4 },
             mx: 'auto',
             width: {
               xs: '100%',
               md: `calc(100% - ${!focusMode && !isPanelCollapsed ? '324px' : '64px'})` // Add extra spacing
             },
             transition: 'all 0.3s ease',
-            height: 'calc(100vh - 64px)',
+            height: 'calc(100dvh - 64px)',
             overflowY: 'auto',
             opacity: focusMode ? 0.97 : 1,
             filter: focusMode ? 'grayscale(0.2)' : 'none',
@@ -96,7 +95,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           }}
         >
           {children}
-        </Container>
+        </Box>
 
         {/* Collapsible Side Panel */}
         {!focusMode && (
@@ -109,7 +108,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               right: { xs: 0, md: 12 }, // Add right margin on desktop
               height: { 
                 xs: isPanelCollapsed ? '48px' : '300px',
-                md: 'calc(100vh - 88px)' // Adjust height to account for margins
+                md: 'calc(100dvh - 88px)' // Adjust height to account for margins
               },
               width: { 
                 xs: '100%',

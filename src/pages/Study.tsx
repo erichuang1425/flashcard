@@ -256,10 +256,10 @@ export const Study: React.FC = () => {
   return (
     <Container maxWidth="xl" sx={{ 
       py: { xs: 2, sm: 3 },
-      minHeight: '100vh'
+      minHeight: '100dvh'
     }}>
       <Box sx={{
-        minHeight: { xs: 'calc(100vh - 64px)', sm: 'calc(100vh - 48px)' },
+        minHeight: { xs: 'calc(100dvh - 64px)', sm: 'calc(100dvh - 48px)' },
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
         gap: { xs: 2, sm: 3 },
@@ -269,7 +269,7 @@ export const Study: React.FC = () => {
           position: { xs: 'static', md: 'sticky' },
           top: { xs: 0, md: 24 },
           width: { xs: '100%', md: '300px' },
-          height: { xs: 'auto', md: 'calc(100vh - 96px)' },
+          height: { xs: 'auto', md: 'calc(100dvh - 96px)' },
           overflowY: 'auto',
           bgcolor: 'background.paper',
           borderRadius: 2,

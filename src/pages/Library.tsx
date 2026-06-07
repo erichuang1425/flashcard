@@ -45,7 +45,7 @@ export const Library: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ 
-      minHeight: '100vh',
+      minHeight: '100dvh',
       py: { xs: 2, sm: 4 } 
     }}>
       <Box sx={{ 
