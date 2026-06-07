@@ -10,7 +10,6 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import { GamificationProvider } from './context/GamificationContext';
 import { FocusModeProvider } from './context/FocusModeContext';
-import { SettingsProvider } from './context/SettingsContext';
 
 // Route-level code-splitting: each page loads as a separate chunk on demand,
 // keeping the initial bundle small.
@@ -44,10 +43,14 @@ const App: React.FC = () => {
   const { user } = useAuth();
 
   return (
-    <SettingsProvider>
-      <GamificationProvider>
-        <FocusModeProvider>
-          <Layout>
+    // SettingsProvider is mounted once in main.tsx (wrapping ThemedApp) so the
+    // rendered MUI theme and the in-app theme toggle share a single source of
+    // truth. Mounting it again here previously split that state, leaving the
+    // dark-mode toggle a no-op and duplicating the Pomodoro timer + preference
+    // subscription.
+    <GamificationProvider>
+      <FocusModeProvider>
+        <Layout>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={
@@ -97,10 +100,9 @@ const App: React.FC = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-          </Layout>
-        </FocusModeProvider>
-      </GamificationProvider>
-    </SettingsProvider>
+        </Layout>
+      </FocusModeProvider>
+    </GamificationProvider>
   );
 };
 
