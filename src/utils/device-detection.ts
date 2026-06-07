@@ -19,7 +19,12 @@ export const isMobile = {
     },
     iOS: (): boolean => {
       if (typeof navigator === 'undefined') return false;
-      return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      // iPadOS 13+ reports a desktop "Macintosh" user agent, so a touch-capable
+      // Mac is really an iPad. Without this, iPads take the unreliable popup
+      // sign-in path instead of the redirect flow.
+      const iPadOS =
+        /Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent) || iPadOS;
     },
     Opera: (): boolean => {
       if (typeof navigator === 'undefined') return false;
