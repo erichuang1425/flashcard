@@ -163,7 +163,7 @@ export interface Category {
   count: number;
 }
 
-export type StudyMode = 'flashcard' | 'multipleChoice' | 'fillInBlanks' | 'matching';
+export type StudyMode = 'flashcard' | 'multipleChoice' | 'fillInBlanks' | 'matching' | 'fillInPuzzle';
 
 export interface MultipleChoiceQuestion {
   word: string;

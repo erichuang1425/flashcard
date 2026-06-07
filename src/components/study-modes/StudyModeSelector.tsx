@@ -4,7 +4,8 @@ import {
   School as SchoolIcon,
   CheckBox as CheckBoxIcon,
   TextFields as TextFieldsIcon,
-  Compare as CompareIcon
+  Compare as CompareIcon,
+  Extension as ExtensionIcon
 } from '@mui/icons-material';
 import type { StudyMode } from '../../types';
 
@@ -17,7 +18,8 @@ const modes: { value: StudyMode; label: string; icon: JSX.Element }[] = [
   { value: 'flashcard', label: 'Flashcards', icon: <SchoolIcon /> },
   { value: 'multipleChoice', label: 'Multiple Choice', icon: <CheckBoxIcon /> },
   { value: 'fillInBlanks', label: 'Fill Blanks', icon: <TextFieldsIcon /> },
-  { value: 'matching', label: 'Matching', icon: <CompareIcon /> }
+  { value: 'matching', label: 'Matching', icon: <CompareIcon /> },
+  { value: 'fillInPuzzle', label: 'Crossword', icon: <ExtensionIcon /> }
 ];
 
 export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({ mode, onModeChange }) => {
