@@ -7,11 +7,13 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect
+  signInWithRedirect,
+  getRedirectResult
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import type { User } from '../types';
 import { useMobile } from './MobileContext';
+import { isPopupCancelledByUser, shouldFallbackToRedirect } from '../utils/authFallback';
 
 interface AuthContextType {
   user: User | null;
@@ -30,6 +32,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { isMobileDevice } = useMobile();
 
   useEffect(() => {
+    // Complete any pending redirect sign-in (mobile flow or popup-blocked
+    // fallback). Resolving this lets the Firebase SDK finish the round-trip;
+    // onAuthStateChanged below then receives the signed-in user. A missing or
+    // failed redirect result is non-fatal, so swallow it here.
+    getRedirectResult(auth).catch(() => {});
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         setUser({
@@ -61,10 +69,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+
+    // On mobile, popups are unreliable (often blocked or unsupported), so go
+    // straight to the redirect flow.
     if (isMobileDevice) {
       await signInWithRedirect(auth, provider);
-    } else {
+      return;
+    }
+
+    // On desktop, prefer the popup but fall back to a redirect when the popup
+    // is blocked or unsupported. A user-initiated cancel is treated as a no-op.
+    try {
       await signInWithPopup(auth, provider);
+    } catch (err) {
+      if (isPopupCancelledByUser(err)) {
+        return;
+      }
+      if (shouldFallbackToRedirect(err)) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+      throw err;
     }
   };
 
