@@ -3,15 +3,17 @@ import { Box, Button, Paper, Typography, Alert, Stack } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { generateCrossword } from '../../utils/crossword';
 import type { CrosswordCell } from '../../utils/crossword';
+import type { BatchResult } from './types';
 
 interface Props {
   cards: Flashcard[];
-  onComplete: (correct: number) => void;
+  onComplete: (results: BatchResult[]) => void;
 }
 
 const CELL_SIZE = 38;
 
 const keyOf = (row: number, col: number): string => `${row},${col}`;
+const sanitizeWord = (value: string): string => value.toUpperCase().replace(/[^A-Z]/g, '');
 
 export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
   const layout = useMemo(
@@ -21,6 +23,18 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
       ),
     [cards]
   );
+
+  // Map a placed answer back to its card id so each solved word can be scored
+  // individually by the scheduler. The generator skips duplicate answers, so the
+  // first card with a given normalized word owns it.
+  const idByAnswer = useMemo(() => {
+    const map = new Map<string, string>();
+    cards.forEach((card) => {
+      const key = sanitizeWord(card.word);
+      if (!map.has(key)) map.set(key, card.id);
+    });
+    return map;
+  }, [cards]);
 
   const cellMap = useMemo(() => {
     const map = new Map<string, CrosswordCell>();
@@ -43,7 +57,7 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
         <Typography color="text.secondary" sx={{ mb: 2 }}>
           These cards don&apos;t share enough letters to build a crossword.
         </Typography>
-        <Button variant="contained" onClick={() => onComplete(0)}>
+        <Button variant="contained" onClick={() => onComplete([])}>
           Skip puzzle
         </Button>
       </Paper>
@@ -57,32 +71,43 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
     setChecked(false);
   };
 
-  const countSolved = (): number =>
-    layout.placed.filter((word) => {
-      const length = word.answer.replace(/[^A-Za-z]/g, '').length;
-      for (let i = 0; i < length; i++) {
-        const row = word.direction === 'across' ? word.row : word.row + i;
-        const col = word.direction === 'across' ? word.col + i : word.col;
-        const cell = cellMap.get(keyOf(row, col));
-        if (!cell || (entries[keyOf(row, col)] || '') !== cell.letter) {
-          return false;
-        }
+  const isWordSolved = (word: (typeof layout.placed)[number]): boolean => {
+    const length = sanitizeWord(word.answer).length;
+    for (let i = 0; i < length; i++) {
+      const row = word.direction === 'across' ? word.row : word.row + i;
+      const col = word.direction === 'across' ? word.col + i : word.col;
+      const cell = cellMap.get(keyOf(row, col));
+      if (!cell || (entries[keyOf(row, col)] || '') !== cell.letter) {
+        return false;
       }
-      return true;
-    }).length;
+    }
+    return true;
+  };
+
+  const countSolved = (): number => layout.placed.filter(isWordSolved).length;
+
+  // Build a per-card result for every placed word so each is scheduled
+  // according to whether the player got it right.
+  const buildResults = (): BatchResult[] =>
+    layout.placed
+      .map((word) => {
+        const id = idByAnswer.get(sanitizeWord(word.answer));
+        return id ? { id, correct: isWordSolved(word) } : null;
+      })
+      .filter((r): r is BatchResult => r !== null);
 
   const handleCheck = () => {
     setChecked(true);
     if (countSolved() === layout.placed.length) {
       setDone(true);
-      onComplete(layout.placed.length);
+      onComplete(buildResults());
     }
   };
 
   const handleFinish = () => {
     if (done) return;
     setDone(true);
-    onComplete(countSolved());
+    onComplete(buildResults());
   };
 
   const solved = countSolved();
