@@ -14,19 +14,24 @@ import {
   DialogActions,
   Button,
   IconButton,
-  Box
+  Box,
+  Chip,
+  Stack,
+  Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
 import { useAuth } from '../context/AuthContext';
 import {
   addDiaryEntry,
   getDiaryEntries,
   updateDiaryEntry,
-  deleteDiaryEntry
+  deleteDiaryEntry,
+  getSuggestedVocabulary
 } from '../services/firestore';
-import type { DiaryEntry } from '../types';
+import type { DiaryEntry, Flashcard } from '../types';
 
 const WRITING_PROMPTS = [
   'Write about something that challenged you today.',
@@ -44,6 +49,9 @@ export const Diary: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editingText, setEditingText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Flashcard[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [usedWords, setUsedWords] = useState<string[]>([]);
 
   useEffect(() => {
     const loadEntries = async () => {
@@ -60,16 +68,33 @@ export const Diary: React.FC = () => {
       userId: user.uid,
       text,
       createdAt: new Date(),
+      ...(usedWords.length > 0 ? { usedWords } : {}),
     };
     const id = await addDiaryEntry(newEntry);
     setEntries([{ id, ...newEntry }, ...entries]);
     setText('');
+    setUsedWords([]);
     setOpen(false);
   };
 
-  const handleOpenNew = () => {
+  const handleOpenNew = async () => {
     setPrompt(WRITING_PROMPTS[Math.floor(Math.random() * WRITING_PROMPTS.length)]);
+    setUsedWords([]);
+    setShowSuggestions(true);
     setOpen(true);
+    if (user) {
+      try {
+        const words = await getSuggestedVocabulary(user.uid, 6);
+        setSuggestions(words);
+      } catch (err) {
+        setSuggestions([]);
+      }
+    }
+  };
+
+  const handleInsertWord = (word: string) => {
+    setText(prev => (prev.trim() ? `${prev.trimEnd()} ${word}` : word));
+    setUsedWords(prev => (prev.includes(word) ? prev : [...prev, word]));
   };
 
   const handleEdit = (entry: DiaryEntry) => {
@@ -143,6 +168,38 @@ export const Diary: React.FC = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               {prompt}
             </Typography>
+          )}
+          {showSuggestions && suggestions.length > 0 && (
+            <Box
+              sx={{
+                mb: 2,
+                p: 1.5,
+                borderRadius: 1,
+                bgcolor: 'action.hover',
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Use these words you&apos;re studying:
+                </Typography>
+                <IconButton size="small" onClick={() => setShowSuggestions(false)} aria-label="Dismiss suggestions">
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {suggestions.map((card) => (
+                  <Tooltip key={card.id} title={card.englishDefinition} arrow>
+                    <Chip
+                      label={card.word}
+                      onClick={() => handleInsertWord(card.word)}
+                      color={usedWords.includes(card.word) ? 'primary' : 'default'}
+                      variant={usedWords.includes(card.word) ? 'filled' : 'outlined'}
+                      size="small"
+                    />
+                  </Tooltip>
+                ))}
+              </Stack>
+            </Box>
           )}
           <TextField
             multiline

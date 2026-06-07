@@ -82,6 +82,30 @@ export const getUserFlashcards = async (userId: string): Promise<Flashcard[]> =>
   }
 };
 
+/**
+ * Suggest vocabulary words to practice in the diary. Prefers cards that are due
+ * for review (nextReview in the past); if none are due, falls back to the
+ * next-upcoming cards. Reuses getUserFlashcards so the ordering and date
+ * conversion stay consistent with the rest of the app.
+ */
+export const getSuggestedVocabulary = async (
+  userId: string,
+  count: number = 5
+): Promise<Flashcard[]> => {
+  const cards = await getUserFlashcards(userId);
+  const now = new Date();
+
+  const due = cards.filter(card => {
+    if (!card.nextReview) return true;
+    const reviewDate =
+      card.nextReview instanceof Date ? card.nextReview : new Date(card.nextReview);
+    return reviewDate <= now;
+  });
+
+  const pool = due.length > 0 ? due : cards;
+  return pool.slice(0, count);
+};
+
 export const updateCardReview = async (
   userId: string,  
   cardId: string, 
