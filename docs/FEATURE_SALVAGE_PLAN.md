@@ -26,6 +26,21 @@ below, prioritized by value-to-effort.
 
 ---
 
+## Implementation status
+
+| Item | Source PR(s) | Status |
+| --- | --- | --- |
+| A. Mobile Google sign-in fallback | #57 | ✅ Implemented (`src/utils/authFallback.ts`, `AuthContext`) |
+| B. Fill-in puzzle (crossword) mode | #56 | ✅ Implemented (`src/utils/crossword.ts`, `FillInPuzzle.tsx`) — self-contained generator instead of the `crossword-layout-generator` dependency |
+| C. SAT vocabulary import | #55/#60/#61 | ✅ Implemented via static `public/sat.csv` + "Load SAT Word List" in `ImportTools`; build-time enrichment script not ported (unnecessary for a static list) |
+| D. Suggested vocabulary in diary | #59 | ✅ Implemented (`getSuggestedVocabulary`, chip row in `Diary.tsx`) |
+| E. Mobile scrolling fix | #52 | ✅ Already fixed on `main` — `Layout` uses `overflowY: 'auto'`; no change needed |
+| F. Clear stale duplicate-word warning | #62 | ⏭️ N/A — `main`'s manual-entry path has no duplicate detection, so there is no stale-warning bug to clear |
+| G. Diary prompts | #53/#54 | ⏭️ Not ported — `main`'s `Diary.tsx` already ships static English `WRITING_PROMPTS` |
+| H. Grammar checking service | #58 | ⏭️ Not ported — out of scope (external per-keystroke API + removed i18n) |
+
+---
+
 ## Tier 1 — High value, clean fit (recommended first)
 
 ### A. Mobile Google sign-in fallback — from #57
