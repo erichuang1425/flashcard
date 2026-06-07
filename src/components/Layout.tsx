@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Toolbar, Paper, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
+import { Box, Container, Paper, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { NavBar } from './NavBar';
@@ -41,9 +41,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
       transition: 'all 0.3s ease'
     }}>
+      {/* NavBar already renders its own offset spacer below the fixed AppBar;
+          a second spacer here previously left ~128px of dead space at the top. */}
       <NavBar />
-      <Toolbar />
-      
+
       <Box sx={{ 
         display: 'flex', 
         flex: 1,
