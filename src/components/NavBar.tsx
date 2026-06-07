@@ -198,12 +198,20 @@ export const NavBar: React.FC = () => {
             </IconButton>
           )}
           
-          <Typography 
-            variant="h6" 
-            component="div" 
-            sx={{ 
+          <Typography
+            variant="h6"
+            component="button"
+            type="button"
+            aria-label="Go to home"
+            sx={{
               flexGrow: 1,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              textAlign: 'left',
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              font: 'inherit',
+              p: 0,
             }}
             onClick={() => navigate('/')}
           >

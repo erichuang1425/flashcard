@@ -30,6 +30,11 @@ interface PreviewData {
   categories: string[];
 }
 
+interface RowError {
+  row: number;
+  reason: string;
+}
+
 
 export const ImportTools: React.FC = () => {
   const { user } = useAuth();
@@ -57,6 +62,8 @@ export const ImportTools: React.FC = () => {
   });
   const [globalCategories, setGlobalCategories] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [rowErrors, setRowErrors] = useState<RowError[]>([]);
+  const [manualSuccess, setManualSuccess] = useState<string | null>(null);
 
   const handleCategoryChange = (event: SelectChangeEvent<string[]>) => {
     setSelectedCategories(event.target.value as string[]);
@@ -89,46 +96,64 @@ export const ImportTools: React.FC = () => {
       // Move to import stage immediately
       setActiveStep(2);
       setStats({ total: dataLines.length, processed: 0, success: 0, failed: 0, completed: false });
-      
+      setRowErrors([]);
+
       // Process in smaller batches to allow UI updates
       const batchSize = 5;
       for (let i = 0; i < dataLines.length; i += batchSize) {
         const batch = dataLines.slice(i, i + batchSize);
-        
+
         // Process each item in the current batch
         for (let j = 0; j < batch.length; j++) {
+          const lineIndex = i + j;
+          // +2 maps the zero-based data index back to the original file line
+          // number (one header row plus 1-based counting) for error reports.
+          const rowNumber = lineIndex + 2;
           const [word, partOfSpeech, englishDefinition, chineseTranslation] = parseCSVLine(batch[j]);
-          
-          try {
-            if (word && partOfSpeech && englishDefinition && chineseTranslation && user) {
-              await addFlashcard({
-                userId: user.uid,
-                word,
-                partOfSpeech,
-                englishDefinition,
-                chineseTranslation,
-                categories: selectedCategories,
-                difficulty: 0,
-                created: new Date(),
-                lastReviewed: undefined,
-                nextReview: new Date(),
-                mastered: false
-              });
-              
-              setStats(prev => ({ 
-                ...prev, 
-                processed: i + j + 1,
-                success: prev.success + 1,
-                completed: (i + j + 1) === dataLines.length
-              }));
-            }
-          } catch (err) {
-            setStats(prev => ({ 
-              ...prev, 
-              processed: i + j + 1,
+
+          const missing = !word || !partOfSpeech || !englishDefinition || !chineseTranslation;
+
+          const recordFailure = (reason: string) => {
+            setRowErrors(prev => [...prev, { row: rowNumber, reason }]);
+            setStats(prev => ({
+              ...prev,
+              processed: lineIndex + 1,
               failed: prev.failed + 1,
-              completed: (i + j + 1) === dataLines.length
+              completed: (lineIndex + 1) === dataLines.length
             }));
+          };
+
+          if (missing || !user) {
+            // Previously these rows were silently skipped, leaving
+            // processed < total so the progress bar never reached 100% and
+            // the completion alert never appeared.
+            recordFailure(missing ? 'Missing required field(s)' : 'Not signed in');
+            continue;
+          }
+
+          try {
+            await addFlashcard({
+              userId: user.uid,
+              word,
+              partOfSpeech,
+              englishDefinition,
+              chineseTranslation,
+              categories: selectedCategories,
+              difficulty: 0,
+              created: new Date(),
+              lastReviewed: undefined,
+              nextReview: new Date(),
+              mastered: false
+            });
+
+            setStats(prev => ({
+              ...prev,
+              processed: lineIndex + 1,
+              success: prev.success + 1,
+              completed: (lineIndex + 1) === dataLines.length
+            }));
+          } catch (err) {
+            recordFailure(err instanceof Error ? err.message : 'Failed to save');
           }
         }
         
@@ -285,13 +310,58 @@ export const ImportTools: React.FC = () => {
         Success: {stats.success}, Failed: {stats.failed}
       </Typography>
       {stats.completed && (
-        <Alert severity="success" sx={{ mt: 2 }}>
+        <Alert severity={stats.failed > 0 ? 'warning' : 'success'} sx={{ mt: 2 }}>
           Import completed! Successfully imported {stats.success} cards
           {stats.failed > 0 ? ` (${stats.failed} failed)` : ''}
         </Alert>
       )}
+      {rowErrors.length > 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="subtitle2">
+              Rows that could not be imported ({rowErrors.length})
+            </Typography>
+            <Button size="small" onClick={handleDownloadErrors}>
+              Download error report
+            </Button>
+          </Box>
+          <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Row</TableCell>
+                  <TableCell>Reason</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rowErrors.map(({ row, reason }) => (
+                  <TableRow key={row}>
+                    <TableCell>{row}</TableCell>
+                    <TableCell>{reason}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        </Box>
+      )}
     </Box>
   );
+
+  const handleDownloadErrors = () => {
+    const header = 'row,reason';
+    const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const body = rowErrors
+      .map(({ row, reason }) => `${row},${escape(reason)}`)
+      .join('\n');
+    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'import-errors.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleManualSubmit = async () => {
     if (!user) return;
@@ -299,6 +369,8 @@ export const ImportTools: React.FC = () => {
     try {
       setUploading(true);
       setError(null);
+      setManualSuccess(null);
+      const addedWord = manualEntry.word.trim();
       await addFlashcard({
         userId: user.uid,
         ...manualEntry,
@@ -308,6 +380,8 @@ export const ImportTools: React.FC = () => {
         nextReview: new Date(),
         mastered: false
       });
+
+      setManualSuccess(addedWord);
 
       // Reset form after successful submission
       setManualEntry({
@@ -381,7 +455,28 @@ export const ImportTools: React.FC = () => {
             helperText="Enter categories separated by commas"
           />
         </Grid>
-        <Button onClick={handleManualSubmit}>Add Flashcard</Button>
+        <Grid item xs={12}>
+          <Button
+            variant="contained"
+            onClick={handleManualSubmit}
+            disabled={
+              uploading ||
+              !manualEntry.word.trim() ||
+              !manualEntry.partOfSpeech.trim() ||
+              !manualEntry.englishDefinition.trim() ||
+              !manualEntry.chineseTranslation.trim()
+            }
+          >
+            Add Flashcard
+          </Button>
+        </Grid>
+        {manualSuccess && (
+          <Grid item xs={12}>
+            <Alert severity="success" onClose={() => setManualSuccess(null)}>
+              Added &quot;{manualSuccess}&quot; to your library.
+            </Alert>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );
