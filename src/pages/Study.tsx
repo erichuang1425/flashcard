@@ -3,6 +3,8 @@ import { Container, Typography, Box, Button, Paper, Alert, AlertTitle, CircularP
 import { useAuth } from '../context/AuthContext';
 import { getUserFlashcards, updateCardReview } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
+import { GuideTip } from '../components/guide/GuideTip';
+import { useLanguage } from '../i18n/LanguageContext';
 import { StudyProgress } from '../components/StudyProgress';
 import { scheduleCardReview } from '../utils/spaced-repetition';
 import type { BatchResult } from '../components/study-modes/types';
@@ -44,6 +46,7 @@ const CenteredState: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 export const Study: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [cards, setCards] = useState<Flashcard[]>([]);
   // Full deck kept around so study modes that need distractors (e.g. Multiple
   // Choice) don't have to refetch every card from Firestore.
@@ -201,11 +204,20 @@ export const Study: React.FC = () => {
     switch (studyMode) {
       case 'flashcard':
         return (
-          <FlashCard 
-            card={cards[currentIndex]}
-            onRating={showAnswer ? handleRating : undefined}
-            showAnswer={showAnswer}
-          />
+          <GuideTip
+            id="study.card"
+            order={1}
+            title={t('guide.studyCard.title')}
+            body={t('guide.studyCard.body')}
+            placement="bottom"
+          >
+            <FlashCard
+              card={cards[currentIndex]}
+              onRating={showAnswer ? handleRating : undefined}
+              showAnswer={showAnswer}
+              onToggleAnswer={() => setShowAnswer((prev) => !prev)}
+            />
+          </GuideTip>
         );
       case 'multipleChoice':
         return <MultipleChoice card={cards[currentIndex]} deck={deck} onAnswer={handleAnswer} />;
@@ -249,7 +261,7 @@ export const Study: React.FC = () => {
           fontWeight: 600,
         }}
       >
-        {showAnswer ? 'Show Word' : 'Show Answer'}
+        {showAnswer ? t('study.showWord') : t('study.showAnswer')}
       </Button>
     );
   };
