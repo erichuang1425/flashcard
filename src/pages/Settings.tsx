@@ -29,6 +29,7 @@ import { usePronunciation } from '../context/PronunciationContext';
 import { accentLabel } from '../utils/speech';
 import { useLanguage } from '../i18n/LanguageContext';
 import { useOnboarding } from '../context/OnboardingContext';
+import { useGuide } from '../context/GuideContext';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../i18n/translations';
 
 interface UserPreferences {
@@ -65,6 +66,7 @@ export const Settings: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const { t, language, setLanguage } = useLanguage();
   const { restartOnboarding } = useOnboarding();
+  const { tipsEnabled, setTipsEnabled, resetTips } = useGuide();
 
   const {
     supported: speechSupported,
@@ -251,9 +253,28 @@ export const Settings: React.FC = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('settings.guideDesc')}
               </Typography>
-              <Button variant="outlined" onClick={restartOnboarding}>
-                {t('settings.showGuide')}
-              </Button>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tipsEnabled}
+                    onChange={(e) => setTipsEnabled(e.target.checked)}
+                  />
+                }
+                label={t('settings.tipsToggle')}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+                {t('settings.tipsDesc')}
+              </Typography>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                <Button variant="outlined" onClick={resetTips}>
+                  {t('settings.replayTips')}
+                </Button>
+                <Button variant="outlined" onClick={restartOnboarding}>
+                  {t('settings.showGuide')}
+                </Button>
+              </Stack>
             </Paper>
           </AccordionDetails>
         </Accordion>
