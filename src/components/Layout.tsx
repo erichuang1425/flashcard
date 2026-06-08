@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Paper, Drawer, Typography, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
+import { useLocation } from 'react-router-dom';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { NavBar } from './NavBar';
@@ -17,6 +18,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { levelSystem } = useGamification();
   const { focusMode } = useFocusMode();
   const theme = useTheme();
+  const location = useLocation();
+  // The Study page renders its own 300px progress sidebar, so Layout's fixed
+  // Level/Pomodoro panel would stack beside it and squeeze the card to a narrow
+  // column at `md`. Suppress the desktop panel (and its width reservation) on
+  // Study; Level/Pomodoro stay reachable on mobile via the bottom sheet.
+  const isStudyRoute = location.pathname === '/study';
+  const showSidePanel = !focusMode && !isStudyRoute;
   // Below `md` the fixed side panel is hidden; Level/Pomodoro move into an
   // on-demand bottom sheet opened from the NavBar so they no longer crowd the
   // phone viewport (and the content keeps its full height).
@@ -47,7 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         // No mobile overlay panel anymore (it lives in the bottom sheet), so the
         // large compensating bottom padding is gone; only desktop reserves room.
         pb: 0,
-        pr: { xs: 0, md: !focusMode && !isPanelCollapsed ? '324px' : '64px' }, // Add padding for panel
+        pr: { xs: 0, md: showSidePanel ? (!isPanelCollapsed ? '324px' : '64px') : 0 }, // Reserve room only when the panel is shown
         transition: 'all 0.3s ease'
       }}>
         {/* Main Content — each page owns its own max-width/padding via its own
@@ -100,7 +108,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </Box>
 
         {/* Collapsible Side Panel */}
-        {!focusMode && (
+        {showSidePanel && (
           <Paper
             elevation={2}
             sx={{

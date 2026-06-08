@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Button, Typography, Paper, Grid } from '@mui/material';
+import { Box, Button, Typography, Paper } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { shuffle } from '../../utils/helpers';
 import type { BatchResult } from './types';
@@ -72,8 +72,26 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
       <Typography variant="h6" gutterBottom align="center">
         Match the words with their definitions
       </Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={6}>
+      {/* Stack the two groups vertically on phones so the (often long)
+          definitions get the full width to read and the tap targets stay
+          large; place them side-by-side from `sm` up. The two lists are
+          independently shuffled, so they're grouped — not paired row-by-row. */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 2, sm: 2 },
+          alignItems: 'flex-start',
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 0.5 }}
+          >
+            Words
+          </Typography>
           {wordItems.map((item) => (
             <Button
               key={`word-${item.id}`}
@@ -88,8 +106,15 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
               {item.text}
             </Button>
           ))}
-        </Grid>
-        <Grid item xs={6}>
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 0.5 }}
+          >
+            Definitions
+          </Typography>
           {definitionItems.map((item) => (
             <Button
               key={`def-${item.id}`}
@@ -104,8 +129,8 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
               {item.text}
             </Button>
           ))}
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Paper>
   );
 };

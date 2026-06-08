@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Container, Typography, Box, Button, Paper, Alert, AlertTitle } from '@mui/material';
+import { Container, Typography, Box, Button, Paper, Alert, AlertTitle, CircularProgress } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { getUserFlashcards, updateCardReview } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
@@ -36,9 +36,13 @@ export const Study: React.FC = () => {
   const [showAnswer, setShowAnswer] = useState(false);
   const [studyMode, setStudyMode] = useState<StudyMode>('flashcard');
   const [error, setError] = useState<string | null>(null);
+  // Start in a loading state so the initial render shows a spinner rather than
+  // briefly flashing the "No cards due" empty state before the fetch resolves.
+  const [loading, setLoading] = useState(true);
 
   const loadCards = useCallback(async () => {
     if (!user) return;
+    setLoading(true);
     try {
       const allCards = await getUserFlashcards(user.uid);
       const now = new Date();
@@ -65,6 +69,8 @@ export const Study: React.FC = () => {
     } catch (err) {
       console.error('Error loading cards:', err);
       setError('Failed to load flashcards. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
@@ -225,6 +231,20 @@ export const Study: React.FC = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <Container sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '50vh',
+        '@supports (min-height: 100dvh)': { minHeight: '50dvh' },
+      }}>
+        <CircularProgress aria-label="Loading flashcards" />
+      </Container>
+    );
+  }
+
   if (error) {
     return (
       <Container>
@@ -271,10 +291,16 @@ export const Study: React.FC = () => {
         <Box sx={{
           position: { xs: 'static', md: 'sticky' },
           top: { xs: 0, md: 24 },
+          alignSelf: { md: 'flex-start' },
           width: { xs: '100%', md: '300px' },
-          height: { xs: 'auto', md: 'calc(100vh - 96px)' },
+          // Cap (not fix) the height to the dynamic viewport minus the AppBar
+          // (64px) and the sticky top offset (24px) so the panel never grows
+          // taller than its scroll container — the old fixed `100vh` height
+          // ignored that the container is already AppBar-offset and clipped /
+          // added phantom scroll. `vh` base with a `dvh` override.
+          maxHeight: { md: 'calc(100vh - 88px)' },
           '@supports (height: 100dvh)': {
-            height: { xs: 'auto', md: 'calc(100dvh - 96px)' },
+            maxHeight: { md: 'calc(100dvh - 88px)' },
           },
           overflowY: 'auto',
           bgcolor: 'background.paper',
@@ -303,7 +329,13 @@ export const Study: React.FC = () => {
         {/* Main Content Area */}
         <Box sx={{
           flex: 1,
-          minHeight: { xs: '50dvh', sm: '60dvh' },
+          // `vh` base with a `dvh` override so engines without dynamic-viewport
+          // units (iOS < 15.4) still get a usable min-height instead of dropping
+          // the bare `dvh` declaration and collapsing the column.
+          minHeight: { xs: '50vh', sm: '60vh' },
+          '@supports (min-height: 100dvh)': {
+            minHeight: { xs: '50dvh', sm: '60dvh' },
+          },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
