@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { getUserFlashcards, updateCardReview } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
 import { StudyProgress } from '../components/StudyProgress';
-import { StudyFeedback } from '../components/StudyFeedback';
 import { scheduleCardReview } from '../utils/spaced-repetition';
 import type { BatchResult } from '../components/study-modes/types';
 import type { Flashcard, StudyProgress as StudyProgressType } from '../types';
@@ -18,6 +17,30 @@ import { updateUserXP } from '../services/gamification';
 
 const PUZZLE_BATCH_SIZE = 8;
 const MATCHING_BATCH_SIZE = 6;
+
+// Shared shell for the error / empty / complete screens so they render as a
+// centered card (with safe-area padding) instead of bare top-left text.
+const CenteredState: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Container
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      // `vh` base with a `dvh` override so engines without dynamic-viewport
+      // units still get a usable height (same pattern as the rest of Study).
+      minHeight: '70vh',
+      '@supports (min-height: 100dvh)': { minHeight: '70dvh' },
+      px: 2,
+      // Centered shells render outside the Layout content padding for these
+      // branches, so inset the bottom for the home indicator on tall iPhones.
+      pb: 'env(safe-area-inset-bottom, 0px)',
+    }}
+  >
+    <Paper sx={{ p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 460, textAlign: 'center' }}>
+      {children}
+    </Paper>
+  </Container>
+);
 
 export const Study: React.FC = () => {
   const { user } = useAuth();
@@ -247,29 +270,69 @@ export const Study: React.FC = () => {
 
   if (error) {
     return (
-      <Container>
-        <Alert severity="error" sx={{ mt: 2 }}>
+      <CenteredState>
+        <Alert severity="error" sx={{ textAlign: 'left' }}>
           <AlertTitle>Error</AlertTitle>
           {error}
         </Alert>
-      </Container>
+        <Button variant="contained" onClick={resetSession} sx={{ mt: 3 }}>
+          Try Again
+        </Button>
+      </CenteredState>
     );
   }
 
   if (!cards.length) {
     return (
-      <Container>
-        <Typography variant="h6">No cards due for study!</Typography>
-      </Container>
+      <CenteredState>
+        <Typography variant="h4" gutterBottom>🎉</Typography>
+        <Typography variant="h6" gutterBottom>All caught up!</Typography>
+        <Typography color="text.secondary">
+          No cards are due for study right now. Come back later, or add more
+          words to your library.
+        </Typography>
+      </CenteredState>
     );
   }
 
   if (isComplete) {
+    const accuracy = progress.cardsReviewed > 0
+      ? Math.round((progress.correct / progress.cardsReviewed) * 100)
+      : 0;
     return (
-      <Container>
-        <Typography variant="h6">Study session complete!</Typography>
-        <Button onClick={resetSession}>Start New Session</Button>
-      </Container>
+      <CenteredState>
+        <Typography variant="h4" gutterBottom>🎉</Typography>
+        <Typography variant="h5" gutterBottom>Study session complete!</Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: 3,
+            my: 3,
+          }}
+        >
+          <Box>
+            <Typography variant="h4">{progress.cardsReviewed}</Typography>
+            <Typography variant="body2" color="text.secondary">Reviewed</Typography>
+          </Box>
+          <Box>
+            <Typography variant="h4" color="success.main">{progress.correct}</Typography>
+            <Typography variant="body2" color="text.secondary">Correct</Typography>
+          </Box>
+          <Box>
+            <Typography variant="h4" color="error.main">{progress.incorrect}</Typography>
+            <Typography variant="body2" color="text.secondary">Incorrect</Typography>
+          </Box>
+          <Box>
+            <Typography variant="h4">{accuracy}%</Typography>
+            <Typography variant="body2" color="text.secondary">Accuracy</Typography>
+          </Box>
+        </Box>
+        <Button variant="contained" onClick={resetSession}>
+          Start New Session
+        </Button>
+      </CenteredState>
     );
   }
 

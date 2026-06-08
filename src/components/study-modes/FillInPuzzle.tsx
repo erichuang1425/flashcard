@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Box, Button, Paper, Typography, Alert, Stack, useMediaQuery, Theme } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { generateCrossword } from '../../utils/crossword';
@@ -47,7 +47,31 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
 
   // Larger, easier-to-tap cells on touch screens.
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
-  const cellSize = isMobile ? 44 : 38;
+  const baseCell = isMobile ? 44 : 38;
+
+  // Measure the scroll container so a wide puzzle on a narrow phone shrinks its
+  // cells to fit instead of silently overflowing the screen edge. We never go
+  // below MIN_CELL (still tappable); if even that overflows we surface a scroll
+  // hint rather than clip without affordance.
+  const GRID_GAP = 2;
+  const MIN_CELL = 28;
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const [availWidth, setAvailWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = gridScrollRef.current;
+    if (!el) return;
+    const measure = () => setAvailWidth(el.clientWidth);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  const fitCell = availWidth > 0
+    ? Math.floor((availWidth - (layout.cols - 1) * GRID_GAP) / layout.cols)
+    : baseCell;
+  const cellSize = Math.max(MIN_CELL, Math.min(baseCell, fitCell));
+  const gridWidth = cellSize * layout.cols + (layout.cols - 1) * GRID_GAP;
+  const overflowing = availWidth > 0 && gridWidth > availWidth + 1;
 
   // Refs to each cell input so we can move focus as the player types or uses
   // the arrow keys — without this, mobile crosswords are painful to fill in.
@@ -231,13 +255,23 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
           alignItems: 'flex-start',
         }}
       >
-        <Box sx={{ overflowX: 'auto', mx: { xs: 'auto', md: 0 } }}>
+        <Box sx={{ width: { xs: '100%', md: 'auto' }, mx: { xs: 'auto', md: 0 } }}>
+          {overflowing && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 0.5, textAlign: 'center' }}
+            >
+              Scroll horizontally to see the whole grid →
+            </Typography>
+          )}
+          <Box ref={gridScrollRef} sx={{ overflowX: 'auto' }}>
           <Box
             sx={{
               display: 'grid',
               gridTemplateColumns: `repeat(${layout.cols}, ${cellSize}px)`,
               gridTemplateRows: `repeat(${layout.rows}, ${cellSize}px)`,
-              gap: '2px',
+              gap: `${GRID_GAP}px`,
             }}
           >
             {Array.from({ length: layout.rows }).map((_, row) =>
@@ -319,6 +353,7 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
                 );
               })
             )}
+          </Box>
           </Box>
         </Box>
 
