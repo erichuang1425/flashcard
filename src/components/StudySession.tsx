@@ -34,17 +34,19 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
   });
   const handleRating = async (rating: 1 | 2 | 3 | 4 | 5) => {
     if (currentIndex >= cards.length) return;
-    
-    setIsLoading(true);
+
     const card = cards[currentIndex];
-    if (!card.id) return;
+    // Guard before toggling the loading flag, otherwise an early return here
+    // leaves isLoading stuck true and the spinner shows forever.
+    if (!card.id || !user) return;
+
+    setIsLoading(true);
     const schedule = scheduleCardReview(card, rating);
 
     try {
       const isCorrect = rating >= 3;
       const isMastered = schedule.mastered;
 
-      if (!user) return;
       await updateCardReview(user.uid, card.id, schedule);
       
       const updatedStats = {
@@ -61,8 +63,10 @@ export const StudySession: React.FC<StudySessionProps> = ({ cards, onComplete })
         const duration = (new Date().getTime() - sessionStart.getTime()) / 1000;
         onComplete({
           duration,
-          cardsStudied: cards.length,
-          accuracy: (updatedStats.correct / cards.length) * 100,
+          cardsStudied: updatedStats.cardsStudied,
+          accuracy: updatedStats.cardsStudied > 0
+            ? (updatedStats.correct / updatedStats.cardsStudied) * 100
+            : 0,
           streak: updatedStats.streak,
           masteredCards: updatedStats.mastered
         });

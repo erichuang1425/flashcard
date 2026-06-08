@@ -16,6 +16,7 @@ export const StudyWorksheet = () => {
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState('');
+  const [correctCount, setCorrectCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -54,12 +55,14 @@ export const StudyWorksheet = () => {
       : true; // For other types, manual review needed
 
     try {
+      const answered = currentQuestionIndex + 1;
+      const newCorrectCount = correctCount + (isCorrect ? 1 : 0);
+      setCorrectCount(newCorrectCount);
+
       const newStats = {
         ...worksheet.stats,
-        completed: currentQuestionIndex + 1,
-        accuracy: isCorrect 
-          ? ((worksheet.stats.accuracy || 0) + 100) / (currentQuestionIndex + 1)
-          : worksheet.stats.accuracy
+        completed: answered,
+        accuracy: (newCorrectCount / answered) * 100
       };
 
       await updateWorksheetProgress(user!.uid, worksheet.id!, newStats);

@@ -8,7 +8,7 @@ interface StudyProgressProps {
 }
 
 const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
-  const completion = (progress.cardsReviewed / total) * 100;
+  const completion = total > 0 ? (progress.cardsReviewed / total) * 100 : 0;
   const accuracy = progress.cardsReviewed > 0 
     ? (progress.correct / progress.cardsReviewed) * 100 
     : 0;

@@ -12,7 +12,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { uploadFile } from '../services/storage';
 import { addCategory, addFlashcard, getCategories } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
-import { parseCSVLine } from '../utils/csv';
+import { parseCSVLine, normalizeCSVText } from '../utils/csv';
 
 interface ImportStats {
   total: number;
@@ -136,7 +136,7 @@ export const ImportTools: React.FC = () => {
 
   const processCSV = async (csvText: string) => {
     try {
-      const dataLines = csvText.split('\n')
+      const dataLines = normalizeCSVText(csvText).split('\n')
         .filter(line => line.trim())
         .slice(1);
       
@@ -215,7 +215,7 @@ export const ImportTools: React.FC = () => {
   // Build the preview table from raw CSV text. Shared by file upload and the
   // bundled SAT word list so both paths use the exact same parsing.
   const buildPreviewFromText = (csvText: string) => {
-    const lines = csvText.split('\n').filter(line => line.trim());
+    const lines = normalizeCSVText(csvText).split('\n').filter(line => line.trim());
     const allPreviewData = lines.slice(1).map(line => {
       const [word, partOfSpeech, englishDefinition, chineseTranslation] = parseCSVLine(line);
       return { word, partOfSpeech, englishDefinition, chineseTranslation, categories: [] };
@@ -342,15 +342,17 @@ export const ImportTools: React.FC = () => {
     </Paper>
   );
 
-  const renderProgress = () => (
+  const renderProgress = () => {
+    const progressPct = stats.total > 0 ? (stats.processed / stats.total) * 100 : 0;
+    return (
     <Box sx={{ mt: 2 }}>
-      <LinearProgress 
-        variant="determinate" 
-        value={(stats.processed / stats.total) * 100} 
+      <LinearProgress
+        variant="determinate"
+        value={progressPct}
         sx={{ height: 8, borderRadius: 2 }}
       />
       <Typography variant="body2" sx={{ mt: 1 }}>
-        Progress: {Math.round((stats.processed / stats.total) * 100)}%
+        Progress: {Math.round(progressPct)}%
         ({stats.processed}/{stats.total})
       </Typography>
       <Typography variant="body2" color="text.secondary">
@@ -393,7 +395,8 @@ export const ImportTools: React.FC = () => {
         </Box>
       )}
     </Box>
-  );
+    );
+  };
 
   const handleDownloadErrors = () => {
     const header = 'row,reason';
