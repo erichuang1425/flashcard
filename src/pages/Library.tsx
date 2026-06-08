@@ -13,10 +13,15 @@ export const Library: React.FC = () => {
   const [view, setView] = useState<'grid' | 'category'>('grid');
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [words, setWords] = useState<VocabularyWord[]>([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  // All public words are fetched once; pagination is done client-side by
+  // growing the visible window. Previously "Load More" re-fetched the full
+  // unpaginated list and appended it, duplicating every card on screen.
+  const [allWords, setAllWords] = useState<VocabularyWord[]>([]);
+  const [visibleCount, setVisibleCount] = useState(20);
   const ITEMS_PER_PAGE = 20;
+
+  const words = useMemo(() => allWords.slice(0, visibleCount), [allWords, visibleCount]);
+  const hasMore = visibleCount < allWords.length;
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -27,13 +32,13 @@ export const Library: React.FC = () => {
         ]);
         // Convert firestore Category to app Category type
         const appCategories: Category[] = cats.map(cat => ({
-          id: cat.id || '', 
+          id: cat.id || '',
           name: cat.name,
           count: cat.count
         }));
         setCategories(appCategories);
-        setWords(initialWords);
-        setHasMore(initialWords.length === ITEMS_PER_PAGE);
+        setAllWords(initialWords);
+        setVisibleCount(ITEMS_PER_PAGE);
       } catch (error) {
         console.error('Error loading library data:', error);
       } finally {
@@ -87,13 +92,10 @@ export const Library: React.FC = () => {
             ))}
           </Grid>
         ) : view === 'grid' ? (
-          <WordGrid 
+          <WordGrid
             words={words}
             onLoadMore={async () => {
-              const nextWords = await getVocabularyWords();
-              setWords(prev => [...prev, ...nextWords]);
-              setHasMore(nextWords.length === ITEMS_PER_PAGE);
-              setPage(prev => prev + 1);
+              setVisibleCount(prev => Math.min(prev + ITEMS_PER_PAGE, allWords.length));
             }}
             hasMore={hasMore}
           />

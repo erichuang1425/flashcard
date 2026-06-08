@@ -5,7 +5,6 @@ import PauseIcon from '@mui/icons-material/Pause';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import TimerIcon from '@mui/icons-material/Timer';
 import { useSettings } from '../context/SettingsContext';
-import { useUserPreferences } from '../hooks/useUserPreferences';
 
 interface PomodoroTimerProps {
   compact?: boolean;
@@ -15,7 +14,6 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
   const { pomodoro } = useSettings();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const { preferences } = useUserPreferences();
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -26,7 +24,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
   const progress = (timeLeft: number, total: number) => 
     ((total - timeLeft) / total) * 100;
 
-  const totalTime = pomodoro.isBreak ? 5 * 60 : 25 * 60;
+  const totalTime = pomodoro.isBreak ? pomodoro.breakDuration : pomodoro.workDuration;
 
   return (
     <Paper sx={{ 
