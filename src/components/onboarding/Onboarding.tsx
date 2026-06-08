@@ -10,43 +10,47 @@ import {
 import TranslateIcon from '@mui/icons-material/Translate';
 import WavingHandIcon from '@mui/icons-material/WavingHand';
 import StyleIcon from '@mui/icons-material/Style';
-import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
-import SchoolIcon from '@mui/icons-material/School';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ExploreIcon from '@mui/icons-material/Explore';
-import CelebrationIcon from '@mui/icons-material/Celebration';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../../i18n/translations';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { useGuide } from '../../context/GuideContext';
 import { inset } from '../../utils/safe-area';
 import { dvhMinHeight } from '../../utils/viewport';
 
-// Each guide step pairs a large, friendly icon with a translated title/body.
+// A short, three-beat welcome. Rather than front-loading every feature for the
+// user to memorise, it sets expectations and hands off to the in-app coach
+// marks that explain each section in place, when the user actually gets there.
 const STEPS: { icon: React.ReactNode; titleKey: string; bodyKey: string }[] = [
   { icon: <WavingHandIcon />, titleKey: 'onboarding.welcome.title', bodyKey: 'onboarding.welcome.body' },
   { icon: <StyleIcon />, titleKey: 'onboarding.flashcards.title', bodyKey: 'onboarding.flashcards.body' },
-  { icon: <LibraryAddIcon />, titleKey: 'onboarding.add.title', bodyKey: 'onboarding.add.body' },
-  { icon: <SchoolIcon />, titleKey: 'onboarding.study.title', bodyKey: 'onboarding.study.body' },
-  { icon: <VolumeUpIcon />, titleKey: 'onboarding.pronounce.title', bodyKey: 'onboarding.pronounce.body' },
-  { icon: <TrendingUpIcon />, titleKey: 'onboarding.progress.title', bodyKey: 'onboarding.progress.body' },
-  { icon: <ExploreIcon />, titleKey: 'onboarding.navigate.title', bodyKey: 'onboarding.navigate.body' },
-  { icon: <CelebrationIcon />, titleKey: 'onboarding.done.title', bodyKey: 'onboarding.done.body' },
+  { icon: <ExploreIcon />, titleKey: 'onboarding.learnAsYouGo.title', bodyKey: 'onboarding.learnAsYouGo.body' },
 ];
 
 export const Onboarding: React.FC = () => {
   const theme = useTheme();
   const { t, language, setLanguage } = useLanguage();
   const { completeOnboarding } = useOnboarding();
-  // 'language' picker first, then the step-by-step guide.
+  const { setTipsEnabled, resetTips } = useGuide();
+  // 'language' picker first, then the short welcome.
   const [phase, setPhase] = useState<'language' | 'guide'>('language');
   const [chosen, setChosen] = useState<Language>(language);
   const [stepIndex, setStepIndex] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  const finish = async () => {
+  // `withTips` decides how the user wants to be helped from here on: either the
+  // contextual coach marks light up as they explore, or the app stays quiet and
+  // they discover it themselves. Either way the upfront guide is done.
+  const finish = async (withTips: boolean) => {
     setSaving(true);
+    if (withTips) {
+      // Start the contextual guidance fresh so every section gets its tip.
+      resetTips();
+    } else {
+      setTipsEnabled(false);
+    }
     try {
       await completeOnboarding(chosen);
     } catch {
@@ -203,47 +207,71 @@ export const Onboarding: React.FC = () => {
         ))}
       </Stack>
 
-      <Stack direction="row" spacing={2} justifyContent="center">
-        {!isFirst && (
+      {isLast ? (
+        // The final beat is a choice, not just a "Done": guided tips as you go,
+        // or a quiet app you explore on your own.
+        <Stack spacing={1.5} alignItems="center">
           <Button
-            size="large"
-            variant="outlined"
-            onClick={() => setStepIndex((i) => i - 1)}
-            sx={{ py: 1.5, px: 4, fontSize: '1.05rem' }}
-          >
-            {t('onboarding.back')}
-          </Button>
-        )}
-        {isLast ? (
-          <Button
+            fullWidth
             size="large"
             variant="contained"
-            onClick={finish}
+            startIcon={<TipsAndUpdatesIcon />}
+            onClick={() => finish(true)}
             disabled={saving}
-            sx={{ py: 1.5, px: 4, fontSize: '1.05rem' }}
+            sx={{ py: 1.5, fontSize: '1.05rem', maxWidth: 360 }}
           >
-            {t('onboarding.finish')}
+            {t('onboarding.finishWithTips')}
           </Button>
-        ) : (
           <Button
+            fullWidth
             size="large"
-            variant="contained"
-            onClick={() => setStepIndex((i) => i + 1)}
-            sx={{ py: 1.5, px: 4, fontSize: '1.05rem' }}
+            variant="text"
+            onClick={() => finish(false)}
+            disabled={saving}
+            sx={{ py: 1.25, fontSize: '1rem', color: 'text.secondary', maxWidth: 360 }}
           >
-            {t('onboarding.next')}
+            {t('onboarding.finishExplore')}
           </Button>
-        )}
-      </Stack>
+          {!isFirst && (
+            <Button
+              onClick={() => setStepIndex((i) => i - 1)}
+              sx={{ color: 'text.secondary' }}
+            >
+              {t('onboarding.back')}
+            </Button>
+          )}
+        </Stack>
+      ) : (
+        <>
+          <Stack direction="row" spacing={2} justifyContent="center">
+            {!isFirst && (
+              <Button
+                size="large"
+                variant="outlined"
+                onClick={() => setStepIndex((i) => i - 1)}
+                sx={{ py: 1.5, px: 4, fontSize: '1.05rem' }}
+              >
+                {t('onboarding.back')}
+              </Button>
+            )}
+            <Button
+              size="large"
+              variant="contained"
+              onClick={() => setStepIndex((i) => i + 1)}
+              sx={{ py: 1.5, px: 4, fontSize: '1.05rem' }}
+            >
+              {t('onboarding.next')}
+            </Button>
+          </Stack>
 
-      {!isLast && (
-        <Button
-          onClick={finish}
-          disabled={saving}
-          sx={{ mt: 2, color: 'text.secondary' }}
-        >
-          {t('onboarding.skip')}
-        </Button>
+          <Button
+            onClick={() => finish(true)}
+            disabled={saving}
+            sx={{ mt: 2, color: 'text.secondary' }}
+          >
+            {t('onboarding.skip')}
+          </Button>
+        </>
       )}
     </>
   );
