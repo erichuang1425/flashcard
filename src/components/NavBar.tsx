@@ -11,6 +11,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
 import SchoolIcon from '@mui/icons-material/School';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -51,6 +52,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
 
   const menuItems = [
     { text: t('nav.home'), icon: <HomeIcon />, path: '/' },
+    { text: t('nav.library'), icon: <MenuBookIcon />, path: '/library' },
     { text: t('nav.study'), icon: <SchoolIcon />, path: '/study' },
     { text: t('nav.worksheets'), icon: <AssignmentIcon />, path: '/worksheets' },
     { text: t('nav.import'), icon: <CloudUploadIcon />, path: '/import' },

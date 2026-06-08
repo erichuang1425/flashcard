@@ -24,7 +24,7 @@ export const WordGrid: React.FC<WordGridProps> = ({ words, onLoadMore, hasMore }
   });
 
   return (
-    <Grid container spacing={2}>
+    <Grid container spacing={{ xs: 1.5, sm: 2 }}>
       {words.map((word, index) => (
         <Grid 
           item 
