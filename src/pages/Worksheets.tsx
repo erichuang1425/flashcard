@@ -444,17 +444,34 @@ export const Worksheets: React.FC = () => {
                         </Box>
                       }
                       secondary={
-                        <Typography
-                          component="span" 
-                          variant="body2"
-                          sx={{
-                            display: 'block',
-                            color: 'text.secondary',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          {data.explanation}
-                        </Typography>
+                        <>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            sx={{
+                              display: 'block',
+                              color: 'success.main',
+                              fontWeight: 600,
+                              fontSize: '0.875rem'
+                            }}
+                          >
+                            Answer: {data.correctAnswer || '—'}
+                          </Typography>
+                          {data.explanation && (
+                            <Typography
+                              component="span"
+                              variant="body2"
+                              sx={{
+                                display: 'block',
+                                color: 'text.secondary',
+                                fontSize: '0.875rem',
+                                mt: 0.5
+                              }}
+                            >
+                              {data.explanation}
+                            </Typography>
+                          )}
+                        </>
                       }
                     />
                   </ListItem>
