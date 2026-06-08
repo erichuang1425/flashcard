@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Box, Paper, Drawer, Typography, useMediaQuery, useTheme, IconButton, Collapse, Tooltip } from '@mui/material';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -21,35 +21,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   // phone viewport (and the content keeps its full height).
   const isPanelHidden = useMediaQuery(theme.breakpoints.down('md'));
   const [statsOpen, setStatsOpen] = useState(false);
+  // Desktop-only side-panel collapse toggle. The panel is hidden below `md`
+  // (the bottom sheet covers small screens), so no width watcher is needed and
+  // collapse is driven purely by this user toggle.
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
-  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 900);
-  
-  // Auto collapse panel on small screens
-  useEffect(() => {
-    const applyBreakpoint = () => {
-      const isSmall = window.innerWidth < 900;
-      setIsSmallScreen(isSmall);
-      if (isSmall) setIsPanelCollapsed(true);
-    };
-
-    // Throttle the resize burst (address-bar show/hide thrash) to one update
-    // per animation frame.
-    let frame = 0;
-    const handleResize = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        applyBreakpoint();
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    applyBreakpoint(); // Initial check
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
 
   return (
     <Box sx={{
@@ -80,13 +55,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           sx={{
             flex: 1,
             py: { xs: 2, sm: 3 },
-            mx: 'auto',
-            width: {
-              xs: '100%',
-              md: `calc(100% - ${!focusMode && !isPanelCollapsed ? '324px' : '64px'})` // Add extra spacing
-            },
+            // The parent flex row already reserves the side-panel column via its
+            // right padding, so the content simply fills the remaining width.
+            // Capping the width here as well subtracted the panel a second time,
+            // squeezing the content and leaving a dead gap on desktop.
+            width: '100%',
             transition: 'all 0.3s ease',
-            height: 'calc(100dvh - 64px)',
+            // Offset the fixed AppBar by its real height — 56px on phones, 64px
+            // from `sm` up — so the scroll region isn't ~8px too tall on mobile.
+            height: { xs: 'calc(100dvh - 56px)', sm: 'calc(100dvh - 64px)' },
             overflowY: 'auto',
             opacity: focusMode ? 0.97 : 1,
             filter: focusMode ? 'grayscale(0.2)' : 'none',
@@ -122,52 +99,37 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Paper
             elevation={2}
             sx={{
-              position: 'fixed',
-              top: { xs: 'auto', md: 76 },
-              bottom: { xs: 0, md: 'auto' },
-              right: { xs: 0, md: 12 }, // Add right margin on desktop
-              height: { 
-                xs: isPanelCollapsed ? '48px' : '300px',
-                md: 'calc(100dvh - 88px)' // Adjust height to account for margins
-              },
-              width: { 
-                xs: '100%',
-                md: isPanelCollapsed ? '48px' : '300px'
-              },
-              maxWidth: { xs: '100%', md: '324px' },
-              transition: 'all 0.3s ease',
-              // Hidden below `md`; the bottom sheet covers small screens.
+              // Desktop-only panel; below `md` it's hidden and Level/Pomodoro
+              // are surfaced through the bottom sheet instead.
               display: { xs: 'none', md: 'flex' },
-              flexDirection: { xs: 'column', md: 'row' },
-              borderRadius: { 
-                xs: isPanelCollapsed ? 0 : '12px 12px 0 0',
-                md: '12px' 
-              },
-              borderTop: { xs: 1, md: 0 },
-              borderColor: 'divider',
+              position: 'fixed',
+              top: 76,
+              right: 12, // Add right margin on desktop
+              height: 'calc(100dvh - 88px)', // Account for top/bottom margins
+              width: isPanelCollapsed ? '48px' : '300px',
+              maxWidth: '324px',
+              transition: 'all 0.3s ease',
+              flexDirection: 'row',
+              borderRadius: '12px',
               zIndex: 1200,
               overflow: 'hidden',
-              boxShadow: theme => isSmallScreen 
-                ? 'none'
-                : `0 4px 20px ${theme.palette.mode === 'dark' 
-                    ? 'rgba(0,0,0,0.4)' 
-                    : 'rgba(0,0,0,0.15)'}`,
+              boxShadow: theme => `0 4px 20px ${theme.palette.mode === 'dark'
+                ? 'rgba(0,0,0,0.4)'
+                : 'rgba(0,0,0,0.15)'}`,
               background: theme => theme.palette.mode === 'dark'
                 ? 'rgba(30,30,30,0.95)'
                 : 'rgba(255,255,255,0.95)',
               backdropFilter: 'blur(10px)',
-              transform: { xs: 'none', md: isPanelCollapsed ? 'translateX(calc(100% - 48px))' : 'none' }
+              transform: isPanelCollapsed ? 'translateX(calc(100% - 48px))' : 'none'
             }}
           >
             <IconButton
               onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
               sx={{
                 position: 'absolute',
-                [isSmallScreen ? 'top' : 'left']: isSmallScreen ? 0 : '-20px',
-                [isSmallScreen ? 'left' : 'top']: '50%',
-                transform: isSmallScreen 
-                  ? 'translateX(-50%) translateY(-50%)'
-                  : 'translateY(-50%) translateX(-50%)',
+                left: '-20px',
+                top: '50%',
+                transform: 'translateY(-50%) translateX(-50%)',
                 backgroundColor: 'background.paper',
                 border: 1,
                 borderColor: 'divider',
@@ -177,15 +139,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 zIndex: 2
               }}
             >
-              {isSmallScreen 
-                ? (isPanelCollapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />)
-                : (isPanelCollapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />)
-              }
+              {isPanelCollapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />}
             </IconButton>
 
             <Collapse
               in={!isPanelCollapsed}
-              orientation={isSmallScreen ? 'vertical' : 'horizontal'}
+              orientation="horizontal"
               sx={{ 
                 width: '100%',
                 height: '100%',

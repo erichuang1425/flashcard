@@ -34,7 +34,7 @@ const RouteFallback: React.FC = () => (
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      minHeight: '60vh',
+      minHeight: '60dvh',
     }}
   >
     <CircularProgress />

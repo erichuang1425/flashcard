@@ -254,12 +254,15 @@ export const Study: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ 
+    <Container maxWidth="xl" sx={{
       py: { xs: 2, sm: 3 },
-      minHeight: '100dvh'
+      // Fill the Layout scroll container rather than the full viewport (which
+      // is already shortened by the AppBar), so the page doesn't overflow by a
+      // navbar height.
+      minHeight: '100%'
     }}>
       <Box sx={{
-        minHeight: { xs: 'calc(100dvh - 64px)', sm: 'calc(100dvh - 48px)' },
+        minHeight: '100%',
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
         gap: { xs: 2, sm: 3 },
@@ -297,7 +300,7 @@ export const Study: React.FC = () => {
         {/* Main Content Area */}
         <Box sx={{
           flex: 1,
-          minHeight: { xs: '50vh', sm: '60vh' },
+          minHeight: { xs: '50dvh', sm: '60dvh' },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',

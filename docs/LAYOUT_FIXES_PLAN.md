@@ -12,6 +12,9 @@ Each item: **symptom → root cause → fix → effort/risk**. Severity tiers:
 Tier 0 = visible layout bug today; Tier 1 = structural correctness; Tier 2 =
 cleanup/consistency.
 
+> **Status:** L1–L6 were implemented in this PR (see the diff). This document
+> is kept as the diagnosis record / rationale.
+
 ---
 
 ## Tier 0 — Visible layout bugs

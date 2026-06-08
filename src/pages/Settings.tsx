@@ -109,7 +109,7 @@ export const Settings: React.FC = () => {
 
   return (
     <Container maxWidth="md" sx={{
-      minHeight: '100dvh',
+      minHeight: '100%',
       py: { xs: 2, sm: 4 }
     }}>
       <Box sx={{ 

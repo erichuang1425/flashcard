@@ -43,8 +43,8 @@ export const Login: React.FC = () => {
     <Box sx={{ 
       display: 'flex', 
       justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '80vh' 
+      alignItems: 'center',
+      minHeight: '80dvh'
     }}>
       <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
