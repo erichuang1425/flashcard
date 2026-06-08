@@ -19,3 +19,9 @@ export const dvhHeight = (expr = '100dvh'): CSSObject => ({
   height: expr.replace(/dvh/g, 'vh'),
   '@supports (height: 100dvh)': { height: expr },
 });
+
+/** `maxHeight` with a `vh` fallback for engines lacking `dvh`. */
+export const dvhMaxHeight = (expr = '100dvh'): CSSObject => ({
+  maxHeight: expr.replace(/dvh/g, 'vh'),
+  '@supports (max-height: 100dvh)': { maxHeight: expr },
+});

@@ -12,6 +12,7 @@ import { GamificationProvider } from './context/GamificationContext';
 import { FocusModeProvider } from './context/FocusModeContext';
 import { useOnboarding } from './context/OnboardingContext';
 import { Onboarding } from './components/onboarding/Onboarding';
+import { dvhMinHeight } from './utils/viewport';
 
 // Route-level code-splitting: each page loads as a separate chunk on demand,
 // keeping the initial bundle small.
@@ -34,7 +35,7 @@ const RouteFallback: React.FC = () => (
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      minHeight: '60dvh',
+      ...dvhMinHeight('60dvh'),
     }}
   >
     <CircularProgress />

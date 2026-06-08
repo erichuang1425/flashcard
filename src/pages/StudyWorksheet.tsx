@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { getWorksheet, updateWorksheetProgress } from '../services/firestore';
 import type { Worksheet, WorksheetQuestion } from '../types';
+import { dvhMinHeight } from '../utils/viewport';
 
 export const StudyWorksheet = () => {
   const { worksheetId } = useParams();
@@ -82,7 +83,7 @@ export const StudyWorksheet = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60dvh">
+      <Box display="flex" justifyContent="center" alignItems="center" sx={dvhMinHeight('60dvh')}>
         <CircularProgress />
       </Box>
     );
