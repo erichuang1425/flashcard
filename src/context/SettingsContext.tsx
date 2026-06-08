@@ -9,6 +9,9 @@ interface SettingsContextType {
     isActive: boolean;
     timeLeft: number;
     isBreak: boolean;
+    /** Configured work/break durations in seconds (from user preferences). */
+    workDuration: number;
+    breakDuration: number;
     start: () => void;
     pause: () => void;
     reset: () => void;
@@ -23,6 +26,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes
   const [isBreak, setIsBreak] = useState(false);
+
+  // Configured durations (in seconds), derived from user preferences so the
+  // timer reset/rollover and the progress ring all use the same values.
+  const workSeconds = (preferences?.pomodoroSettings?.workDuration ?? 25) * 60;
+  const breakSeconds = (preferences?.pomodoroSettings?.breakDuration ?? 5) * 60;
 
   // Sync local state with stored user preferences
   useEffect(() => {
@@ -45,7 +53,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const pauseTimer = () => setIsActive(false);
   const resetTimer = () => {
     setIsActive(false);
-    setTimeLeft(isBreak ? 5 * 60 : 25 * 60);
+    setTimeLeft(isBreak ? breakSeconds : workSeconds);
   };
 
   useEffect(() => {
@@ -56,13 +64,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }, 1000);
     } else if (timeLeft === 0) {
       setIsBreak(prev => !prev);
-      setTimeLeft(isBreak ? 25 * 60 : 5 * 60);
+      // Switching out of a break starts the next work block, and vice versa.
+      setTimeLeft(isBreak ? workSeconds : breakSeconds);
       // Signal the interval change with a synthesized chime + vibration
       // fallback (no audio asset to load; see notification-sound.ts).
       playNotificationCue();
     }
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, isBreak]);
+  }, [isActive, timeLeft, isBreak, workSeconds, breakSeconds]);
 
   return (
     <SettingsContext.Provider value={{
@@ -72,6 +81,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         isActive,
         timeLeft,
         isBreak,
+        workDuration: workSeconds,
+        breakDuration: breakSeconds,
         start: startTimer,
         pause: pauseTimer,
         reset: resetTimer
