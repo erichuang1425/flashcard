@@ -24,6 +24,7 @@ type Dict = Record<string, string>;
 const en: Dict = {
   // Navigation
   'nav.home': 'Home',
+  'nav.library': 'Library',
   'nav.study': 'Study',
   'nav.worksheets': 'Worksheets',
   'nav.import': 'Import',
@@ -35,6 +36,13 @@ const en: Dict = {
   'nav.level': 'Level {level}',
   'nav.openProgress': 'Open progress & timer',
   'nav.goHome': 'Go to home',
+
+  // Library
+  'library.title': 'Library',
+  'library.gridView': 'Grid View',
+  'library.categories': 'Categories',
+  'library.backToCategories': 'Back to Categories',
+  'library.wordCount': '{count} words',
 
   // Login
   'login.title': 'Login',
@@ -150,6 +158,7 @@ const en: Dict = {
 const zh: Dict = {
   // Navigation
   'nav.home': '首頁',
+  'nav.library': '圖書館',
   'nav.study': '學習',
   'nav.worksheets': '練習卷',
   'nav.import': '匯入',
@@ -161,6 +170,13 @@ const zh: Dict = {
   'nav.level': '等級 {level}',
   'nav.openProgress': '開啟進度與計時器',
   'nav.goHome': '回到首頁',
+
+  // Library
+  'library.title': '圖書館',
+  'library.gridView': '網格檢視',
+  'library.categories': '分類',
+  'library.backToCategories': '返回分類',
+  'library.wordCount': '{count} 個單字',
 
   // Login
   'login.title': '登入',

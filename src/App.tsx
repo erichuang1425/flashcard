@@ -20,6 +20,7 @@ const Home = lazy(() => import('./pages/Home').then((m) => ({ default: m.Home })
 const Study = lazy(() => import('./pages/Study').then((m) => ({ default: m.Study })));
 const Import = lazy(() => import('./pages/Import').then((m) => ({ default: m.Import })));
 const Worksheets = lazy(() => import('./pages/Worksheets').then((m) => ({ default: m.Worksheets })));
+const Library = lazy(() => import('./pages/Library').then((m) => ({ default: m.Library })));
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })));
 const Register = lazy(() => import('./pages/Register').then((m) => ({ default: m.Register })));
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
@@ -91,6 +92,11 @@ const App: React.FC = () => {
                 <Route path="/worksheets" element={
                   <ProtectedRoute>
                     <Worksheets />
+                  </ProtectedRoute>
+                } />
+                <Route path="/library" element={
+                  <ProtectedRoute>
+                    <Library />
                   </ProtectedRoute>
                 } />
                 <Route path="/settings" element={

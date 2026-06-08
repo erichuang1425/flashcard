@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
+import {
   Container, Box, Typography, Grid, Skeleton,
-  Tabs, Tab, Paper, Divider, useTheme 
+  Tabs, Tab, Paper
 } from '@mui/material';
 import { CategoryBrowser } from '../components/CategoryBrowser';
 import { WordGrid } from '../components/WordGrid';
 import { getCategories, getVocabularyWords } from '../services/firestore';
 import type { Category, VocabularyWord } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const Library: React.FC = () => {
-  const theme = useTheme();
+  const { t } = useLanguage();
   const [view, setView] = useState<'grid' | 'category'>('grid');
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -58,13 +59,13 @@ export const Library: React.FC = () => {
         flexDirection: 'column',
         gap: { xs: 2, sm: 3 }
       }}>
-        <Typography variant="h4" 
-          sx={{ 
+        <Typography variant="h4"
+          sx={{
             fontSize: { xs: '1.5rem', sm: '2rem' },
             mb: { xs: 1, sm: 2 }
           }}
         >
-          Library
+          {t('library.title')}
         </Typography>
         
         <Paper sx={{ 
@@ -76,10 +77,11 @@ export const Library: React.FC = () => {
           <Tabs
             value={view}
             onChange={(_, newValue) => setView(newValue)}
+            variant="fullWidth"
             sx={{ borderBottom: 1, borderColor: 'divider' }}
           >
-            <Tab label="Grid View" value="grid" />
-            <Tab label="Categories" value="category" />
+            <Tab label={t('library.gridView')} value="grid" />
+            <Tab label={t('library.categories')} value="category" />
           </Tabs>
         </Paper>
 
