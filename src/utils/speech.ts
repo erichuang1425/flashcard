@@ -122,7 +122,13 @@ export const speak = (
   utterance.rate = options.rate ?? 1;
   utterance.pitch = options.pitch ?? 1;
 
-  window.speechSynthesis.speak(utterance);
+  // On iOS WebKit, calling cancel() and speak() in the same synchronous frame
+  // can wedge the queue (the next speak() is silently dropped until reload).
+  // Defer the speak() to the next tick so the engine isn't asked to cancel and
+  // start at once. The utterance is still returned synchronously, so callers
+  // can wire onend/onerror before it actually starts. The 0ms delay is
+  // imperceptible on platforms without the bug.
+  setTimeout(() => window.speechSynthesis.speak(utterance), 0);
   return utterance;
 };
 
