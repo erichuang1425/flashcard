@@ -106,9 +106,13 @@ const en: Dict = {
   'settings.save': 'Save Settings',
   'settings.saved': 'Settings saved successfully',
   'settings.saveFail': 'Failed to save settings',
-  'settings.guide': 'Beginner Guide',
-  'settings.showGuide': 'Show the guide again',
-  'settings.guideDesc': 'Replay the quick tour that explains how the app works.',
+  'settings.guide': 'Guide & Tips',
+  'settings.showGuide': 'Replay welcome',
+  'settings.guideDesc': 'Control how the app guides you as you learn.',
+  'settings.tipsToggle': 'Show tips as I use the app',
+  'settings.tipsDesc':
+    'Small hints appear in place the first time you reach each feature.',
+  'settings.replayTips': 'Show all tips again',
 
   // Language names (used in selectors)
   'language.en': 'English',
@@ -123,36 +127,44 @@ const en: Dict = {
   // Onboarding — controls
   'onboarding.next': 'Next',
   'onboarding.back': 'Back',
-  'onboarding.skip': 'Skip guide',
+  'onboarding.skip': 'Skip',
   'onboarding.finish': 'Start using the app',
+  'onboarding.finishWithTips': 'Guide me as I go',
+  'onboarding.finishExplore': "I'll explore on my own",
   'onboarding.stepOf': 'Step {current} of {total}',
   'onboarding.tip': 'Tip',
 
-  // Onboarding — steps
+  // Onboarding — short welcome (the rest is taught in-context as you explore)
   'onboarding.welcome.title': 'Welcome to FlashCards AI',
   'onboarding.welcome.body':
-    'This app helps you learn and remember new words, one small card at a time. This short guide will show you how everything works. Tap the big button below to continue.',
-  'onboarding.flashcards.title': 'What is a flashcard?',
+    'This app helps you learn and remember new words, one small card at a time. No need to memorise anything now — here are just the basics.',
+  'onboarding.flashcards.title': 'How learning works',
   'onboarding.flashcards.body':
-    'A flashcard shows a word on the front. When you tap the card, it flips over to reveal the meaning. Looking at the word, trying to remember it, then checking the answer is what helps it stick.',
-  'onboarding.add.title': 'Add words to study',
-  'onboarding.add.body':
-    "Tap 'Import' (or 'Add New Cards' on the home screen) to add words. You can type your own, upload a file, or pick a ready-made pack with a single tap.",
-  'onboarding.study.title': 'Practice a little every day',
-  'onboarding.study.body':
-    "On the home screen, tap 'Start Review'. The app chooses the cards you need to practice today and walks you through them one by one.",
-  'onboarding.pronounce.title': 'Hear how words sound',
-  'onboarding.pronounce.body':
-    'See the speaker icon on a card? Tap it to hear the word spoken aloud. You can change the voice and the speed later in Settings.',
-  'onboarding.progress.title': 'Watch yourself improve',
-  'onboarding.progress.body':
-    'The home screen shows your streak (how many days in a row you have studied) and how many words you have mastered. A little practice each day adds up quickly.',
-  'onboarding.navigate.title': 'Finding your way around',
-  'onboarding.navigate.body':
-    'On a phone, tap the menu button (the three lines) in the top corner to move between screens. The gear icon opens Settings, where you can change the language or open this guide again.',
-  'onboarding.done.title': "You're all set!",
-  'onboarding.done.body':
-    'That is everything you need to begin. You can open this guide again any time from the Settings screen. Happy learning!',
+    'Each card shows a word. Try to recall its meaning, then tap the card to flip it and check. Rate how well you knew it, and the app decides when to show it again — so you review the tricky words more and the easy ones less.',
+  'onboarding.learnAsYouGo.title': 'Learn each part as you go',
+  'onboarding.learnAsYouGo.body':
+    "That's all you need to start. As you move around the app, small tips will point things out right where they happen — so there's nothing to remember up front. You can turn them off any time in Settings.",
+
+  // Contextual coach-mark tips (shown in place as the user explores)
+  'guide.gotIt': 'Got it',
+  'guide.turnOff': 'Turn off tips',
+  'guide.homeStart.title': 'Start here',
+  'guide.homeStart.body':
+    'When words are due, this button begins your review. The app picks the cards you need to practise today and walks you through them.',
+  'guide.studyCard.title': 'Tap the card',
+  'guide.studyCard.body':
+    'Try to recall the meaning, then tap the card to flip it. Tap the speaker to hear the word, and rate how well you knew it to schedule the next review.',
+  'guide.import.title': 'Add your words',
+  'guide.import.body':
+    'Type your own words, upload a CSV file, or pick a ready-made pack. New cards show up in your reviews straight away.',
+
+  // Flashcard
+  'flashcard.tapToReveal': 'Tap to reveal meaning',
+  'flashcard.flipAria': 'Flip the card for {word} to see or hide its meaning',
+
+  // Study controls
+  'study.showAnswer': 'Reveal meaning',
+  'study.showWord': 'Hide meaning',
 };
 
 const zh: Dict = {
@@ -240,9 +252,12 @@ const zh: Dict = {
   'settings.save': '儲存設定',
   'settings.saved': '設定已成功儲存',
   'settings.saveFail': '儲存設定失敗',
-  'settings.guide': '新手導覽',
-  'settings.showGuide': '再次查看導覽',
-  'settings.guideDesc': '重新觀看說明應用程式運作方式的快速導覽。',
+  'settings.guide': '導覽與提示',
+  'settings.showGuide': '再次觀看歡迎導覽',
+  'settings.guideDesc': '設定應用程式在你學習時如何引導你。',
+  'settings.tipsToggle': '使用應用程式時顯示提示',
+  'settings.tipsDesc': '第一次使用到某個功能時，會在該處就地顯示小提示。',
+  'settings.replayTips': '再次顯示所有提示',
 
   // Language names (used in selectors)
   'language.en': 'English',
@@ -257,36 +272,44 @@ const zh: Dict = {
   // Onboarding — controls
   'onboarding.next': '下一步',
   'onboarding.back': '上一步',
-  'onboarding.skip': '略過導覽',
+  'onboarding.skip': '略過',
   'onboarding.finish': '開始使用',
+  'onboarding.finishWithTips': '邊用邊引導我',
+  'onboarding.finishExplore': '我想自己探索',
   'onboarding.stepOf': '第 {current} 步，共 {total} 步',
   'onboarding.tip': '小提示',
 
-  // Onboarding — steps
+  // Onboarding — short welcome (the rest is taught in-context as you explore)
   'onboarding.welcome.title': '歡迎使用 FlashCards AI',
   'onboarding.welcome.body':
-    '這個應用程式可以幫助你一張一張地學習並記住新單字。這份簡短的導覽會告訴你所有功能的用法。請點擊下方的大按鈕繼續。',
-  'onboarding.flashcards.title': '什麼是單字卡？',
+    '這個應用程式可以幫助你一張一張地學習並記住新單字。現在不需要記住任何東西，先了解一下基本概念就好。',
+  'onboarding.flashcards.title': '學習的運作方式',
   'onboarding.flashcards.body':
-    '單字卡的正面會顯示一個單字。當你點擊卡片時，它會翻面顯示意思。先看單字、試著回想、再確認答案，這樣才能幫助你記得更牢。',
-  'onboarding.add.title': '加入要學習的單字',
-  'onboarding.add.body':
-    '點擊「匯入」（或在首頁點擊「新增單字卡」）即可加入單字。你可以自己輸入、上傳檔案，或一鍵選擇現成的單字包。',
-  'onboarding.study.title': '每天練習一點點',
-  'onboarding.study.body':
-    '在首頁點擊「開始複習」。應用程式會挑出你今天需要練習的卡片，並一張一張帶著你完成。',
-  'onboarding.pronounce.title': '聆聽單字發音',
-  'onboarding.pronounce.body':
-    '看到卡片上的喇叭圖示了嗎？點一下就能聽到單字的發音。你之後可以在「設定」中變更語音與速度。',
-  'onboarding.progress.title': '看見自己的進步',
-  'onboarding.progress.body':
-    '首頁會顯示你的連續天數（你連續學習了幾天）以及你已經精通了多少單字。每天練習一點點，很快就會累積出成果。',
-  'onboarding.navigate.title': '如何在各畫面之間切換',
-  'onboarding.navigate.body':
-    '在手機上，點擊右上角的選單按鈕（三條橫線）就能切換不同畫面。齒輪圖示可以打開「設定」，你可以在那裡變更語言或再次打開這份導覽。',
-  'onboarding.done.title': '一切準備就緒！',
-  'onboarding.done.body':
-    '開始學習所需要的就是這些了。你隨時可以從「設定」畫面再次打開這份導覽。祝你學習愉快！',
+    '每張卡片都會顯示一個單字。先試著回想它的意思，再點擊卡片翻面確認。為自己的熟悉程度評分後，應用程式會決定何時再次顯示它——難記的單字會更常複習，簡單的則較少出現。',
+  'onboarding.learnAsYouGo.title': '邊用邊學每個部分',
+  'onboarding.learnAsYouGo.body':
+    '開始所需要的就是這些。當你在應用程式中四處操作時，小提示會就地在相關處出現——所以不用事先記住任何東西。你隨時可以在「設定」中關閉它們。',
+
+  // Contextual coach-mark tips (shown in place as the user explores)
+  'guide.gotIt': '知道了',
+  'guide.turnOff': '關閉提示',
+  'guide.homeStart.title': '從這裡開始',
+  'guide.homeStart.body':
+    '當有單字到了複習時間，這個按鈕就會開始複習。應用程式會挑出你今天需要練習的卡片，並帶著你逐張完成。',
+  'guide.studyCard.title': '點擊卡片',
+  'guide.studyCard.body':
+    '先試著回想意思，再點擊卡片翻面。點擊喇叭可以聽發音，並為你的熟悉程度評分，以安排下次複習的時間。',
+  'guide.import.title': '加入你的單字',
+  'guide.import.body':
+    '自己輸入單字、上傳 CSV 檔案，或選擇現成的單字包。新卡片會立即出現在你的複習中。',
+
+  // Flashcard
+  'flashcard.tapToReveal': '點擊以顯示意思',
+  'flashcard.flipAria': '翻轉「{word}」卡片以顯示或隱藏意思',
+
+  // Study controls
+  'study.showAnswer': '顯示意思',
+  'study.showWord': '隱藏意思',
 };
 
 export const translations: Record<Language, Dict> = { en, zh };

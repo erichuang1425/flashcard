@@ -15,6 +15,7 @@ import TimerIcon from '@mui/icons-material/Timer';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import { AnimatedCounter } from '../components/AnimatedCounter';
+import { GuideTip } from '../components/guide/GuideTip';
 import { Flashcard } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -279,21 +280,29 @@ export const Home: React.FC = () => {
             fontSize: { xs: '1rem', sm: '1.1rem' }
           }
         }}>
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            startIcon={<SchoolIcon />}
-            onClick={() => navigate('/study')}
-            disabled={stats.dueToday === 0}
-            sx={{
-              py: 2,
-              fontSize: '1.1rem',
-              boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}20`
-            }}
+          <GuideTip
+            id="home.start"
+            order={1}
+            title={t('guide.homeStart.title')}
+            body={t('guide.homeStart.body')}
+            placement="bottom"
           >
-            {t('home.startReview', { count: stats.dueToday })}
-          </Button>
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              startIcon={<SchoolIcon />}
+              onClick={() => navigate('/study')}
+              disabled={stats.dueToday === 0}
+              sx={{
+                py: 2,
+                fontSize: '1.1rem',
+                boxShadow: theme => `0 8px 32px ${theme.palette.primary.main}20`
+              }}
+            >
+              {t('home.startReview', { count: stats.dueToday })}
+            </Button>
+          </GuideTip>
           <Button
             variant="outlined"
             size="large"

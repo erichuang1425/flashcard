@@ -11,6 +11,7 @@ import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { PronunciationProvider } from './context/PronunciationContext';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { OnboardingProvider } from './context/OnboardingContext';
+import { GuideProvider } from './context/GuideContext';
 
 const ThemedApp: React.FC = () => {
   const { theme } = useSettings();
@@ -30,11 +31,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <MobileProvider>
           <AuthProvider>
             <OnboardingProvider>
-              <SettingsProvider>
-                <PronunciationProvider>
-                  <ThemedApp />
-                </PronunciationProvider>
-              </SettingsProvider>
+              <GuideProvider>
+                <SettingsProvider>
+                  <PronunciationProvider>
+                    <ThemedApp />
+                  </PronunciationProvider>
+                </SettingsProvider>
+              </GuideProvider>
             </OnboardingProvider>
           </AuthProvider>
         </MobileProvider>
