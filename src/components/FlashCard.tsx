@@ -65,9 +65,17 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
                 fontSize: { xs: '2rem', sm: '3.5rem' },
                 fontWeight: 700,
                 textAlign: 'center',
-                background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
+                // Solid color as the base so the word is never invisible — on
+                // some iOS versions the gradient `background-clip: text` paint
+                // drops out under compositing, and with a transparent fill that
+                // leaves a blank word. Apply the gradient only where supported.
+                color: 'primary.main',
+                '@supports (-webkit-background-clip: text) or (background-clip: text)': {
+                  background: theme => `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                },
               }}
             >
               {card.word}
