@@ -272,7 +272,10 @@ export const Study: React.FC = () => {
           position: { xs: 'static', md: 'sticky' },
           top: { xs: 0, md: 24 },
           width: { xs: '100%', md: '300px' },
-          height: { xs: 'auto', md: 'calc(100dvh - 96px)' },
+          height: { xs: 'auto', md: 'calc(100vh - 96px)' },
+          '@supports (height: 100dvh)': {
+            height: { xs: 'auto', md: 'calc(100dvh - 96px)' },
+          },
           overflowY: 'auto',
           bgcolor: 'background.paper',
           borderRadius: 2,

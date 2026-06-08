@@ -32,6 +32,7 @@ import {
   getSuggestedVocabulary
 } from '../services/firestore';
 import type { DiaryEntry, Flashcard } from '../types';
+import { inset } from '../utils/safe-area';
 
 const WRITING_PROMPTS = [
   'Write about something that challenged you today.',
@@ -156,7 +157,14 @@ export const Diary: React.FC = () => {
       <Fab
         color="primary"
         onClick={handleOpenNew}
-        sx={{ position: 'fixed', bottom: 32, right: 32 }}
+        // Fixed elements don't inherit the <body> safe-area padding, so offset
+        // by the insets too or the FAB overlaps the home indicator (portrait)
+        // or sits under the notch (landscape). 0px where there's no inset.
+        sx={{
+          position: 'fixed',
+          bottom: inset('bottom', 32),
+          right: inset('right', 32),
+        }}
       >
         <AddIcon />
       </Fab>

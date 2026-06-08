@@ -20,6 +20,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../../i18n/translations';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { inset } from '../../utils/safe-area';
+import { dvhMinHeight } from '../../utils/viewport';
 
 // Each guide step pairs a large, friendly icon with a translated title/body.
 const STEPS: { icon: React.ReactNode; titleKey: string; bodyKey: string }[] = [
@@ -60,11 +62,17 @@ export const Onboarding: React.FC = () => {
   const renderShell = (children: React.ReactNode) => (
     <Box
       sx={{
-        minHeight: '100dvh',
+        ...dvhMinHeight(),
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2,
+        // Rendered outside Layout (no AppBar chrome), so inset the padding for
+        // the safe area or the bottom continue/language buttons land under the
+        // home indicator on tall iPhones. `p: 2` (16px) base + insets.
+        pt: inset('top', 16),
+        pb: inset('bottom', 16),
+        pl: inset('left', 16),
+        pr: inset('right', 16),
         background:
           theme.palette.mode === 'dark'
             ? 'linear-gradient(160deg, #14171c 0%, #1f2630 100%)'
