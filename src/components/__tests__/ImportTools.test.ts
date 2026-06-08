@@ -1,4 +1,4 @@
-import { parseCSVLine } from '../../utils/csv';
+import { parseCSVLine, normalizeCSVText } from '../../utils/csv';
 
 describe('parseCSVLine', () => {
   it('parses simple CSV lines', () => {
@@ -22,5 +22,28 @@ describe('parseCSVLine', () => {
     const line = 'word,noun,definition,';
     const result = parseCSVLine(line);
     expect(result).toEqual(['word', 'noun', 'definition', '']);
+  });
+});
+
+describe('normalizeCSVText', () => {
+  it('strips a leading UTF-8 BOM', () => {
+    expect(normalizeCSVText('\uFEFFword,noun,def,tran')).toBe('word,noun,def,tran');
+  });
+
+  it('converts CRLF line endings to LF', () => {
+    expect(normalizeCSVText('a,b\r\nc,d')).toBe('a,b\nc,d');
+  });
+
+  it('converts lone CR line endings to LF', () => {
+    expect(normalizeCSVText('a,b\rc,d')).toBe('a,b\nc,d');
+  });
+
+  it('leaves clean text untouched', () => {
+    expect(normalizeCSVText('a,b\nc,d')).toBe('a,b\nc,d');
+  });
+
+  it('removes trailing carriage returns so the last column is clean', () => {
+    const lastCell = parseCSVLine(normalizeCSVText('word,noun,def,tran\r').split('\n')[0])[3];
+    expect(lastCell).toBe('tran');
   });
 });

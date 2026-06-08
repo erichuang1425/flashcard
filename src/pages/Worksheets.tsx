@@ -96,8 +96,8 @@ export const Worksheets: React.FC = () => {
     handleMenuClose();
   };
 
-  const getDifficultyColor = (difficulty: string): 'success' | 'warning' | 'error' | 'primary' => {
-    switch (difficulty.toLowerCase()) {
+  const getDifficultyColor = (difficulty?: string): 'success' | 'warning' | 'error' | 'primary' => {
+    switch (difficulty?.toLowerCase()) {
       case 'easy': return 'success';
       case 'medium': return 'warning';
       case 'hard': return 'error';

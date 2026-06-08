@@ -54,7 +54,10 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
   }, [card, deck, correctAnswer]);
 
   // Reset transient state when the card (and therefore the options) changes.
+  // Also clear any pending auto-advance timer so a correct answer on the
+  // previous card can't fire onAnswer against the new one (double advance).
   useEffect(() => {
+    clearTimeout(advanceTimer.current);
     setSelected(null);
     setShowResult(false);
     setCanProceed(false);
