@@ -100,6 +100,32 @@ export const PronunciationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [settings]);
 
+  // iOS Safari refuses to play speech that wasn't initiated by a user gesture,
+  // and stays "locked" until the first one. Auto-speak (driven by a card-change
+  // effect, not a tap) therefore never fires on iOS — and even the first manual
+  // tap can be swallowed. Unlock the engine on the first interaction by speaking
+  // a silent utterance inside that gesture; harmless no-op on other platforms.
+  useEffect(() => {
+    if (!supported) return;
+    const unlock = () => {
+      try {
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        window.speechSynthesis.speak(u);
+      } catch {
+        /* best-effort; ignore */
+      }
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [supported]);
+
   // Stop any speech if the component unmounts (e.g. navigation).
   useEffect(() => () => cancelSpeech(), []);
 
