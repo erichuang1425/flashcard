@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { Category, VocabularyWord } from '../types';
 import { getVocabularyWords } from '../services/firestore';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface CategoryBrowserProps {
   categories: Category[];
@@ -12,6 +13,7 @@ interface CategoryBrowserProps {
 
 export const CategoryBrowser: React.FC<CategoryBrowserProps> = ({ categories }) => {
   const theme = useTheme();
+  const { t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryWords, setCategoryWords] = useState<VocabularyWord[]>([]);
 
@@ -45,14 +47,14 @@ export const CategoryBrowser: React.FC<CategoryBrowserProps> = ({ categories }) 
     <Box>
       {selectedCategory ? (
         <>
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             onClick={() => setSelectedCategory(null)}
             sx={{ mb: 2 }}
           >
-            Back to Categories
+            {t('library.backToCategories')}
           </Button>
-          <Grid container spacing={2}>
+          <Grid container spacing={{ xs: 1.5, sm: 2 }}>
             {categoryWords.map((word, index) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
                 <Card>
@@ -73,11 +75,11 @@ export const CategoryBrowser: React.FC<CategoryBrowserProps> = ({ categories }) 
           </Grid>
         </>
       ) : (
-        <Grid container spacing={2}>
+        <Grid container spacing={{ xs: 1.5, sm: 2 }}>
           {categories.map((category) => {
             const color = getRandomColor(category.name);
             return (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={category.id}>
+              <Grid item xs={6} sm={6} md={4} lg={3} key={category.id}>
                 <Card 
                   sx={{ 
                     height: '100%',
@@ -96,8 +98,8 @@ export const CategoryBrowser: React.FC<CategoryBrowserProps> = ({ categories }) 
                       <Typography variant="h6" gutterBottom>
                         {category.name}
                       </Typography>
-                      <Chip 
-                        label={`${category.count} words`}
+                      <Chip
+                        label={t('library.wordCount', { count: category.count })}
                         size="small"
                         sx={{ 
                           backgroundColor: alpha(color, 0.2),
