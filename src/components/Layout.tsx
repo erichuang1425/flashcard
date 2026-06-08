@@ -7,6 +7,7 @@ import { LevelProgress } from './gamification/LevelProgress';
 import { useGamification } from '../context/GamificationContext';
 import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
+import { dvhMinHeight, dvhHeight } from '../utils/viewport';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,7 +29,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <Box sx={{
-      minHeight: '100dvh',
+      ...dvhMinHeight(),
       display: 'flex',
       flexDirection: 'column',
       backgroundColor: focusMode ? 'action.hover' : 'background.default',
@@ -63,7 +64,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             transition: 'all 0.3s ease',
             // Offset the fixed AppBar by its real height — 56px on phones, 64px
             // from `sm` up — so the scroll region isn't ~8px too tall on mobile.
-            height: { xs: 'calc(100dvh - 56px)', sm: 'calc(100dvh - 64px)' },
+            // `vh` base with a `dvh` override for engines that support it.
+            height: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
+            '@supports (height: 100dvh)': {
+              height: { xs: 'calc(100dvh - 56px)', sm: 'calc(100dvh - 64px)' },
+            },
             overflowY: 'auto',
             opacity: focusMode ? 0.97 : 1,
             filter: focusMode ? 'grayscale(0.2)' : 'none',
@@ -105,7 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               position: 'fixed',
               top: 76,
               right: 12, // Add right margin on desktop
-              height: 'calc(100dvh - 88px)', // Account for top/bottom margins
+              ...dvhHeight('calc(100dvh - 88px)'), // Account for top/bottom margins
               width: isPanelCollapsed ? '48px' : '300px',
               maxWidth: '324px',
               transition: 'all 0.3s ease',
