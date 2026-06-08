@@ -164,8 +164,8 @@ export const Worksheets: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ 
-      minHeight: '100dvh',
+    <Container maxWidth="lg" sx={{
+      minHeight: '100%',
       py: { xs: 2, sm: 4 }
     }}>
       <Box sx={{ 

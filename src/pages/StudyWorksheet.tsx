@@ -82,7 +82,7 @@ export const StudyWorksheet = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60dvh">
         <CircularProgress />
       </Box>
     );
