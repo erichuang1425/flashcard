@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, LinearProgress, Typography, Paper, CircularProgress, Grid } from '@mui/material';
+import { Box, LinearProgress, Typography, Paper, CircularProgress } from '@mui/material';
 import type { StudyProgress } from '../types';
 
 interface StudyProgressProps {
@@ -35,14 +35,16 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
         </Typography>
       </Box>
 
-      {/* Stats grid */}
-      <Grid container spacing={2}>
+      {/* Stats grid — two columns via flex wrap (MUI v6 Grid v2 `size` would
+          also work; flex keeps it deprecation-free and dependency-light). The
+          16px gap means each column is `calc(50% - 8px)`. */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         {/* Streak stat */}
-        <Grid item xs={6}>
+        <Box sx={{ width: 'calc(50% - 8px)' }}>
           <Box sx={{ textAlign: 'center' }}>
-            <Typography 
-              variant="h4" 
-              sx={{ 
+            <Typography
+              variant="h4"
+              sx={{
                 color: theme => progress.streak >= 5 ? theme.palette.success.main : 'text.primary'
               }}
             >
@@ -50,10 +52,10 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
             </Typography>
             <Typography variant="body2">Current Streak</Typography>
           </Box>
-        </Grid>
+        </Box>
 
         {/* Accuracy stat */}
-        <Grid item xs={6}>
+        <Box sx={{ width: 'calc(50% - 8px)' }}>
           <Box sx={{ textAlign: 'center' }}>
             <Box sx={{ position: 'relative', display: 'inline-flex' }}>
               <CircularProgress
@@ -82,20 +84,20 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
             </Box>
             <Typography variant="body2" sx={{ mt: 1 }}>Accuracy</Typography>
           </Box>
-        </Grid>
+        </Box>
 
         {/* Additional stats */}
-        <Grid item xs={6}>
+        <Box sx={{ width: 'calc(50% - 8px)' }}>
           <Typography variant="body2" color="text.secondary">
             Correct: {progress.correct}
           </Typography>
-        </Grid>
-        <Grid item xs={6}>
+        </Box>
+        <Box sx={{ width: 'calc(50% - 8px)' }}>
           <Typography variant="body2" color="text.secondary">
             Incorrect: {progress.incorrect}
           </Typography>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Paper>
   );
 };
