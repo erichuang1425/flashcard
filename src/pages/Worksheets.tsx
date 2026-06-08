@@ -23,6 +23,7 @@ import type { Worksheet, WorksheetStats } from '../types';
 import { WorksheetGenerator } from '../components/WorksheetGenerator';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { dvhMaxHeight } from '../utils/viewport';
 
 export const Worksheets: React.FC = () => {
   const { user } = useAuth();
@@ -385,8 +386,8 @@ export const Worksheets: React.FC = () => {
                     Last
                   </Button>
                 </Box>
-                <List dense sx={{ 
-                  maxHeight: 'calc(100dvh - 250px)',
+                <List dense sx={{
+                  ...dvhMaxHeight('calc(100dvh - 250px)'),
                   overflowY: 'auto',
                   '&::-webkit-scrollbar': {
                     width: '8px',

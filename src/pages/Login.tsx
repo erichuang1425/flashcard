@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import GoogleIcon from '@mui/icons-material/Google';
 import { useLanguage } from '../i18n/LanguageContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { dvhMinHeight } from '../utils/viewport';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -42,9 +43,9 @@ export const Login: React.FC = () => {
   return (
     <Box sx={{ 
       display: 'flex', 
-      justifyContent: 'center', 
+      justifyContent: 'center',
       alignItems: 'center',
-      minHeight: '80dvh'
+      ...dvhMinHeight('80dvh')
     }}>
       <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>

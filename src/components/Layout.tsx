@@ -8,7 +8,7 @@ import { LevelProgress } from './gamification/LevelProgress';
 import { useGamification } from '../context/GamificationContext';
 import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
-import { dvhMinHeight, dvhHeight } from '../utils/viewport';
+import { dvhMinHeight, dvhHeight, dvhMaxHeight } from '../utils/viewport';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -201,7 +201,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         PaperProps={{
           sx: {
             borderRadius: '16px 16px 0 0',
-            maxHeight: '85dvh',
+            ...dvhMaxHeight('85dvh'),
             pb: 'env(safe-area-inset-bottom)',
           },
         }}

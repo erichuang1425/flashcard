@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../i18n/LanguageContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { dvhMinHeight } from '../utils/viewport';
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -40,9 +41,9 @@ export const Register: React.FC = () => {
   return (
     <Box sx={{ 
       display: 'flex', 
-      justifyContent: 'center', 
+      justifyContent: 'center',
       alignItems: 'center',
-      minHeight: '80dvh'
+      ...dvhMinHeight('80dvh')
     }}>
       <Paper sx={{ p: 4, maxWidth: '400px', width: '100%' }}>
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
