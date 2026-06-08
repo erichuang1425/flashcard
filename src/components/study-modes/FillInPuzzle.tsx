@@ -4,6 +4,7 @@ import type { Flashcard } from '../../types';
 import { generateCrossword } from '../../utils/crossword';
 import type { CrosswordCell } from '../../utils/crossword';
 import type { BatchResult } from './types';
+import { isMobile as device } from '../../utils/device-detection';
 
 interface Props {
   cards: Flashcard[];
@@ -55,9 +56,18 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
 
   const hasCell = (row: number, col: number): boolean => cellMap.has(keyOf(row, col));
 
+  // iOS WebKit dismisses/flickers the on-screen keyboard when focus jumps
+  // between sibling inputs, and `.select()` on a freshly-focused input there is
+  // a no-op that can blur it. So on iOS we focus without scrolling and skip the
+  // select; other platforms keep the snappy focus+select that highlights the
+  // existing letter for overwrite.
+  const isIOS = device.iOS();
   const focusCell = (row: number, col: number) => {
     const el = inputRefs.current.get(keyOf(row, col));
-    if (el) {
+    if (!el) return;
+    if (isIOS) {
+      el.focus({ preventScroll: true });
+    } else {
       el.focus();
       el.select();
     }
