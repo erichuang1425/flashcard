@@ -25,6 +25,7 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import { useSettings } from '../context/SettingsContext';
 import { useLanguage } from '../i18n/LanguageContext';
+import { SAFE_AREA } from '../utils/safe-area';
 
 interface NavBarProps {
   // Opens the mobile "progress & timer" bottom sheet. Provided by Layout only
@@ -194,12 +195,20 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
 
   return (
     <>
-      <AppBar 
-        position="fixed" 
+      <AppBar
+        position="fixed"
         elevation={1}
         sx={{
           transition: 'background-color 0.3s ease',
-          bgcolor: focusMode ? 'background.paper' : 'primary.main'
+          bgcolor: focusMode ? 'background.paper' : 'primary.main',
+          // Fixed elements ignore the <body> safe-area padding (they're laid
+          // out against the viewport), so in landscape with viewport-fit=cover
+          // the menu button/title would sit under the notch. Inset the toolbar
+          // horizontally; 0px on non-notched screens. (Top inset stays 0 under
+          // the app's `status-bar-style: default`, so the AppBar height — which
+          // the Layout's scroll math depends on — is unchanged.)
+          pl: SAFE_AREA.left,
+          pr: SAFE_AREA.right,
         }}
       >
         <Toolbar>
@@ -311,7 +320,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
       </AppBar>
       {renderDesktopMenu}
       {renderMobileNav()}
-      <Toolbar /> 
+      <Toolbar />
     </>
   );
 };

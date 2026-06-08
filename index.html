@@ -31,15 +31,21 @@
     }
     
     * {
-      -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Disabling selection app-wide also blocks copying vocabulary words,
+       definitions and diary text — exactly what users want to grab in a
+       study app. So only the interactive chrome (buttons, nav, the app bar)
+       opts out of selection; reading content stays selectable by default. */
+    button,
+    [role="button"],
+    .MuiButtonBase-root,
+    .MuiAppBar-root,
+    nav {
+      -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
-    }
-    
-    input, textarea {
-      -webkit-user-select: text;
-      user-select: text;
     }
   </style>
 </head>
