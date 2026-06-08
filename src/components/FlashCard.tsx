@@ -125,6 +125,10 @@ export const FlashCard: React.FC<FlashCardProps> = ({ card, onRating, showAnswer
                 <Button
                   onClick={() => onRating(value)}
                   variant="contained"
+                  // On mobile the button shows only the emoji and the label
+                  // lives in a hover-only Tooltip, so without an explicit label
+                  // touch users and screen readers get no meaning. Announce it.
+                  aria-label={label}
                   color={value >= 4 ? 'success' : value >= 3 ? 'primary' : 'error'}
                   sx={{
                     // On mobile the five buttons share six columns: the first
