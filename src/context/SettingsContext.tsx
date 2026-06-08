@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useUserPreferences } from '../hooks/useUserPreferences';
-import { playNotificationCue } from '../utils/notification-sound';
+import { playNotificationCue, primeNotificationAudio } from '../utils/notification-sound';
 
 interface SettingsContextType {
   theme: 'light' | 'dark' | 'system';
@@ -49,7 +49,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     updatePreferences({ theme: nextTheme }).catch(console.error);
   };
 
-  const startTimer = () => setIsActive(true);
+  const startTimer = () => {
+    // Runs inside the Start button's click handler — a real user gesture — so
+    // resume the audio context now; iOS won't let the later, timer-driven cue
+    // play otherwise.
+    primeNotificationAudio();
+    setIsActive(true);
+  };
   const pauseTimer = () => setIsActive(false);
   const resetTimer = () => {
     setIsActive(false);
