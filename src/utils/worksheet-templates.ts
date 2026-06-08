@@ -96,8 +96,6 @@ interface WorksheetGenerationResult {
   };
 }
 
-const LETTERS = ['A', 'B', 'C', 'D']; 
-
 export const generateWorksheet = async (
   words: string[], 
   templateId: string, 
@@ -124,8 +122,9 @@ export const generateWorksheet = async (
         ...otherDefs.slice(0, 3).map(d => d.englishDefinition)
       ]);
 
-      const correctAnswerIndex = options.indexOf(def.englishDefinition);
-      const letterAnswer = LETTERS[correctAnswerIndex];
+      // The correct answer must match the option value the student actually
+      // selects (the displayed, capitalized option text) — not a letter index.
+      const correctOption = capitalizeFirstWord(def.englishDefinition);
 
       questions.push({
         id: questionId,
@@ -133,11 +132,11 @@ export const generateWorksheet = async (
         question: capitalizeFirstWord(`What is the meaning of "${word}"?`),
         options: options.map((opt) => capitalizeFirstWord(opt)),
         points: 5,
-        correctAnswer: letterAnswer
+        correctAnswer: correctOption
       });
 
       answers[questionId] = {
-        correctAnswer: capitalizeFirstWord(`${letterAnswer} ${def.englishDefinition}`),
+        correctAnswer: correctOption,
         explanation: capitalizeFirstWord(`"${word}" means ${def.englishDefinition}`)
       };
     }

@@ -145,18 +145,23 @@ export const checkAndUpdateAchievements = async (userId: string, stats: Achievem
     const achievementRef = doc(userAchievementsRef, template.id);
     const achievementDoc = await getDoc(achievementRef);
     
-    if (!achievementDoc.exists() || !achievementDoc.data().achieved) {
+    const wasAchieved = achievementDoc.exists() && achievementDoc.data().achieved === true;
+
+    if (!wasAchieved) {
       const progress = calculateAchievementProgress(template, stats);
-      
+      const nowAchieved = progress >= template.requirement;
+
       await setDoc(achievementRef, {
         ...template,
         progress,
-        achieved: progress >= template.requirement,
-        achievedDate: progress >= template.requirement ? new Date() : null
+        achieved: nowAchieved,
+        achievedDate: nowAchieved ? new Date() : null
       }, { merge: true });
 
-      // If newly achieved, add XP reward
-      if (progress >= template.requirement && !achievementDoc.exists()) {
+      // Award XP only on the transition from not-achieved to achieved. The doc
+      // may already exist (created earlier with partial progress), so gating on
+      // !exists() would never award XP for multi-step achievements.
+      if (nowAchieved) {
         await updateUserXP(userId, template.points);
       }
     }

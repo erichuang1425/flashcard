@@ -1,3 +1,11 @@
+/**
+ * Normalize raw CSV text before line-splitting: strip a leading UTF-8 BOM
+ * (common in Excel exports) and convert CRLF / lone CR line endings to LF so
+ * downstream `split('\n')` produces clean rows without stray `\r` characters.
+ */
+export const normalizeCSVText = (text: string): string =>
+  text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+
 export const parseCSVLine = (line: string): string[] => {
   const result = [] as string[];
   let cell = '';

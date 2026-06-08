@@ -375,7 +375,13 @@ export const updateStudyStats = async (userId: string, sessionSummary: StudySess
         });
       } else {
         const currentStats = statsDoc.data() as StudyStats;
-        const lastStudied = currentStats.lastStudied;
+        // lastStudied is read back from Firestore as a Timestamp, which has no
+        // toDateString(); normalize to a JS Date before comparing.
+        const lastStudiedRaw = currentStats.lastStudied as unknown as { toDate?: () => Date } | Date | undefined;
+        const lastStudied =
+          lastStudiedRaw && typeof (lastStudiedRaw as any).toDate === 'function'
+            ? (lastStudiedRaw as { toDate: () => Date }).toDate()
+            : (lastStudiedRaw as Date) ?? new Date(0);
         const isNewDay = new Date().toDateString() !== lastStudied.toDateString();
         
         transaction.update(statsRef, {
@@ -603,7 +609,7 @@ export const updateUserStudyStats = async (
         lastStudyDate: today,
         totalStudySessions: 1,
         todayStudyMinutes: Math.round(sessionData.duration / 60),
-        weeklyStudyGoal: 30, // Default 30 minutes weekly goal
+        weeklyStudyGoal: 60, // Default weekly goal (kept consistent with getUserStudyStats)
         weeklyProgress: Math.round(sessionData.duration / 60),
       });
       return;
@@ -643,7 +649,7 @@ export const updateWeeklyStudyGoal = async (userId: string) => {
     // Base: 60 minutes minimum, or 0.5 minutes per card
     const recommendedWeeklyMinutes = Math.max(60, Math.ceil(totalCards * 0.5));
     
-    const statsRef = doc(db, 'studyStats', userId);
+    const statsRef = doc(db, 'users', userId, 'stats', 'study');
     await setDoc(statsRef, {
       weeklyStudyGoal: recommendedWeeklyMinutes
     }, { merge: true });
