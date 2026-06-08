@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Box, Button, Typography, Paper, Alert } from '@mui/material';
+import { Box, Button, Typography, Paper } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { capitalizeFirstWord, shuffle } from '../../utils/helpers';
 
