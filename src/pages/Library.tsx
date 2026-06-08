@@ -49,9 +49,9 @@ export const Library: React.FC = () => {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ 
-      minHeight: '100dvh',
-      py: { xs: 2, sm: 4 } 
+    <Container maxWidth="lg" sx={{
+      minHeight: '100%',
+      py: { xs: 2, sm: 4 }
     }}>
       <Box sx={{ 
         display: 'flex',
