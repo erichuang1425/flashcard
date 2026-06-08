@@ -171,6 +171,13 @@ This is the root cause shared by M1 and M4 below.
   (height:100dvh)': { minHeight: '100dvh' } }`) keeps it DRY.
 - **Effort:** ~30 min. **Risk:** very low. (Low priority given current iOS
   share — trivial but mostly future-proofing/old-device safety.)
+- **Status:** ✅ Done. `src/utils/viewport.ts` exports `dvhMinHeight`,
+  `dvhHeight`, and `dvhMaxHeight` (`vh` base + `@supports` `dvh` override).
+  All previously-bare `dvh` surfaces now route through the helper:
+  `App.tsx` (route fallback), `Login.tsx`/`Register.tsx` (auth shells),
+  `StudyWorksheet.tsx` (loading shell), `Layout.tsx` (bottom-sheet
+  `maxHeight`), and `Worksheets.tsx` (answer list `maxHeight`). Covered by
+  `src/utils/__tests__/viewport.test.ts`.
 
 ### M8 FlashCard gradient text can flash invisible on iOS 🟢
 
