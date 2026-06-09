@@ -1,15 +1,5 @@
 import { Worksheet } from '../types';
 import { Document, Paragraph, Packer } from 'docx';
-import { generateWorksheetPDF } from './pdfService';
-
-export const exportWorksheet = async (worksheet: Worksheet, format: 'pdf' | 'docx') => {
-  if (format === 'pdf') {
-    return generateWorksheetPDF(worksheet);
-  } else {
-    return generateDOCX(worksheet);
-  }
-};
-
 export const generateDOCX = async (worksheet: Worksheet): Promise<Document> => {
   const doc = new Document({
     sections: [{

@@ -2,69 +2,44 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isAuthenticated() {
       return request.auth != null;
     }
 
-
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-
-    match /users/{userId}/{document=**} {
+    match /users/{userId} {
       allow read, write: if isOwner(userId);
+
+      // Public cards may be read by another signed-in user, but only the owner
+      // may create, modify, or delete cards in this subtree.
+      match /flashcards/{cardId} {
+        allow read: if isOwner(userId) ||
+          (isAuthenticated() && resource.data.isPublic == true);
+        allow write: if isOwner(userId);
+      }
+
+      // All other profile data, including categories, worksheets, diary entries,
+      // settings, and statistics, is private to the account owner.
+      match /{document=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
-
-    match /categories/{encodedId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || 
-        request.resource.data.count == resource.data.count + 1
-      );
+    // Legacy global category documents remain owner-readable so the client can
+    // copy them into the user subtree. They are immutable and never globally
+    // listable without an ownership filter.
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if false;
     }
 
-
-    match /users/{userId}/flashcards/{cardId} {
-      allow read: if isAuthenticated() && (
-        isOwner(userId) || 
-        resource.data.isPublic == true
-      );
-      allow write: if isAuthenticated() && isOwner(userId);
-    }
-
-
-    match /users/{userId}/{document=**} {
-      allow read, write: if isAuthenticated() && isOwner(userId);
-    }
-
-
-    match /users/{userId}/worksheets/{worksheetId} {
-      allow read, write: if isAuthenticated() && isOwner(userId);
-    }
-
-
-    match /users/{userId}/stats/{document=**} {
-      allow read, write: if isAuthenticated() && isOwner(userId);
-    }
-
-
-    match /vocabulary/{encodedWord} {
-      allow read: if isAuthenticated();
-      allow write: if false;  // Only admins can modify base vocabulary
-    }
-
-
+    // Base vocabulary is curated outside the client application.
     match /vocabulary/{wordId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        request.resource.data.isPublic == true
-      );
+      allow write: if false;
     }
   }
 }
