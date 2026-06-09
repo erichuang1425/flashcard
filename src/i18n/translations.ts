@@ -165,6 +165,11 @@ const en: Dict = {
   // Study controls
   'study.showAnswer': 'Reveal meaning',
   'study.showWord': 'Hide meaning',
+
+  // Multiple choice
+  'study.mc.continue': 'Continue',
+  'study.mc.wordToMeaning': 'Word → Meaning',
+  'study.mc.meaningToWord': 'Meaning → Word',
 };
 
 const zh: Dict = {
@@ -310,6 +315,11 @@ const zh: Dict = {
   // Study controls
   'study.showAnswer': '顯示意思',
   'study.showWord': '隱藏意思',
+
+  // Multiple choice
+  'study.mc.continue': '繼續',
+  'study.mc.wordToMeaning': '單字 → 意思',
+  'study.mc.meaningToWord': '意思 → 單字',
 };
 
 export const translations: Record<Language, Dict> = { en, zh };
