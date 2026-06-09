@@ -2,14 +2,16 @@
  * @jest-environment jsdom
  *
  * Tests for `AuthContext`, which wraps the Firebase Auth SDK. The SDK, the
- * firebase service module and the mobile context are mocked so the provider's
- * own behaviour is exercised: mapping the Firebase user onto the app `User`,
- * the loading lifecycle, the email flows, and the Google sign-in popup →
- * redirect fallback (which leans on the already-tested `authFallback` helpers).
+ * firebase service module, the user-profile service and the mobile context are
+ * mocked so the provider's own behaviour is exercised: mapping the Firebase user
+ * onto the app `User`, the loading lifecycle, the email flows, "remember me"
+ * persistence, ensuring a profile on every sign-in, the Google sign-in popup →
+ * redirect fallback (which leans on the already-tested `authFallback` helpers),
+ * and linking Google onto an existing password account.
  */
 import '@testing-library/jest-dom';
 import React from 'react';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 
 jest.mock('../../services/firebase', () => ({ auth: { __auth: true } }));
 
@@ -20,6 +22,9 @@ const mockSignOut = jest.fn();
 const mockSignInWithPopup = jest.fn();
 const mockSignInWithRedirect = jest.fn();
 const mockGetRedirectResult = jest.fn();
+const mockSetPersistence = jest.fn();
+const mockLinkWithCredential = jest.fn();
+const mockCredentialFromError = jest.fn();
 jest.mock('firebase/auth', () => ({
   onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
   signInWithEmailAndPassword: (...args: unknown[]) => mockSignIn(...args),
@@ -28,7 +33,20 @@ jest.mock('firebase/auth', () => ({
   signInWithPopup: (...args: unknown[]) => mockSignInWithPopup(...args),
   signInWithRedirect: (...args: unknown[]) => mockSignInWithRedirect(...args),
   getRedirectResult: (...args: unknown[]) => mockGetRedirectResult(...args),
-  GoogleAuthProvider: class {},
+  setPersistence: (...args: unknown[]) => mockSetPersistence(...args),
+  linkWithCredential: (...args: unknown[]) => mockLinkWithCredential(...args),
+  browserLocalPersistence: { __persistence: 'LOCAL' },
+  browserSessionPersistence: { __persistence: 'SESSION' },
+  GoogleAuthProvider: class {
+    static credentialFromError(...args: unknown[]): unknown {
+      return mockCredentialFromError(...args);
+    }
+  },
+}));
+
+const mockEnsureUserProfile = jest.fn();
+jest.mock('../../services/user', () => ({
+  ensureUserProfile: (...args: unknown[]) => mockEnsureUserProfile(...args),
 }));
 
 let mockIsMobileDevice = false;
@@ -50,14 +68,25 @@ const emitAuthState = (firebaseUser: unknown) => {
   act(() => cb(firebaseUser));
 };
 
+// A Firebase UserCredential as the SDK returns it from the sign-in calls.
+const credential = () => ({
+  user: { uid: 'u1', email: 'a@b.com', displayName: 'Mina', photoURL: null, providerData: [] },
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsMobileDevice = false;
   mockGetRedirectResult.mockResolvedValue(null);
   mockOnAuthStateChanged.mockReturnValue(() => {}); // unsubscribe fn
-  [mockSignIn, mockSignUp, mockSignOut, mockSignInWithPopup, mockSignInWithRedirect].forEach(
-    (m) => m.mockResolvedValue(undefined),
-  );
+  mockSetPersistence.mockResolvedValue(undefined);
+  mockSignOut.mockResolvedValue(undefined);
+  mockSignInWithRedirect.mockResolvedValue(undefined);
+  mockLinkWithCredential.mockResolvedValue(undefined);
+  mockEnsureUserProfile.mockResolvedValue(undefined);
+  mockCredentialFromError.mockReturnValue({ __googleCred: true });
+  mockSignIn.mockResolvedValue(credential());
+  mockSignUp.mockResolvedValue(credential());
+  mockSignInWithPopup.mockResolvedValue(credential());
 });
 
 describe('auth state', () => {
@@ -75,6 +104,17 @@ describe('auth state', () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.user).toEqual({ uid: 'u1', email: 'a@b.com', displayName: 'Mina' });
+  });
+
+  it('maps the photo URL when present', () => {
+    const { result } = renderAuth();
+    emitAuthState({ uid: 'u1', email: 'a@b.com', displayName: 'Mina', photoURL: 'http://x/p.png' });
+    expect(result.current.user).toEqual({
+      uid: 'u1',
+      email: 'a@b.com',
+      displayName: 'Mina',
+      photoURL: 'http://x/p.png',
+    });
   });
 
   it('represents a missing display name as undefined', () => {
@@ -98,6 +138,16 @@ describe('auth state', () => {
     unmount();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
+
+  it('stamps the profile when a redirect sign-in resolves to a user', async () => {
+    mockGetRedirectResult.mockResolvedValueOnce(credential());
+    renderAuth();
+    // Let the getRedirectResult promise (and its .then) settle.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('email/password flows', () => {
@@ -109,12 +159,21 @@ describe('email/password flows', () => {
     expect(mockSignIn).toHaveBeenCalledWith({ __auth: true }, 'a@b.com', 'pw');
   });
 
-  it('signUp delegates to createUserWithEmailAndPassword', async () => {
+  it('ensures a profile after an email sign-in', async () => {
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('signUp delegates to createUserWithEmailAndPassword and ensures a profile', async () => {
     const { result } = renderAuth();
     await act(async () => {
       await result.current.signUp('a@b.com', 'pw');
     });
     expect(mockSignUp).toHaveBeenCalledWith({ __auth: true }, 'a@b.com', 'pw');
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
   it('signOut calls the SDK and clears the local user', async () => {
@@ -127,6 +186,32 @@ describe('email/password flows', () => {
 
     expect(mockSignOut).toHaveBeenCalledTimes(1);
     expect(result.current.user).toBeNull();
+  });
+});
+
+describe('remember me persistence', () => {
+  it('uses local persistence when remember-me is on (the default)', async () => {
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'LOCAL' });
+  });
+
+  it('uses session persistence when remember-me is off', async () => {
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw', false);
+    });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'SESSION' });
+  });
+
+  it('applies persistence before a Google sign-in too', async () => {
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signInWithGoogle(false);
+    });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'SESSION' });
   });
 });
 
@@ -143,7 +228,7 @@ describe('signInWithGoogle', () => {
     expect(mockSignInWithPopup).not.toHaveBeenCalled();
   });
 
-  it('uses the popup on desktop', async () => {
+  it('uses the popup on desktop and ensures a profile', async () => {
     const { result } = renderAuth();
 
     await act(async () => {
@@ -152,6 +237,7 @@ describe('signInWithGoogle', () => {
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
   it('treats a user-cancelled popup as a benign no-op', async () => {
@@ -163,6 +249,7 @@ describe('signInWithGoogle', () => {
     });
 
     expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+    expect(mockEnsureUserProfile).not.toHaveBeenCalled();
   });
 
   it('falls back to redirect when the popup is blocked', async () => {
@@ -186,6 +273,46 @@ describe('signInWithGoogle', () => {
       });
     });
     expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+  });
+});
+
+describe('account linking', () => {
+  it('asks for a password and links Google onto an existing password account', async () => {
+    mockSignInWithPopup.mockRejectedValueOnce({
+      code: 'auth/account-exists-with-different-credential',
+      customData: { email: 'a@b.com' },
+    });
+    const pendingCred = { __googleCred: true };
+    mockCredentialFromError.mockReturnValueOnce(pendingCred);
+
+    const { result } = renderAuth();
+
+    // The Google attempt surfaces a tagged error instead of failing outright.
+    await act(async () => {
+      await expect(result.current.signInWithGoogle()).rejects.toMatchObject({
+        code: 'auth/needs-password-link',
+        email: 'a@b.com',
+      });
+    });
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+
+    // The follow-up password sign-in links the stored Google credential.
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(mockLinkWithCredential).toHaveBeenCalledTimes(1);
+    expect(mockLinkWithCredential).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'u1' }),
+      pendingCred,
+    );
+  });
+
+  it('does not link anything on a normal sign-in', async () => {
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
   });
 });
 
