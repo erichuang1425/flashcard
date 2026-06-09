@@ -42,15 +42,19 @@ Running `npm test -- --coverage` today:
 
 ---
 
-## Structural blocker: no component/hook test tooling
+## Structural blocker: no component/hook test tooling — ✅ RESOLVED
 
-The Jest config uses `testEnvironment: 'node'`, and **neither `jsdom` nor
-`@testing-library/react` is installed.** As a result it is currently
-*impossible* to render a component or exercise a hook in a test. Any plan to
-test UI, contexts, or hooks must start by adding that tooling
-(`jest-environment-jsdom` + `@testing-library/react` +
-`@testing-library/jest-dom`). This is the single biggest thing standing
-between the project and meaningful UI coverage.
+> **Update:** `jest-environment-jsdom`, `@testing-library/react`,
+> `@testing-library/jest-dom` and `@testing-library/user-event` are now
+> installed. Jest still defaults to `testEnvironment: 'node'` (fast pure-unit
+> tests), and UI tests opt into the DOM per-file with a
+> `@jest-environment jsdom` docblock. jest-dom matchers are registered globally
+> via `jest.setup.ts`. Components, hooks and contexts can now be rendered.
+
+Originally: the Jest config used `testEnvironment: 'node'` with neither `jsdom`
+nor `@testing-library/react` installed, so it was *impossible* to render a
+component or exercise a hook. That tooling is now in place, unblocking UI
+coverage.
 
 ---
 
@@ -108,11 +112,13 @@ between the project and meaningful UI coverage.
 
 ## Suggested sequencing
 
-1. **Quick wins now (no new tooling):** `gamification.ts` pure functions,
+1. ✅ **Quick wins now (no new tooling):** `gamification.ts` pure functions,
    `worksheet-templates.ts`, extract + test study-mode answer logic, top up
-   `speech.ts` / `helpers.ts`.
+   `speech.ts` / `helpers.ts`. *(Done — leveling math, study-mode logic,
+   worksheet generation and the speech/helpers utils are covered.)*
 2. **Add the emulator harness:** wire up the already-present
    `@firebase/rules-unit-testing` → test `firestore.rules` and the
    streak/stats functions.
-3. **Add jsdom + `@testing-library/react`:** unlock contexts, hooks, and
-   components.
+3. ✅ **Add jsdom + `@testing-library/react`:** unlock contexts, hooks, and
+   components. *(Done — tooling installed; study-mode components and the
+   language context now have rendering tests.)*
