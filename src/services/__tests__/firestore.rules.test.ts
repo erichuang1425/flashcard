@@ -2,7 +2,7 @@
  * Security-rules tests for `firestore.rules`, run against the Firestore
  * emulator. Untested rules are a real data-leak risk, so these verify the core
  * invariant — a user can only touch their own `/users/{uid}` subtree — plus the
- * read-only base vocabulary and the shared categories collection.
+ * read-only base vocabulary and private, user-scoped categories.
  *
  * Not part of `npm test`; run with `npm run test:rules` (boots the emulator).
  */
@@ -14,7 +14,7 @@ import {
   assertSucceeds,
   RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 let testEnv: RulesTestEnvironment;
 
@@ -93,8 +93,16 @@ describe('base vocabulary', () => {
       await setDoc(doc(ctx.firestore(), 'vocabulary', 'word'), { word: 'cat' });
     });
 
-    await assertSucceeds(getDoc(doc(aliceDb(), 'vocabulary', 'word')));
-    await assertFails(setDoc(doc(aliceDb(), 'vocabulary', 'word'), { word: 'tampered' }));
+    const ref = doc(aliceDb(), 'vocabulary', 'word');
+    await assertSucceeds(getDoc(ref));
+    await assertFails(setDoc(ref, { word: 'tampered' }));
+    await assertFails(updateDoc(ref, { isPublic: true, userId: ALICE }));
+    await assertFails(deleteDoc(ref));
+  });
+
+  it('rejects creates even when a signed-in user supplies ownership fields', async () => {
+    const ref = doc(aliceDb(), 'vocabulary', 'user-created');
+    await assertFails(setDoc(ref, { word: 'cat', userId: ALICE, isPublic: true }));
   });
 
   it('is not readable when unauthenticated', async () => {
@@ -102,14 +110,49 @@ describe('base vocabulary', () => {
   });
 });
 
-describe('categories', () => {
-  it('allows creating a category you own', async () => {
-    const ref = doc(aliceDb(), 'categories', 'cat-1');
-    await assertSucceeds(setDoc(ref, { userId: ALICE, count: 0 }));
+describe('user-scoped categories', () => {
+  const aliceCategory = () => doc(aliceDb(), 'users', ALICE, 'categories', 'grammar');
+
+  it('allows an owner to create and update a category', async () => {
+    const ref = aliceCategory();
+    await assertSucceeds(setDoc(ref, { name: 'Grammar', count: 0 }));
+    await assertSucceeds(updateDoc(ref, { count: 1 }));
+    await assertSucceeds(getDoc(ref));
   });
 
-  it('rejects creating a category owned by someone else', async () => {
-    const ref = doc(aliceDb(), 'categories', 'cat-2');
-    await assertFails(setDoc(ref, { userId: BOB, count: 0 }));
+  it('blocks another user from reading, incrementing, renaming, or deleting it', async () => {
+    await setDoc(aliceCategory(), { name: 'Grammar', count: 0 });
+    const ref = doc(bobDb(), 'users', ALICE, 'categories', 'grammar');
+
+    await assertFails(getDoc(ref));
+    await assertFails(updateDoc(ref, { count: 1 }));
+    await assertFails(updateDoc(ref, { name: 'Hijacked', count: 1 }));
+    await assertFails(deleteDoc(ref));
+  });
+
+  it('blocks unauthenticated category access', async () => {
+    const ref = doc(anonDb(), 'users', ALICE, 'categories', 'grammar');
+    await assertFails(getDoc(ref));
+    await assertFails(setDoc(ref, { name: 'Grammar', count: 0 }));
+  });
+
+  it('allows only the legacy owner to read a global category during migration', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'categories', 'grammar'), {
+        name: 'Grammar',
+        userId: ALICE,
+        count: 2,
+      });
+    });
+
+    await assertSucceeds(getDoc(doc(aliceDb(), 'categories', 'grammar')));
+    await assertFails(getDoc(doc(bobDb(), 'categories', 'grammar')));
+    await assertFails(updateDoc(doc(aliceDb(), 'categories', 'grammar'), { count: 3 }));
+    await assertFails(deleteDoc(doc(aliceDb(), 'categories', 'grammar')));
+    await assertFails(setDoc(doc(aliceDb(), 'categories', 'new'), {
+      name: 'New',
+      userId: ALICE,
+      count: 0,
+    }));
   });
 });
