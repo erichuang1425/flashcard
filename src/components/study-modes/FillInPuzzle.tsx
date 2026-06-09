@@ -5,14 +5,17 @@ import { generateCrossword } from '../../utils/crossword';
 import type { CrosswordCell } from '../../utils/crossword';
 import type { BatchResult } from './types';
 import { isMobile as device } from '../../utils/device-detection';
+import {
+  cellKey as keyOf,
+  sanitizeWord,
+  isWordSolved,
+  buildPuzzleResults,
+} from './logic';
 
 interface Props {
   cards: Flashcard[];
   onComplete: (results: BatchResult[]) => void;
 }
-
-const keyOf = (row: number, col: number): string => `${row},${col}`;
-const sanitizeWord = (value: string): string => value.toUpperCase().replace(/[^A-Z]/g, '');
 
 export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
   const layout = useMemo(
@@ -179,30 +182,13 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
     if (letter) step(row, col, directionRef.current);
   };
 
-  const isWordSolved = (word: (typeof layout.placed)[number]): boolean => {
-    const length = sanitizeWord(word.answer).length;
-    for (let i = 0; i < length; i++) {
-      const row = word.direction === 'across' ? word.row : word.row + i;
-      const col = word.direction === 'across' ? word.col + i : word.col;
-      const cell = cellMap.get(keyOf(row, col));
-      if (!cell || (entries[keyOf(row, col)] || '') !== cell.letter) {
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const countSolved = (): number => layout.placed.filter(isWordSolved).length;
+  const countSolved = (): number =>
+    layout.placed.filter((word) => isWordSolved(word, entries, cellMap)).length;
 
   // Build a per-card result for every placed word so each is scheduled
   // according to whether the player got it right.
   const buildResults = (): BatchResult[] =>
-    layout.placed
-      .map((word) => {
-        const id = idByAnswer.get(sanitizeWord(word.answer));
-        return id ? { id, correct: isWordSolved(word) } : null;
-      })
-      .filter((r): r is BatchResult => r !== null);
+    buildPuzzleResults(layout.placed, idByAnswer, entries, cellMap);
 
   const handleCheck = () => {
     setChecked(true);

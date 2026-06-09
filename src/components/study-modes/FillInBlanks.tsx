@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, Button, Typography, Paper, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
-import { normalizeAnswer } from '../../utils/helpers';
+import { isFillInBlankCorrect } from './logic';
 
 interface Props {
   card: Flashcard;
@@ -20,7 +20,7 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const correct = normalizeAnswer(answer) === normalizeAnswer(card.word);
+    const correct = isFillInBlankCorrect(answer, card.word);
     setIsCorrect(correct);
     setShowResult(true);
     advanceTimer.current = setTimeout(() => {
