@@ -116,9 +116,13 @@ coverage.
    `worksheet-templates.ts`, extract + test study-mode answer logic, top up
    `speech.ts` / `helpers.ts`. *(Done — leveling math, study-mode logic,
    worksheet generation and the speech/helpers utils are covered.)*
-2. **Add the emulator harness:** wire up the already-present
+2. 🟡 **Add the emulator harness:** wire up the already-present
    `@firebase/rules-unit-testing` → test `firestore.rules` and the
-   streak/stats functions.
+   streak/stats functions. *(In progress — `firestore.rules` is now covered via
+   the emulator (`npm run test:rules`), and the streak / running-average math is
+   extracted into pure `utils/study-stats.ts` and unit-tested. Remaining:
+   emulator-level tests for the full `updateStudyStats` / `updateUserStudyStats`
+   writers.)*
 3. ✅ **Add jsdom + `@testing-library/react`:** unlock contexts, hooks, and
    components. *(Done — tooling installed; study-mode components and the
    language context now have rendering tests.)*
