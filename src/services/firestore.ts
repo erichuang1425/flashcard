@@ -6,6 +6,7 @@ import {
 import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, DiaryEntry } from '../types';
 import { shuffle } from '../utils/helpers';
 import { DEFAULT_EASE } from '../utils/spaced-repetition';
+import { isoDate, previousIsoDate, nextStreak, updateRunningAverage } from '../utils/study-stats';
 
 
 interface FlashcardDocument {
@@ -557,8 +558,8 @@ export const updateDailyStreak = async (userId: string) => {
   
   return runTransaction(db, async (transaction) => {
     const statsDoc = await transaction.get(statsRef);
-    const today = new Date().toISOString().split('T')[0];
-    
+    const today = isoDate();
+
     if (!statsDoc.exists()) {
       return transaction.set(statsRef, {
         streak: 1,
@@ -567,19 +568,7 @@ export const updateDailyStreak = async (userId: string) => {
     }
 
     const data = statsDoc.data();
-    const lastStudyDate = data.lastStudyDate;
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-    let newStreak = data.streak;
-    if (lastStudyDate === yesterdayStr) {
-      // Studied yesterday, increment streak
-      newStreak++;
-    } else if (lastStudyDate !== today) {
-      // Didn't study yesterday, reset streak
-      newStreak = 1;
-    }
+    const newStreak = nextStreak(data.streak, data.lastStudyDate, today, previousIsoDate());
 
     return transaction.update(statsRef, {
       streak: newStreak,
@@ -598,7 +587,7 @@ export const updateUserStudyStats = async (
   }
 ) => {
   const statsRef = doc(db, 'users', userId, 'stats', 'study');
-  const today = new Date().toISOString().split('T')[0];
+  const today = isoDate();
 
   try {
     const statsDoc = await getDoc(statsRef);
@@ -629,9 +618,10 @@ export const updateUserStudyStats = async (
       totalCards: increment(sessionData.cardsStudied),
       masteredCards: increment(sessionData.masteredCards),
       studyMinutes: increment(Math.round(sessionData.duration / 60)),
-      averageAccuracy: (
-        (existingStats.averageAccuracy * existingStats.totalStudySessions + sessionData.accuracy) /
-        (existingStats.totalStudySessions + 1)
+      averageAccuracy: updateRunningAverage(
+        existingStats.averageAccuracy,
+        existingStats.totalStudySessions,
+        sessionData.accuracy
       ),
       lastStudyDate: today,
       totalStudySessions: increment(1),

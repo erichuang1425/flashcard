@@ -1,4 +1,27 @@
-import { capitalizeAfterPunctuation, shuffle, normalizeAnswer } from '../helpers';
+import {
+  capitalizeFirstWord,
+  capitalizeAfterPunctuation,
+  shuffle,
+  normalizeAnswer,
+} from '../helpers';
+
+describe('capitalizeFirstWord', () => {
+  it('capitalizes only the first character', () => {
+    expect(capitalizeFirstWord('hello world')).toBe('Hello world');
+  });
+
+  it('leaves an already-capitalized word unchanged', () => {
+    expect(capitalizeFirstWord('Hello')).toBe('Hello');
+  });
+
+  it('returns falsy/empty input untouched', () => {
+    expect(capitalizeFirstWord('')).toBe('');
+  });
+
+  it('handles a single character', () => {
+    expect(capitalizeFirstWord('a')).toBe('A');
+  });
+});
 
 describe('capitalizeAfterPunctuation', () => {
   it('capitalizes after punctuation with no space', () => {
@@ -7,6 +30,14 @@ describe('capitalizeAfterPunctuation', () => {
 
   it('capitalizes after punctuation with spaces', () => {
     expect(capitalizeAfterPunctuation('hello. world!test? ok')).toBe('Hello. World!Test? Ok');
+  });
+
+  it('returns empty input untouched', () => {
+    expect(capitalizeAfterPunctuation('')).toBe('');
+  });
+
+  it('leaves text with no lowercase sentence starts unchanged', () => {
+    expect(capitalizeAfterPunctuation('ALL CAPS. OK')).toBe('ALL CAPS. OK');
   });
 });
 
