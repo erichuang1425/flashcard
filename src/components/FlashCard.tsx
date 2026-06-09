@@ -87,6 +87,11 @@ export const FlashCard: React.FC<FlashCardProps> = ({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Buttons inside the card own their keyboard events. Letting Enter/Space
+      // bubble into this handler flips the card instead of activating the
+      // focused pronunciation or rating control.
+      if (e.target !== e.currentTarget) return;
+
       // Space / Enter flips the card.
       if ((e.key === ' ' || e.key === 'Enter') && canFlip) {
         e.preventDefault();

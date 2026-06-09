@@ -5,6 +5,7 @@ import { getUserFlashcards, updateCardReview } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
 import { GuideTip } from '../components/guide/GuideTip';
 import { useLanguage } from '../i18n/LanguageContext';
+import { classifyLoadedStudyCards } from './studyLoadState';
 import { StudyProgress } from '../components/StudyProgress';
 import { scheduleCardReview } from '../utils/spaced-repetition';
 import type { BatchResult } from '../components/study-modes/types';
@@ -71,29 +72,14 @@ export const Study: React.FC = () => {
     setLoading(true);
     try {
       const allCards = await getUserFlashcards(user.uid);
-      const now = new Date();
-      const dueCards = allCards.filter(card => {
-        // Include cards with no next review date
-        if (!card.nextReview) return true;
-
-        // Ensure nextReview is a Date object
-        const reviewDate = card.nextReview instanceof Date
-          ? card.nextReview
-          : new Date(card.nextReview);
-
-        return reviewDate <= now;
-      });
+      const loaded = classifyLoadedStudyCards(allCards);
 
       setDeck(allCards);
-
-      if (dueCards.length > 0) {
-        setCards(dueCards);
-        setError(null);
-      } else {
-        setError('No cards due for review');
-      }
+      setCards(loaded.dueCards);
+      setError(loaded.error);
     } catch (err) {
       console.error('Error loading cards:', err);
+      setCards([]);
       setError('Failed to load flashcards. Please check your connection and try again.');
     } finally {
       setLoading(false);

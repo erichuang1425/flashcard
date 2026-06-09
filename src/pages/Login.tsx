@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -27,9 +27,16 @@ export const Login: React.FC = () => {
   // the two accounts can be linked. While shown, submitting the form below links
   // Google automatically (handled inside AuthContext.signIn).
   const [linkPrompt, setLinkPrompt] = useState('');
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, pendingLinkEmail } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!pendingLinkEmail) return;
+    setEmail(pendingLinkEmail);
+    setPassword('');
+    setLinkPrompt(t('login.linkPrompt'));
+  }, [pendingLinkEmail, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
