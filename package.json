@@ -39,6 +39,7 @@
     "preview": "node scripts/vite-polyfill.cjs preview",
     "serve": "node scripts/vite-polyfill.cjs dev",
     "test": "jest",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-flashcard \"jest --config jest.rules.config.cjs\"",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
