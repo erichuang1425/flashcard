@@ -13,6 +13,7 @@ import { FocusModeProvider } from './context/FocusModeContext';
 import { useOnboarding } from './context/OnboardingContext';
 import { Onboarding } from './components/onboarding/Onboarding';
 import { dvhMinHeight } from './utils/viewport';
+import { ReadingModeProvider } from './context/ReadingModeContext';
 
 // Route-level code-splitting: each page loads as a separate chunk on demand,
 // keeping the initial bundle small.
@@ -29,6 +30,7 @@ const StudyWorksheet = lazy(() =>
 );
 const Diary = lazy(() => import('./pages/Diary').then((m) => ({ default: m.Diary })));
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
+const Reading = lazy(() => import('./pages/Reading').then((m) => ({ default: m.Reading })));
 
 const RouteFallback: React.FC = () => (
   <Box
@@ -97,6 +99,13 @@ const App: React.FC = () => {
                 <Route path="/library" element={
                   <ProtectedRoute>
                     <Library />
+                  </ProtectedRoute>
+                } />
+                <Route path="/reading" element={
+                  <ProtectedRoute>
+                    <ReadingModeProvider>
+                      <Reading />
+                    </ReadingModeProvider>
                   </ProtectedRoute>
                 } />
                 <Route path="/settings" element={

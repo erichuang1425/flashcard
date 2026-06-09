@@ -87,6 +87,53 @@ describe('users subtree', () => {
   });
 });
 
+describe('reading articles', () => {
+  it('lets an owner read and write articles and the article counter', async () => {
+    const db = aliceDb();
+    const articleRef = doc(db, 'users', ALICE, 'articles', 'article-1');
+    const counterRef = doc(db, 'users', ALICE, 'counters', 'articles');
+
+    await assertSucceeds(setDoc(articleRef, { title: 'Article', content: 'Text' }));
+    await assertSucceeds(getDoc(articleRef));
+    await assertSucceeds(setDoc(counterRef, { count: 1 }));
+    await assertSucceeds(getDoc(counterRef));
+  });
+
+  it('blocks another user from articles and the article counter', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', ALICE, 'articles', 'article-1'), {
+        title: 'Private article',
+      });
+      await setDoc(doc(ctx.firestore(), 'users', ALICE, 'counters', 'articles'), {
+        count: 1,
+      });
+    });
+
+    await assertFails(
+      getDoc(doc(bobDb(), 'users', ALICE, 'articles', 'article-1'))
+    );
+    await assertFails(
+      setDoc(doc(bobDb(), 'users', ALICE, 'articles', 'article-1'), {
+        title: 'Tampered',
+      })
+    );
+    await assertFails(
+      getDoc(doc(bobDb(), 'users', ALICE, 'counters', 'articles'))
+    );
+  });
+
+  it('blocks unauthenticated article and counter access', async () => {
+    await assertFails(
+      getDoc(doc(anonDb(), 'users', ALICE, 'articles', 'article-1'))
+    );
+    await assertFails(
+      setDoc(doc(anonDb(), 'users', ALICE, 'counters', 'articles'), {
+        count: 999,
+      })
+    );
+  });
+});
+
 describe('base vocabulary', () => {
   it('is readable by any signed-in user but never writable from the client', async () => {
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
