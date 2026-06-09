@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -28,9 +28,15 @@ export const Register: React.FC = () => {
   // is really a sign-in, so we point the user to the login screen where the
   // Google credential links automatically.
   const [linkPrompt, setLinkPrompt] = useState('');
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, signInWithGoogle, pendingLinkEmail } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (pendingLinkEmail) {
+      setLinkPrompt(t('register.linkPrompt'));
+    }
+  }, [pendingLinkEmail, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

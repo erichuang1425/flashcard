@@ -32,7 +32,6 @@ export const Library: React.FC = () => {
         setLoading(false);
         return;
       }
-
       try {
         const [cats, initialWords] = await Promise.all([
           getCategories(user.uid),

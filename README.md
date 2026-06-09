@@ -128,3 +128,6 @@ Use this path so reviewers can experience the product quickly:
 
 For product reasoning and roadmap, see:
 - [`docs/CASE_STUDY.md`](./docs/CASE_STUDY.md)
+- [`docs/PR_REMEDIATION_83_90.md`](./docs/PR_REMEDIATION_83_90.md) for the staged audit and remediation ledger
+- [`docs/TEST_COVERAGE_ANALYSIS.md`](./docs/TEST_COVERAGE_ANALYSIS.md) for the verified coverage backlog
+- [`docs/reading-library-port-plan.md`](./docs/reading-library-port-plan.md) for the article-reading port plan
