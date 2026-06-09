@@ -13,6 +13,7 @@
  * error dead-end.
  */
 export const NEEDS_PASSWORD_LINK_CODE = 'auth/needs-password-link';
+export const LINK_EMAIL_MISMATCH_CODE = 'auth/link-email-mismatch';
 
 const extractCode = (error: unknown): string | undefined => {
   if (typeof error === 'object' && error !== null && 'code' in error) {
@@ -39,6 +40,7 @@ const CODE_TO_KEY: Record<string, string> = {
   'auth/weak-password': 'authError.weakPassword',
   'auth/popup-blocked': 'authError.popupBlocked',
   [NEEDS_PASSWORD_LINK_CODE]: 'authError.needsPasswordLink',
+  [LINK_EMAIL_MISMATCH_CODE]: 'authError.linkEmailMismatch',
 };
 
 /**

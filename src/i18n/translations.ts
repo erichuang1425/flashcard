@@ -87,6 +87,7 @@ const en: Dict = {
   'authError.weakPassword': 'Password must be at least 6 characters.',
   'authError.popupBlocked': 'The sign-in popup was blocked. Please allow popups and try again.',
   'authError.needsPasswordLink': 'You already have an account with this email. Sign in with your password to connect Google.',
+  'authError.linkEmailMismatch': 'Use the same email from the Google sign-in to connect this account.',
 
   // Home
   'home.welcome': 'Welcome back, {name}!',
@@ -256,6 +257,7 @@ const zh: Dict = {
   'authError.weakPassword': '密碼長度至少需要 6 個字元。',
   'authError.popupBlocked': '登入彈出視窗被封鎖，請允許彈出視窗後再試。',
   'authError.needsPasswordLink': '此電子郵件已有帳號。請使用密碼登入以連結 Google。',
+  'authError.linkEmailMismatch': '請使用 Google 登入時相同的電子郵件來連結此帳號。',
 
   // Home
   'home.welcome': '歡迎回來，{name}！',
