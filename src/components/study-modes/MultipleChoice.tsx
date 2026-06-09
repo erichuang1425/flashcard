@@ -3,7 +3,9 @@ import {
   Box, Button, Typography, Paper, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import type { Flashcard } from '../../types';
-import { capitalizeFirstWord, shuffle } from '../../utils/helpers';
+import { capitalizeFirstWord } from '../../utils/helpers';
+import { buildMultipleChoiceOptions } from './logic';
+import type { MultipleChoiceDirection as Direction } from './logic';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
@@ -13,8 +15,6 @@ interface Props {
   onAnswer: (correct: boolean) => void;
 }
 
-const NUM_OPTIONS = 4;
-
 /**
  * Question direction:
  * - `wordToMeaning`: prompt shows the word, options are English definitions
@@ -22,7 +22,6 @@ const NUM_OPTIONS = 4;
  * - `meaningToWord`: the reverse — prompt shows the definition + translation,
  *   options are the vocabulary words.
  */
-type Direction = 'wordToMeaning' | 'meaningToWord';
 
 export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.Element => {
   const { t } = useLanguage();
@@ -33,36 +32,14 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
   const [isCorrect, setIsCorrect] = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  // Build the answer choices from real cards in the deck. Prefer distractors
-  // that share the part of speech (harder, more meaningful), then fall back to
-  // any other card. We keep whole Flashcards (not just strings) so each option
-  // can render both its main text and its Chinese-translation "comment", and so
-  // the reverse direction can offer words instead of definitions.
-  const options = useMemo(() => {
-    // In each direction, dedupe on the field the user actually reads so two
-    // options never show identical text.
-    const keyOf = (c: Flashcard) =>
-      (direction === 'wordToMeaning' ? c.englishDefinition : c.word)?.toLowerCase().trim();
-
-    const seen = new Set([keyOf(card)]);
-    const pickFrom = (cards: Flashcard[]) =>
-      cards.filter(c => {
-        const key = keyOf(c);
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
-    const others = deck.filter(c => c.id !== card.id);
-    const samePos = others.filter(c => c.partOfSpeech === card.partOfSpeech);
-
-    const distractors = [
-      ...shuffle(pickFrom(samePos)),
-      ...shuffle(pickFrom(others)),
-    ].slice(0, NUM_OPTIONS - 1);
-
-    return shuffle([card, ...distractors]);
-  }, [card, deck, direction]);
+  // Build the answer choices from real cards in the deck. We keep whole
+  // Flashcards (not just strings) so each option can render both its main text
+  // and its Chinese-translation "comment", and so the reverse direction can
+  // offer words instead of definitions. See `buildMultipleChoiceOptions`.
+  const options = useMemo(
+    () => buildMultipleChoiceOptions(card, deck, direction),
+    [card, deck, direction]
+  );
 
   // Reset transient state when the card OR the direction (and therefore the
   // options) changes. Also clear any pending auto-advance timer so a correct

@@ -24,43 +24,53 @@ export const getRequiredXP = (level: number): number => {
   return Math.floor(LEVELS_CONFIG.BASE_XP * Math.pow(LEVELS_CONFIG.GROWTH_FACTOR, level - 1));
 };
 
+/** The stats a brand-new player starts with before earning any XP. */
+export const initialLevelSystem = (): LevelSystem => ({
+  currentLevel: 1,
+  currentXP: 0,
+  requiredXP: LEVELS_CONFIG.BASE_XP,
+  totalXP: 0
+});
+
+/**
+ * Pure leveling math: apply an XP gain to the given level state and roll the
+ * player up through as many levels as the gain unlocks (a single award can
+ * cross several level boundaries). Extracted from the Firestore write so the
+ * rollover logic can be unit-tested without mocking the database.
+ */
+export const applyXPGain = (stats: LevelSystem, xpGained: number): LevelSystem => {
+  let { currentLevel, currentXP, requiredXP, totalXP } = stats;
+  currentXP += xpGained;
+  totalXP += xpGained;
+
+  // Level up check — keep rolling while the running XP clears the bar so a
+  // large single award can advance multiple levels.
+  while (currentXP >= requiredXP) {
+    currentXP -= requiredXP;
+    currentLevel++;
+    requiredXP = getRequiredXP(currentLevel);
+  }
+
+  return { currentLevel, currentXP, requiredXP, totalXP };
+};
+
 export const updateUserXP = async (userId: string, xpGained: number): Promise<LevelSystem> => {
   const userStatsRef = doc(db, 'users', userId, 'stats', 'gamification');
-  
+
   try {
     // First try to get existing stats
     const statsDoc = await getDoc(userStatsRef);
-    
+
     // Initialize default stats if none exist
-    const currentStats: LevelSystem = statsDoc.exists() ? statsDoc.data() as LevelSystem : {
-      currentLevel: 1,
-      currentXP: 0,
-      requiredXP: LEVELS_CONFIG.BASE_XP,
-      totalXP: 0
-    };
+    const currentStats: LevelSystem = statsDoc.exists()
+      ? statsDoc.data() as LevelSystem
+      : initialLevelSystem();
 
-    // Update XP and level
-    let { currentLevel, currentXP, requiredXP, totalXP } = currentStats;
-    currentXP += xpGained;
-    totalXP += xpGained;
-
-    // Level up check
-    while (currentXP >= requiredXP) {
-      currentXP -= requiredXP;
-      currentLevel++;
-      requiredXP = getRequiredXP(currentLevel);
-    }
-
-    const newStats = {
-      currentLevel,
-      currentXP,
-      requiredXP,
-      totalXP
-    };
+    const newStats = applyXPGain(currentStats, xpGained);
 
     // Use setDoc with merge option to ensure all fields are properly updated
     await setDoc(userStatsRef, newStats, { merge: true });
-    
+
     return newStats;
   } catch (error) {
     console.error('Error updating XP:', error);
