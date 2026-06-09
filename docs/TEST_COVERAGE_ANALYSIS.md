@@ -107,11 +107,14 @@ coverage.
   `useUserSettings`, `useUserPreferences`.
 - **Why:** they orchestrate critical app-wide state.
 - **Effort:** blocked on adding jsdom + Testing Library (see above).
-- **Status:** `useUserPreferences` (load / first-run defaulting / error path /
-  persisted updates), `useUserSettings` (single-field & pomodoro patches, dirty
-  tracking, save round-trip, guards) and `SettingsContext` (theme cycle +
-  Pomodoro countdown / pause / reset / work-break rollover under fake timers)
-  are now covered. Remaining: `AuthContext` and `GamificationContext`.
+- **Status:** ✅ Done. `useUserPreferences` (load / first-run defaulting /
+  error path / persisted updates), `useUserSettings` (single-field & pomodoro
+  patches, dirty tracking, save round-trip, guards), `SettingsContext` (theme
+  cycle + Pomodoro countdown / pause / reset / work-break rollover under fake
+  timers), `AuthContext` (Firebase-user mapping, loading lifecycle, email
+  flows, and the Google popup → redirect / cancel fallback) and
+  `GamificationContext` (level-system subscription, achievement load, XP award +
+  re-check, and the focus-mode body filter) are all covered.
 
 ---
 
