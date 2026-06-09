@@ -68,6 +68,13 @@ const BUNDLED_PACKS: BundledPack[] = [
     description: 'Essential academic words for PTE Academic, with Traditional Chinese translations.',
   },
   {
+    id: 'pte-academic-advanced',
+    label: 'PTE Academic — Advanced Vocabulary',
+    file: '/pte-academic-advanced.csv',
+    category: 'PTE Academic',
+    description: 'Higher-level academic words for PTE Academic, with Traditional Chinese translations.',
+  },
+  {
     id: 'pte-describe-image',
     label: 'PTE Academic — Describe Image',
     file: '/pte-describe-image.csv',
@@ -270,6 +277,21 @@ export const ImportTools: React.FC = () => {
 
   const [text, setText] = useState<string | null>(null);
   const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
+
+  // Return the importer to its initial "Select File" state. Without this the
+  // page got stuck on the progress screen after an import finished, with no way
+  // back to upload another file or load another pack short of a full reload.
+  const resetImport = () => {
+    setActiveStep(0);
+    setStats({ total: 0, processed: 0, success: 0, failed: 0, completed: false });
+    setPreview([]);
+    setFullPreview([]);
+    setRowErrors([]);
+    setText(null);
+    setSelectedCategories([]);
+    setPage(0);
+    setError(null);
+  };
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -715,11 +737,12 @@ export const ImportTools: React.FC = () => {
                 Import Progress
               </Typography>
               {renderProgress()}
-              {stats.processed === stats.total && (
-                <Alert severity="success" sx={{ mt: 2 }}>
-                  Import complete! Successfully imported {stats.success} cards 
-                  {stats.failed > 0 && `, ${stats.failed} cards failed`}.
-                </Alert>
+              {stats.completed && (
+                <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  <Button variant="contained" onClick={resetImport}>
+                    Import more
+                  </Button>
+                </Box>
               )}
             </>
           )}

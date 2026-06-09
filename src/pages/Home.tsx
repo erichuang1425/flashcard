@@ -179,8 +179,24 @@ export const Home: React.FC = () => {
         </Box>
 
         {/* Quick Stats - Adjust card heights */}
-        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
-          <Grid item xs={12} sm={6} md={3}>
+        {/* On mobile all four stat cards share a single row (xs=3) and shrink
+            their numbers/labels/padding so they stay readable instead of
+            stacking into four oversized full-width cards. */}
+        <Grid
+          container
+          spacing={{ xs: 1, sm: 3 }}
+          sx={{
+            mb: { xs: 2, sm: 3 },
+            '& .MuiCard-root': { minHeight: { xs: '88px', sm: '140px' } },
+            '& .MuiCardContent-root': { px: { xs: 0.5, sm: 2 }, py: { xs: 1.5, sm: 2.5 } },
+            '& .MuiTypography-h3': { fontSize: { xs: '1.5rem', sm: '3rem' } },
+            '& .MuiTypography-subtitle2': {
+              fontSize: { xs: '0.62rem', sm: '0.875rem' },
+              lineHeight: 1.2,
+            },
+          }}
+        >
+          <Grid item xs={3} sm={6} md={3}>
             <Card>
               <CardContent sx={{ 
                 textAlign: 'center', 
@@ -202,7 +218,7 @@ export const Home: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={3} sm={6} md={3}>
             <Card>
               <CardContent sx={{ 
                 textAlign: 'center', 
@@ -224,7 +240,7 @@ export const Home: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={3} sm={6} md={3}>
             <Card>
               <CardContent sx={{ 
                 textAlign: 'center', 
@@ -246,7 +262,7 @@ export const Home: React.FC = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={3} sm={6} md={3}>
             <Card>
               <CardContent sx={{ 
                 textAlign: 'center', 
