@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Box, Button, Typography, Paper } from '@mui/material';
+import {
+  Box, Button, Typography, Paper, ToggleButton, ToggleButtonGroup,
+} from '@mui/material';
 import type { Flashcard } from '../../types';
 import { capitalizeFirstWord, shuffle } from '../../utils/helpers';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
   card: Flashcard;
@@ -12,33 +15,43 @@ interface Props {
 
 const NUM_OPTIONS = 4;
 
+/**
+ * Question direction:
+ * - `wordToMeaning`: prompt shows the word, options are English definitions
+ *   (each annotated with its Traditional Chinese translation as a comment).
+ * - `meaningToWord`: the reverse — prompt shows the definition + translation,
+ *   options are the vocabulary words.
+ */
+type Direction = 'wordToMeaning' | 'meaningToWord';
+
 export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.Element => {
-  const [selected, setSelected] = useState<string | null>(null);
+  const { t } = useLanguage();
+  const [direction, setDirection] = useState<Direction>('wordToMeaning');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [canProceed, setCanProceed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  const correctAnswer = useMemo(
-    () => capitalizeFirstWord(card.englishDefinition),
-    [card]
-  );
-
   // Build the answer choices from real cards in the deck. Prefer distractors
   // that share the part of speech (harder, more meaningful), then fall back to
-  // any other definition. Drawing only from real definitions avoids the old
-  // giveaway placeholders like "opposite of ...".
+  // any other card. We keep whole Flashcards (not just strings) so each option
+  // can render both its main text and its Chinese-translation "comment", and so
+  // the reverse direction can offer words instead of definitions.
   const options = useMemo(() => {
-    const seen = new Set([card.englishDefinition.toLowerCase().trim()]);
+    // In each direction, dedupe on the field the user actually reads so two
+    // options never show identical text.
+    const keyOf = (c: Flashcard) =>
+      (direction === 'wordToMeaning' ? c.englishDefinition : c.word)?.toLowerCase().trim();
+
+    const seen = new Set([keyOf(card)]);
     const pickFrom = (cards: Flashcard[]) =>
-      cards
-        .filter(c => {
-          const key = c.englishDefinition?.toLowerCase().trim();
-          if (!key || seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .map(c => c.englishDefinition);
+      cards.filter(c => {
+        const key = keyOf(c);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
 
     const others = deck.filter(c => c.id !== card.id);
     const samePos = others.filter(c => c.partOfSpeech === card.partOfSpeech);
@@ -46,35 +59,39 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
     const distractors = [
       ...shuffle(pickFrom(samePos)),
       ...shuffle(pickFrom(others)),
-    ]
-      .slice(0, NUM_OPTIONS - 1)
-      .map(capitalizeFirstWord);
+    ].slice(0, NUM_OPTIONS - 1);
 
-    return shuffle([correctAnswer, ...distractors]);
-  }, [card, deck, correctAnswer]);
+    return shuffle([card, ...distractors]);
+  }, [card, deck, direction]);
 
-  // Reset transient state when the card (and therefore the options) changes.
-  // Also clear any pending auto-advance timer so a correct answer on the
-  // previous card can't fire onAnswer against the new one (double advance).
+  // Reset transient state when the card OR the direction (and therefore the
+  // options) changes. Also clear any pending auto-advance timer so a correct
+  // answer on the previous card can't fire onAnswer against the new one.
   useEffect(() => {
     clearTimeout(advanceTimer.current);
-    setSelected(null);
+    setSelectedId(null);
     setShowResult(false);
     setCanProceed(false);
     setIsCorrect(false);
-  }, [card]);
+  }, [card, direction]);
 
   // Clear any pending auto-advance timer when the component unmounts so we
   // don't call onAnswer / setState after the study session has moved on.
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
-  const handleSelect = (option: string) => {
-    if (showResult || !option) return;
+  // The text shown on an option, plus the muted "comment" line beneath it.
+  const optionPrimary = (c: Flashcard) =>
+    direction === 'wordToMeaning' ? capitalizeFirstWord(c.englishDefinition) : c.word;
+  const optionComment = (c: Flashcard) =>
+    direction === 'wordToMeaning' ? c.chineseTranslation : c.partOfSpeech;
 
-    setSelected(option);
+  const handleSelect = (option: Flashcard) => {
+    if (showResult || !option.id) return;
+
+    setSelectedId(option.id);
     setShowResult(true);
 
-    const correct = correctAnswer === option;
+    const correct = option.id === card.id;
     setIsCorrect(correct);
 
     if (correct) {
@@ -94,39 +111,98 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
 
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, width: '100%', maxWidth: 600 }}>
-      <Typography variant="h4" align="center" gutterBottom>
-        {card.word}
-      </Typography>
-      <Typography variant="subtitle1" align="center" color="text.secondary" sx={{ mb: 3 }}>
-        {card.partOfSpeech}
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={direction}
+          onChange={(_, next: Direction | null) => next && setDirection(next)}
+          aria-label="Question direction"
+        >
+          <ToggleButton value="wordToMeaning">{t('study.mc.wordToMeaning')}</ToggleButton>
+          <ToggleButton value="meaningToWord">{t('study.mc.meaningToWord')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      {direction === 'wordToMeaning' ? (
+        <>
+          <Typography variant="h4" align="center" gutterBottom>
+            {card.word}
+          </Typography>
+          <Typography variant="subtitle1" align="center" color="text.secondary" sx={{ mb: 3 }}>
+            {card.partOfSpeech}
+          </Typography>
+        </>
+      ) : (
+        <>
+          <Typography variant="h5" align="center" gutterBottom>
+            {capitalizeFirstWord(card.englishDefinition)}
+          </Typography>
+          {card.chineseTranslation && (
+            <Typography
+              align="center"
+              sx={{
+                mb: 3,
+                color: 'text.secondary',
+                fontStyle: 'italic',
+                fontFamily: 'monospace',
+              }}
+            >
+              {`// ${card.chineseTranslation}`}
+            </Typography>
+          )}
+        </>
+      )}
+
       <Box sx={{ display: 'grid', gap: 2 }}>
-        {options.map((option, index) => (
-          <Button
-            key={`${index}-${option}`}
-            variant={selected === option ? 'contained' : 'outlined'}
-            onClick={() => handleSelect(option)}
-            disabled={showResult}
-            color={
-              showResult
-                ? option === correctAnswer
-                  ? 'success'
-                  : selected === option
-                  ? 'error'
+        {options.map((option, index) => {
+          const comment = optionComment(option);
+          return (
+            <Button
+              key={`${index}-${option.id}`}
+              variant={selectedId === option.id ? 'contained' : 'outlined'}
+              onClick={() => handleSelect(option)}
+              disabled={showResult}
+              color={
+                showResult
+                  ? option.id === card.id
+                    ? 'success'
+                    : selectedId === option.id
+                    ? 'error'
+                    : 'primary'
                   : 'primary'
-                : 'primary'
-            }
-            sx={{
-              py: 2,
-              textAlign: 'left',
-              justifyContent: 'flex-start',
-              textTransform: 'none',
-              minHeight: 56,
-            }}
-          >
-            {option}
-          </Button>
-        ))}
+              }
+              sx={{
+                py: 1.5,
+                px: 2,
+                textAlign: 'left',
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                minHeight: 56,
+              }}
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
+                <Typography component="span" sx={{ fontWeight: 500 }}>
+                  {optionPrimary(option)}
+                </Typography>
+                {comment && (
+                  <Typography
+                    component="span"
+                    sx={{
+                      mt: 0.25,
+                      fontSize: '0.8rem',
+                      fontStyle: 'italic',
+                      fontFamily: 'monospace',
+                      opacity: 0.75,
+                    }}
+                  >
+                    {`// ${comment}`}
+                  </Typography>
+                )}
+              </Box>
+            </Button>
+          );
+        })}
 
         {showResult && (
           <Box
@@ -142,7 +218,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
           >
             {isCorrect
               ? 'Correct'
-              : `Incorrect. The correct answer is ${correctAnswer}`}
+              : `Incorrect. The correct answer is ${optionPrimary(card)}`}
           </Box>
         )}
 
@@ -153,7 +229,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
             onClick={handleProceed}
             sx={{ mt: 2, minHeight: 48 }}
           >
-            Continue
+            {t('study.mc.continue')}
           </Button>
         )}
       </Box>

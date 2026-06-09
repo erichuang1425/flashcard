@@ -175,12 +175,16 @@ export const getVocabularyWords = async (pageLimit?: number): Promise<Vocabulary
   try {
     if (!auth.currentUser) throw new Error('User not authenticated');
 
+    // The library shows the signed-in user's whole flashcard collection.
+    // Previously this query filtered on `isPublic == true`, but cards created
+    // through Import/manual entry never set that flag — so an imported library
+    // of hundreds of words showed up empty. The collection is already scoped to
+    // the current user, so no extra visibility filter is needed.
     let q = query(
       collection(db, 'users', auth.currentUser.uid, 'flashcards'),
-      orderBy('word'),
-      where('isPublic', '==', true)
+      orderBy('word')
     );
-    
+
     if (pageLimit) {
       q = query(q, limit(pageLimit));
     }
@@ -200,11 +204,13 @@ export const searchVocabulary = async (term: string): Promise<VocabularyWord[]> 
   try {
     if (!auth.currentUser) throw new Error('User not authenticated');
 
+    // Search the user's own library by word prefix. The old `isPublic == true`
+    // filter excluded imported/manually-added cards (which never set that flag),
+    // so worksheet word search came back empty for personal libraries.
     const q = query(
       collection(db, 'users', auth.currentUser.uid, 'flashcards'),
       where('word', '>=', term),
       where('word', '<=', term + '\uf8ff'),
-      where('isPublic', '==', true),
       limit(10)
     );
     
