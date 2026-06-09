@@ -1,4 +1,8 @@
-import { getAuthErrorKey, NEEDS_PASSWORD_LINK_CODE } from '../authErrors';
+import {
+  getAuthErrorKey,
+  LINK_EMAIL_MISMATCH_CODE,
+  NEEDS_PASSWORD_LINK_CODE,
+} from '../authErrors';
 
 describe('getAuthErrorKey', () => {
   it('maps known Firebase error codes to their translation keys', () => {
@@ -26,6 +30,12 @@ describe('getAuthErrorKey', () => {
   it('maps the synthetic needs-password-link code', () => {
     expect(getAuthErrorKey({ code: NEEDS_PASSWORD_LINK_CODE }, 'fallback')).toBe(
       'authError.needsPasswordLink'
+    );
+  });
+
+  it('maps the synthetic link-email-mismatch code', () => {
+    expect(getAuthErrorKey({ code: LINK_EMAIL_MISMATCH_CODE }, 'fallback')).toBe(
+      'authError.linkEmailMismatch'
     );
   });
 

@@ -8,9 +8,11 @@ import { WordGrid } from '../components/WordGrid';
 import { getCategories, getVocabularyWords } from '../services/firestore';
 import type { Category, VocabularyWord } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Library: React.FC = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'category'>('grid');
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -26,9 +28,13 @@ export const Library: React.FC = () => {
 
   useEffect(() => {
     const loadInitialData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       try {
         const [cats, initialWords] = await Promise.all([
-          getCategories(),
+          getCategories(user.uid),
           getVocabularyWords()
         ]);
         // Convert firestore Category to app Category type
@@ -47,7 +53,7 @@ export const Library: React.FC = () => {
       }
     };
     loadInitialData();
-  }, []);
+  }, [user]);
 
   return (
     <Container maxWidth="lg" sx={{
