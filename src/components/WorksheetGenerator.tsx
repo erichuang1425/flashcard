@@ -59,7 +59,7 @@ export const WorksheetGenerator: React.FC = () => {
   useEffect(() => {
     loadVocabularyWords();
     loadCategories();
-  }, []);
+  }, [user]);
 
   const loadVocabularyWords = async () => {
     try {
@@ -95,7 +95,7 @@ export const WorksheetGenerator: React.FC = () => {
     if (!user) return;
     try {
       setIsLoading(true);
-      const fetchedCategories = await getCategories();
+      const fetchedCategories = await getCategories(user.uid);
       const categories = new Set<string>();
       fetchedCategories.forEach(cat => {
         if (cat.name) categories.add(cat.name);

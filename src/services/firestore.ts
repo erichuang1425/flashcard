@@ -9,6 +9,23 @@ import { DEFAULT_EASE } from '../utils/spaced-repetition';
 import { isoDate, previousIsoDate, nextStreak, updateRunningAverage } from '../utils/study-stats';
 
 
+export const categoryDocumentId = (name: string): string => {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) throw new Error('Category name is required');
+  return encodeURIComponent(normalized);
+};
+
+const normalizeCategoryNames = (categories: string[] = []): string[] => {
+  const unique = new Map<string, string>();
+  for (const category of categories) {
+    const name = category.trim();
+    if (!name) continue;
+    const id = categoryDocumentId(name);
+    if (!unique.has(id)) unique.set(id, name);
+  }
+  return [...unique.values()];
+};
+
 interface FlashcardDocument {
   id: string;
   word: string;
@@ -22,11 +39,11 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
   const batch = writeBatch(db);
 
   try {
-
+    const categories = normalizeCategoryNames(flashcard.categories);
     const flashcardRef = doc(collection(db, 'users', flashcard.userId, 'flashcards'));
     batch.set(flashcardRef, {
       ...flashcard,
-      categories: flashcard.categories || [],
+      categories,
       lastReviewed: null,
       nextReview: new Date(),
       // Initial SM-2 scheduling state so new cards start in the learning step.
@@ -42,19 +59,21 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
     // setDoc round-trip that hard-coded `count: 1` (so counts never grew and
     // every imported card re-wrote the same doc). `increment` keeps the count
     // correct and the merge handles first-time creation.
-    if (flashcard.categories?.length) {
-      const seen = new Set<string>();
-      for (const categoryName of flashcard.categories) {
-        const encodedId = encodeURIComponent(categoryName.toLowerCase().trim());
-        if (!encodedId || seen.has(encodedId)) continue;
-        seen.add(encodedId);
-        const categoryRef = doc(db, 'categories', encodedId);
+    if (categories.length) {
+      for (const categoryName of categories) {
+        const categoryRef = doc(
+          db,
+          'users',
+          flashcard.userId,
+          'categories',
+          categoryDocumentId(categoryName)
+        );
         batch.set(
           categoryRef,
           {
             name: categoryName,
-            userId: flashcard.userId,
             count: increment(1),
+            updatedAt: new Date(),
           },
           { merge: true }
         );
@@ -417,63 +436,103 @@ export interface Category {
 }
 
 export const addCategory = async (name: string, userId: string): Promise<string> => {
+  const trimmedName = name.trim();
+  const categoryId = categoryDocumentId(trimmedName);
+  const categoryRef = doc(db, 'users', userId, 'categories', categoryId);
+
   try {
+    await runTransaction(db, async transaction => {
+      const existing = await transaction.get(categoryRef);
+      if (existing.exists()) return;
 
-    const q = query(
-      collection(db, 'categories'),
-      where('name', '==', name),
-      where('userId', '==', userId)
-    );
-    const existing = await getDocs(q);
-    
-    if (!existing.empty) {
-      return existing.docs[0].id; 
-    }
-
-    const categoryRef = collection(db, 'categories');
-    const docRef = await addDoc(categoryRef, {
-      name,
-      userId,
-      count: 0,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      const now = new Date();
+      transaction.set(categoryRef, {
+        name: trimmedName,
+        count: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
-    return docRef.id;
+    return categoryId;
   } catch (error) {
     console.error('Error adding category:', error);
     throw error;
   }
 };
 
-export const getCategories = async (userId?: string): Promise<Category[]> => {
+export const getCategories = async (userId: string): Promise<Category[]> => {
   try {
-    // When a userId is supplied, only the caller's own category docs are read
-    // (a small, scoped query) instead of the whole global categories
-    // collection.
-    const base = collection(db, 'categories');
-    const snapshot = await getDocs(
-      userId ? query(base, where('userId', '==', userId)) : query(base)
-    );
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name,
-      count: doc.data().count,
-      createdAt: doc.data().createdAt?.toDate(),
-      updatedAt: doc.data().updatedAt?.toDate()
-    }));
+    const categoriesRef = collection(db, 'users', userId, 'categories');
+    const [currentSnapshot, legacySnapshot] = await Promise.all([
+      getDocs(categoriesRef),
+      getDocs(query(collection(db, 'categories'), where('userId', '==', userId))),
+    ]);
+
+    const categories = new Map<string, Category>();
+    currentSnapshot.docs.forEach(categoryDoc => {
+      categories.set(categoryDoc.id, {
+        id: categoryDoc.id,
+        name: categoryDoc.data().name,
+        count: categoryDoc.data().count ?? 0,
+        createdAt: categoryDoc.data().createdAt?.toDate(),
+        updatedAt: categoryDoc.data().updatedAt?.toDate(),
+      });
+    });
+
+    // Migrate legacy global categories lazily. Existing user-scoped documents
+    // win so repeated reads cannot inflate counts or overwrite newer metadata.
+    const migrationBatch = writeBatch(db);
+    let hasMigrations = false;
+    legacySnapshot.docs.forEach(legacyDoc => {
+      const data = legacyDoc.data();
+      if (!data.name) return;
+      const id = categoryDocumentId(data.name);
+      if (categories.has(id)) return;
+
+      const category: Category = {
+        id,
+        name: data.name.trim(),
+        count: data.count ?? 0,
+        createdAt: data.createdAt?.toDate(),
+        updatedAt: data.updatedAt?.toDate(),
+      };
+      categories.set(id, category);
+      migrationBatch.set(doc(categoriesRef, id), {
+        name: category.name,
+        count: category.count,
+        createdAt: category.createdAt ?? new Date(),
+        updatedAt: category.updatedAt ?? new Date(),
+      });
+      hasMigrations = true;
+    });
+
+    if (hasMigrations) await migrationBatch.commit();
+    return [...categories.values()];
   } catch (error) {
     console.error('Error fetching categories:', error);
     throw error;
   }
 };
 
-export const incrementCategoryCount = async (categoryId: string) => {
-  const categoryRef = doc(db, 'categories', categoryId);
-  await updateDoc(categoryRef, {
-    count: increment(1),
-    updatedAt: new Date()
-  });
+export const incrementCategoryCount = async (userId: string, categoryName: string) => {
+  const categoryRef = doc(
+    db,
+    'users',
+    userId,
+    'categories',
+    categoryDocumentId(categoryName)
+  );
+  await setDoc(
+    categoryRef,
+    {
+      name: categoryName.trim(),
+      count: increment(1),
+      updatedAt: new Date(),
+    },
+    { merge: true }
+  );
 };
+
 
 
 export interface UserStudyStats {

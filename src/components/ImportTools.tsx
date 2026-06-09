@@ -9,7 +9,6 @@ import {
 } from '@mui/material';
 import PreviewIcon from '@mui/icons-material/Preview';
 import ErrorIcon from '@mui/icons-material/Error';
-import { uploadFile } from '../services/storage';
 import { addCategory, addFlashcard, getCategories } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
 import { parseCSVLine, normalizeCSVText } from '../utils/csv';
