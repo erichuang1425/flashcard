@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Button, Typography, Paper } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { shuffle } from '../../utils/helpers';
+import { isMatchingPair } from './logic';
 import type { BatchResult } from './types';
 
 interface Props {
@@ -48,7 +49,7 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
       return;
     }
 
-    const isPair = selected.side !== side && selected.cardId === cardId;
+    const isPair = isMatchingPair(selected, cardId, side);
 
     if (isPair) {
       const newMatched = new Set(matched);
