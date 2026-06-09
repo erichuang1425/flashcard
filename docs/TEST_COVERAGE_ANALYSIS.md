@@ -1,138 +1,121 @@
-# Test Coverage Analysis & Improvement Plan
+# Test Coverage Status and Remaining Plan
 
-A snapshot of the current automated-test coverage on `main` and a prioritized
-plan for where to invest next. Each recommendation lists **what to test**,
-**why it matters**, and **effort/blockers** so the work can be picked up as a
-set of small, focused PRs.
+This document tracks what the automated suites actually cover after PRs #87,
+#88, and the PR #83-#90 remediation pass. It is a status ledger, not a claim
+that every production module is covered.
 
-> **Status:** Analysis only. This document is the record/rationale; the test
-> work is intended to land as follow-up PRs (see sequencing at the end).
+## How to interpret the numbers
 
----
+- `npm test` runs the default Jest suite and excludes `*.rules.test.ts`.
+- `npm run test:rules` starts the Firestore emulator and runs the security-rule
+  and writer integration suites.
+- `npm test -- --coverage` currently measures files imported by the default
+  tests. `jest.config.js` does not set `collectCoverageFrom`, so the reported
+  percentage is **not repository-wide coverage**. Untouched pages, components,
+  and services are absent from the denominator.
+- Repository-wide coverage should only be published after adding an explicit
+  `collectCoverageFrom` policy and agreeing on exclusions for entrypoints,
+  generated types, and Firebase configuration.
 
-## Current state
+## Completed coverage
 
-Running `npm test -- --coverage` today:
+### Pure learning and utility logic
 
-- **61 tests pass across 7 suites.** The existing tests are good — focused,
-  well-structured unit tests with clear arrange/act/assert and edge-case
-  coverage.
-- **Overall statement coverage is ~8%** (≈5% of functions). The tested code is
-  a thin slice of pure utilities; the bulk of the app is untested.
+- SM-2 scheduling and helper utilities.
+- Crossword generation and crossword scoring helpers.
+- Fill-in answer normalization.
+- Multiple-choice option construction, deduplication, and direction handling.
+- Matching-pair detection.
+- Worksheet generation and template branches.
+- Speech API wrappers and viewport helpers.
+- Study streak and running-average calculations.
+- Authentication error and popup-fallback classification.
 
-### What is tested today (all in `src/utils` + `src/i18n`)
+### UI, contexts, and hooks
 
-| Area | Coverage |
-| --- | --- |
-| `utils/spaced-repetition.ts` | ~98% ✅ |
-| `utils/crossword.ts` | ~97% ✅ |
-| `utils/csv.ts` | 100% (covered transitively) ✅ |
-| `utils/authFallback.ts` | 100% ✅ |
-| `utils/helpers.ts` | ~82% |
-| `utils/speech.ts` | ~51% |
-| `i18n/translations.ts` | 100% ✅ |
+- `FillInBlanks`, `MatchingGame`, and `MultipleChoice` interaction flows.
+- Language detection, persistence, translation, and interpolation.
+- `AuthContext` email, Google popup/redirect, persistence, profile stamping,
+  and account-linking flows.
+- `SettingsContext` theme and Pomodoro behavior.
+- `GamificationContext` subscriptions, XP, achievements, and focus mode.
+- `useUserPreferences` and `useUserSettings`.
+- Import CSV parsing helpers.
+- Regression coverage for:
+  - redirect-return Google/password linking,
+  - link-failure propagation,
+  - user-scoped Library categories,
+  - nested FlashCard keyboard controls,
+  - the Study "all caught up" state.
 
-### What is at 0%
+### Firestore emulator suites
 
-- **All 7 `services/`** files (incl. `firestore.ts`, the 853-line data backbone)
-- **All 7 `context/`** providers
-- **Both `hooks/`**
-- **All 11 `pages/`**
-- **25 of 26 `components/`** (only `ImportTools` has a test)
+- Owner-only access to the user subtree.
+- Public-card reads and base-vocabulary restrictions.
+- Category creation ownership.
+- `updateStudyStats`, `updateUserStudyStats`, and `updateDailyStreak` writer
+  behavior across first-session, same-day, and new-day cases.
 
----
+These tests require Java because the Firebase Firestore emulator runs on the
+JVM. A missing Java runtime is an environment blocker, not a passing result.
 
-## Structural blocker: no component/hook test tooling — ✅ RESOLVED
+## Remaining high-value work
 
-> **Update:** `jest-environment-jsdom`, `@testing-library/react`,
-> `@testing-library/jest-dom` and `@testing-library/user-event` are now
-> installed. Jest still defaults to `testEnvironment: 'node'` (fast pure-unit
-> tests), and UI tests opt into the DOM per-file with a
-> `@jest-environment jsdom` docblock. jest-dom matchers are registered globally
-> via `jest.setup.ts`. Components, hooks and contexts can now be rendered.
+### Stage A: Firestore data services
 
-Originally: the Jest config used `testEnvironment: 'node'` with neither `jsdom`
-nor `@testing-library/react` installed, so it was *impossible* to render a
-component or exercise a hook. That tooling is now in place, unblocking UI
-coverage.
+Add tests for:
 
----
+- `updateWeeklyStudyGoal`
+- `getMasteryCount`
+- `getTotalCardsCount`
+- `searchVocabularyAdvanced`
+- category counter updates and category deletion behavior
+- library pagination/query failure handling
 
-## Recommended areas to improve, by priority
+Prefer emulator tests for transactions, aggregations, and query constraints.
+Use unit tests only for extracted pure calculations.
 
-### 1. `services/gamification.ts` — pure logic, high value, no tooling needed 🟢
-- **What:** `getRequiredXP()` (pure) and the level-up loop inside
-  `updateUserXP()` (XP rollover across multiple level-ups, default-stats
-  initialization when no doc exists).
-- **Why:** core game mechanics; bugs here silently corrupt user progress.
-- **Effort:** `getRequiredXP` is testable as-is. Extract the leveling math from
-  the Firestore call so the loop can be unit-tested without mocking.
+### Stage B: Export and document generation
 
-### 2. `services/firestore.ts` — 853 lines, 0%, the data backbone 🔴
-- **What:** highest-value targets are the stat/streak math —
-  `updateStudyStats`, `updateDailyStreak`, `updateUserStudyStats`,
-  `updateWeeklyStudyGoal` (date-boundary, timezone, consecutive-day, and
-  streak-reset edge cases), plus `getMasteryCount`, `getTotalCardsCount`, and
-  `searchVocabularyAdvanced`.
-- **Why:** largest and most critical untested file; date math is a classic
-  bug source.
-- **Effort:** the repo **already depends on `@firebase/rules-unit-testing`**
-  (installed, currently unused). Stand up the Firestore emulator harness and
-  test against it. Pair this with **security-rules tests** — `firestore.rules`
-  has zero tests today, and untested rules are a real data-leak risk.
+Add focused tests for:
 
-### 3. Study-mode game logic 🟡
-- **What:** `MatchingGame`, `MultipleChoice`, `FillInBlanks`, and especially
-  `FillInPuzzle` (348 lines) — answer-checking, scoring, and puzzle
-  generation. Verify answer tolerance end-to-end (e.g. `normalizeAnswer`
-  treats "café" == "cafe"; `shuffle` is unbiased).
-- **Why:** this is the core learning loop; wrong answer-matching directly
-  harms users.
-- **Effort:** much of the logic is pure and can be extracted into testable
-  helpers even before jsdom lands. Full UI tests need the tooling above.
+- `services/exportService.ts`
+- `services/pdfService.ts`
+- worksheet export error handling
+- generated document structure at the service boundary
 
-### 4. `utils/worksheet-templates.ts` (208 lines) + `services/exportService.ts` 🟢
-- **What:** `generateWorksheet` builds structured content from templates —
-  pure transformation logic.
-- **Why:** worksheet generation is a headline feature.
-- **Effort:** low; no mocking required.
+Avoid brittle byte-for-byte PDF assertions. Assert inputs, document structure,
+filenames, and surfaced failures.
 
-### 5. Finish the partially-covered utils 🟢
-- **What:** bring `utils/speech.ts` (51%) and `utils/helpers.ts` (82%, the
-  `capitalizeAfterPunctuation` branches) up to ~100%.
-- **Why:** cheap, and closes out the one directory already in good shape.
+### Stage C: Route-level workflows
 
-### 6. Contexts & hooks (after tooling lands) 🟡
-- **What:** `AuthContext`, `GamificationContext`, `SettingsContext`,
-  `useUserSettings`, `useUserPreferences`.
-- **Why:** they orchestrate critical app-wide state.
-- **Effort:** blocked on adding jsdom + Testing Library (see above).
-- **Status:** ✅ Done. `useUserPreferences` (load / first-run defaulting /
-  error path / persisted updates), `useUserSettings` (single-field & pomodoro
-  patches, dirty tracking, save round-trip, guards), `SettingsContext` (theme
-  cycle + Pomodoro countdown / pause / reset / work-break rollover under fake
-  timers), `AuthContext` (Firebase-user mapping, loading lifecycle, email
-  flows, and the Google popup → redirect / cancel fallback) and
-  `GamificationContext` (level-system subscription, achievement load, XP award +
-  re-check, and the focus-mode body filter) are all covered.
+Add rendering tests for:
 
----
+- Login and Register pending-link prompts.
+- Study loading, transport error, empty, and completion states.
+- Library load failure and category selection.
+- Import reset after success and partial failure.
+- Home dashboard stat layout semantics.
 
-## Suggested sequencing
+### Stage D: Remaining providers and pages
 
-1. ✅ **Quick wins now (no new tooling):** `gamification.ts` pure functions,
-   `worksheet-templates.ts`, extract + test study-mode answer logic, top up
-   `speech.ts` / `helpers.ts`. *(Done — leveling math, study-mode logic,
-   worksheet generation and the speech/helpers utils are covered.)*
-2. ✅ **Add the emulator harness:** wire up the already-present
-   `@firebase/rules-unit-testing` → test `firestore.rules` and the
-   streak/stats functions. *(Done — `firestore.rules` is covered via the
-   emulator (`npm run test:rules`), the streak / running-average math is
-   extracted into pure `utils/study-stats.ts` and unit-tested, and the full
-   `updateStudyStats` / `updateUserStudyStats` / `updateDailyStreak` writers are
-   now exercised against the emulator in `firestore.writers.rules.test.ts`
-   (first-session, new-day reset, same-day accumulation, running-average and
-   streak continue/reset/idempotent cases).)*
-3. ✅ **Add jsdom + `@testing-library/react`:** unlock contexts, hooks, and
-   components. *(Done — tooling installed; study-mode components and the
-   language context now have rendering tests.)*
+Prioritize:
+
+- `FocusModeContext`
+- `MobileContext`
+- `OnboardingContext`
+- `PronunciationContext`
+- `Diary`
+- `Worksheets` and `StudyWorksheet`
+- `Settings`
+
+## Execution rules
+
+1. Add one behavior-focused failing test.
+2. Confirm the failure is caused by the missing behavior.
+3. Make the smallest production change.
+4. Run the focused test, then the default suite.
+5. Use `npm run test:rules` for Firestore behavior and record Java/emulator
+   prerequisites in the PR.
+6. Do not call the plan complete while any item in "Remaining high-value work"
+   is still open.

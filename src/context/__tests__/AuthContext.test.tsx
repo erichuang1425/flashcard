@@ -25,6 +25,7 @@ const mockGetRedirectResult = jest.fn();
 const mockSetPersistence = jest.fn();
 const mockLinkWithCredential = jest.fn();
 const mockCredentialFromError = jest.fn();
+const mockOAuthCredentialFromJSON = jest.fn();
 jest.mock('firebase/auth', () => ({
   onAuthStateChanged: (...args: unknown[]) => mockOnAuthStateChanged(...args),
   signInWithEmailAndPassword: (...args: unknown[]) => mockSignIn(...args),
@@ -40,6 +41,11 @@ jest.mock('firebase/auth', () => ({
   GoogleAuthProvider: class {
     static credentialFromError(...args: unknown[]): unknown {
       return mockCredentialFromError(...args);
+    }
+  },
+  OAuthCredential: class {
+    static fromJSON(...args: unknown[]): unknown {
+      return mockOAuthCredentialFromJSON(...args);
     }
   },
 }));
@@ -75,6 +81,7 @@ const credential = () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  window.sessionStorage.clear();
   mockIsMobileDevice = false;
   mockGetRedirectResult.mockResolvedValue(null);
   mockOnAuthStateChanged.mockReturnValue(() => {}); // unsubscribe fn
@@ -84,6 +91,7 @@ beforeEach(() => {
   mockLinkWithCredential.mockResolvedValue(undefined);
   mockEnsureUserProfile.mockResolvedValue(undefined);
   mockCredentialFromError.mockReturnValue({ __googleCred: true });
+  mockOAuthCredentialFromJSON.mockReturnValue(null);
   mockSignIn.mockResolvedValue(credential());
   mockSignUp.mockResolvedValue(credential());
   mockSignInWithPopup.mockResolvedValue(credential());
@@ -313,6 +321,128 @@ describe('account linking', () => {
       await result.current.signIn('a@b.com', 'pw');
     });
     expect(mockLinkWithCredential).not.toHaveBeenCalled();
+  });
+
+  it('refuses to attach a pending Google credential to a different email account', async () => {
+    mockSignInWithPopup.mockRejectedValueOnce({
+      code: 'auth/account-exists-with-different-credential',
+      customData: { email: 'a@b.com' },
+    });
+
+    const { result } = renderAuth();
+    await act(async () => {
+      await expect(result.current.signInWithGoogle()).rejects.toMatchObject({
+        code: 'auth/needs-password-link',
+      });
+    });
+
+    await act(async () => {
+      await expect(result.current.signIn('other@example.com', 'pw')).rejects.toMatchObject({
+        code: 'auth/link-email-mismatch',
+      });
+    });
+
+    expect(mockSignIn).not.toHaveBeenCalled();
+    expect(mockLinkWithCredential).not.toHaveBeenCalled();
+    expect(result.current.pendingLinkEmail).toBe('a@b.com');
+  });
+
+  it('does not retain a Google credential when Firebase omits the account email', async () => {
+    const conflict = {
+      code: 'auth/account-exists-with-different-credential',
+      customData: {},
+    };
+    mockSignInWithPopup.mockRejectedValueOnce(conflict);
+
+    const { result } = renderAuth();
+    await act(async () => {
+      await expect(result.current.signInWithGoogle()).rejects.toBe(conflict);
+    });
+
+    expect(result.current.pendingLinkEmail).toBeNull();
+    expect(window.sessionStorage.getItem('flashcards.auth.pending-google-link.v1')).toBeNull();
+  });
+
+  it('restores a redirect conflict and links it after the provider remounts', async () => {
+    const serializedCredential = { providerId: 'google.com', idToken: 'token' };
+    const redirectCredential = {
+      __googleCred: 'redirect',
+      toJSON: () => serializedCredential,
+    };
+    mockGetRedirectResult.mockRejectedValueOnce({
+      code: 'auth/account-exists-with-different-credential',
+      customData: { email: 'redirect@example.com' },
+    });
+    mockCredentialFromError.mockReturnValueOnce(redirectCredential);
+
+    const firstMount = renderAuth();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(firstMount.result.current.pendingLinkEmail).toBe('redirect@example.com');
+    firstMount.unmount();
+
+    const restoredCredential = { __googleCred: 'restored' };
+    mockOAuthCredentialFromJSON.mockReturnValueOnce(restoredCredential);
+    const secondMount = renderAuth();
+
+    expect(secondMount.result.current.pendingLinkEmail).toBe('redirect@example.com');
+    await act(async () => {
+      await secondMount.result.current.signIn('redirect@example.com', 'pw');
+    });
+    expect(mockOAuthCredentialFromJSON).toHaveBeenCalledWith(serializedCredential);
+    expect(mockLinkWithCredential).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'u1' }),
+      restoredCredential,
+    );
+    expect(secondMount.result.current.pendingLinkEmail).toBeNull();
+  });
+
+  it('reports a failed link and keeps it pending for another attempt', async () => {
+    mockSignInWithPopup.mockRejectedValueOnce({
+      code: 'auth/account-exists-with-different-credential',
+      customData: { email: 'a@b.com' },
+    });
+    const pendingCred = { __googleCred: true };
+    mockCredentialFromError.mockReturnValueOnce(pendingCred);
+    mockLinkWithCredential.mockRejectedValueOnce({ code: 'auth/credential-already-in-use' });
+
+    const { result } = renderAuth();
+    await act(async () => {
+      await expect(result.current.signInWithGoogle()).rejects.toMatchObject({
+        code: 'auth/needs-password-link',
+      });
+    });
+
+    await act(async () => {
+      await expect(result.current.signIn('a@b.com', 'pw')).rejects.toMatchObject({
+        code: 'auth/credential-already-in-use',
+      });
+    });
+
+    expect(result.current.pendingLinkEmail).toBe('a@b.com');
+  });
+
+  it('clears restored link state after a later successful Google sign-in', async () => {
+    window.sessionStorage.setItem(
+      'flashcards.auth.pending-google-link.v1',
+      JSON.stringify({
+        email: 'old@example.com',
+        credential: { providerId: 'google.com', idToken: 'old-token' },
+      })
+    );
+    mockOAuthCredentialFromJSON.mockReturnValueOnce({ __googleCred: 'old' });
+
+    const { result } = renderAuth();
+    expect(result.current.pendingLinkEmail).toBe('old@example.com');
+
+    await act(async () => {
+      await result.current.signInWithGoogle();
+    });
+
+    expect(result.current.pendingLinkEmail).toBeNull();
+    expect(window.sessionStorage.getItem('flashcards.auth.pending-google-link.v1')).toBeNull();
   });
 });
 
