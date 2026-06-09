@@ -16,7 +16,7 @@ export const Library: React.FC = () => {
   const [view, setView] = useState<'grid' | 'category'>('grid');
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
-  // All public words are fetched once; pagination is done client-side by
+  // All of the user's words are fetched once; pagination is done client-side by
   // growing the visible window. Previously "Load More" re-fetched the full
   // unpaginated list and appended it, duplicating every card on screen.
   const [allWords, setAllWords] = useState<VocabularyWord[]>([]);
