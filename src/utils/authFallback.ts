@@ -20,6 +20,15 @@ export const POPUP_CANCELLED_ERROR_CODES = [
   'auth/user-cancelled',
 ] as const;
 
+/**
+ * Code Firebase raises when the chosen provider's email already belongs to an
+ * account created with a *different* provider (e.g. signing in with Google for
+ * an email first registered with a password). The two identities can be merged
+ * into a single account once the user re-authenticates with the original
+ * method — see the account-linking flow in `AuthContext`.
+ */
+export const ACCOUNT_EXISTS_ERROR_CODE = 'auth/account-exists-with-different-credential';
+
 const extractCode = (error: unknown): string | undefined => {
   if (typeof error === 'object' && error !== null && 'code' in error) {
     const code = (error as { code?: unknown }).code;
@@ -39,3 +48,11 @@ export const isPopupCancelledByUser = (error: unknown): boolean => {
   const code = extractCode(error);
   return code !== undefined && (POPUP_CANCELLED_ERROR_CODES as readonly string[]).includes(code);
 };
+
+/**
+ * True when a Google sign-in failed only because the email already belongs to
+ * an account created with another method. This is recoverable: the sign-in flow
+ * can link Google onto that existing account instead of surfacing an error.
+ */
+export const isAccountExistsWithDifferentCredential = (error: unknown): boolean =>
+  extractCode(error) === ACCOUNT_EXISTS_ERROR_CODE;

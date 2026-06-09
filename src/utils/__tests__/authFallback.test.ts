@@ -1,6 +1,7 @@
 import {
   shouldFallbackToRedirect,
   isPopupCancelledByUser,
+  isAccountExistsWithDifferentCredential,
 } from '../authFallback';
 
 describe('shouldFallbackToRedirect', () => {
@@ -60,5 +61,25 @@ describe('isPopupCancelledByUser', () => {
   it('returns false for non-error values', () => {
     expect(isPopupCancelledByUser(undefined)).toBe(false);
     expect(isPopupCancelledByUser({})).toBe(false);
+  });
+});
+
+describe('isAccountExistsWithDifferentCredential', () => {
+  it('returns true for the account-exists error code', () => {
+    expect(
+      isAccountExistsWithDifferentCredential({
+        code: 'auth/account-exists-with-different-credential',
+      })
+    ).toBe(true);
+  });
+
+  it('returns false for unrelated errors', () => {
+    expect(isAccountExistsWithDifferentCredential({ code: 'auth/popup-blocked' })).toBe(false);
+  });
+
+  it('returns false for non-error values', () => {
+    expect(isAccountExistsWithDifferentCredential(undefined)).toBe(false);
+    expect(isAccountExistsWithDifferentCredential(null)).toBe(false);
+    expect(isAccountExistsWithDifferentCredential({})).toBe(false);
   });
 });
