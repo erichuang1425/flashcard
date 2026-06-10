@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, LinearProgress, Typography, Paper, CircularProgress } from '@mui/material';
 import type { StudyProgress } from '../types';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface StudyProgressProps {
   progress: StudyProgress;
@@ -8,6 +9,7 @@ interface StudyProgressProps {
 }
 
 const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
+  const { t } = useLanguage();
   const completion = total > 0 ? (progress.cardsReviewed / total) * 100 : 0;
   const accuracy = progress.cardsReviewed > 0 
     ? (progress.correct / progress.cardsReviewed) * 100 
@@ -17,7 +19,7 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
     <Paper sx={{ p: 2, mb: 2 }}>
       {/* Progress section */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle2" gutterBottom>Overall Progress</Typography>
+        <Typography variant="subtitle2" gutterBottom>{t('study.progress.overall')}</Typography>
         <LinearProgress 
           variant="determinate" 
           value={completion} 
@@ -31,7 +33,7 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
           }} 
         />
         <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-          {progress.cardsReviewed} of {total} cards reviewed
+          {t('study.progress.reviewed', { reviewed: progress.cardsReviewed, total })}
         </Typography>
       </Box>
 
@@ -50,7 +52,7 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
             >
               {progress.streak}
             </Typography>
-            <Typography variant="body2">Current Streak</Typography>
+            <Typography variant="body2">{t('study.progress.streak')}</Typography>
           </Box>
         </Box>
 
@@ -82,19 +84,19 @@ const StudyProgress: React.FC<StudyProgressProps> = ({ progress, total }) => {
                 </Typography>
               </Box>
             </Box>
-            <Typography variant="body2" sx={{ mt: 1 }}>Accuracy</Typography>
+            <Typography variant="body2" sx={{ mt: 1 }}>{t('study.progress.accuracy')}</Typography>
           </Box>
         </Box>
 
         {/* Additional stats */}
         <Box sx={{ width: 'calc(50% - 8px)' }}>
           <Typography variant="body2" color="text.secondary">
-            Correct: {progress.correct}
+            {t('study.progress.correct', { count: progress.correct })}
           </Typography>
         </Box>
         <Box sx={{ width: 'calc(50% - 8px)' }}>
           <Typography variant="body2" color="text.secondary">
-            Incorrect: {progress.incorrect}
+            {t('study.progress.incorrect', { count: progress.incorrect })}
           </Typography>
         </Box>
       </Box>

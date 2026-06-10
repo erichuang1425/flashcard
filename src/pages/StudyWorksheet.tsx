@@ -9,11 +9,13 @@ import { useAuth } from '../context/AuthContext';
 import { getWorksheet, updateWorksheetProgress } from '../services/firestore';
 import type { Worksheet, WorksheetQuestion } from '../types';
 import { dvhMinHeight } from '../utils/viewport';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const StudyWorksheet = () => {
   const { worksheetId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [worksheet, setWorksheet] = useState<Worksheet | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answer, setAnswer] = useState('');
@@ -24,7 +26,7 @@ export const StudyWorksheet = () => {
   useEffect(() => {
     const loadWorksheet = async () => {
       if (!user?.uid || !worksheetId) {
-        setError('Missing required information');
+        setError('worksheetStudy.missing');
         setLoading(false);
         return;
       }
@@ -32,12 +34,12 @@ export const StudyWorksheet = () => {
       try {
         const data = await getWorksheet(user.uid, worksheetId);
         if (!data) {
-          setError('Worksheet not found');
+          setError('worksheetStudy.notFound');
         } else {
           setWorksheet(data);
         }
       } catch (err) {
-        setError('Error loading worksheet');
+        setError('worksheetStudy.loadFailed');
         console.error(err);
       } finally {
         setLoading(false);
@@ -76,7 +78,7 @@ export const StudyWorksheet = () => {
         navigate('/worksheets');
       }
     } catch (err) {
-      setError('Failed to save progress');
+      setError('worksheetStudy.saveFailed');
       console.error(err);
     }
   };
@@ -93,14 +95,14 @@ export const StudyWorksheet = () => {
     return (
       <Box p={3}>
         <Typography color="error">
-          {error || 'No worksheet questions available'}
+          {t(error || 'worksheetStudy.noQuestions')}
         </Typography>
         <Button
           variant="contained"
           onClick={() => navigate('/worksheets')}
           sx={{ mt: 2 }}
         >
-          Back to Worksheets
+          {t('worksheetStudy.back')}
         </Button>
       </Box>
     );
@@ -111,13 +113,13 @@ export const StudyWorksheet = () => {
   if (!currentQuestion) {
     return (
       <Box p={3}>
-        <Typography color="error">Question not found</Typography>
+        <Typography color="error">{t('worksheetStudy.questionNotFound')}</Typography>
         <Button
           variant="contained"
           onClick={() => navigate('/worksheets')}
           sx={{ mt: 2 }}
         >
-          Back to Worksheets
+          {t('worksheetStudy.back')}
         </Button>
       </Box>
     );
@@ -136,7 +138,10 @@ export const StudyWorksheet = () => {
 
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Question {currentQuestionIndex + 1} of {worksheet.questions.length}
+            {t('worksheetStudy.questionOf', {
+              current: currentQuestionIndex + 1,
+              total: worksheet.questions.length,
+            })}
           </Typography>
           
           <Typography sx={{ mb: 3 }}>{currentQuestion.question}</Typography>
@@ -159,25 +164,27 @@ export const StudyWorksheet = () => {
               rows={4}
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Enter your answer"
+              placeholder={t('worksheetStudy.answerPlaceholder')}
             />
           )}
 
-          {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+          {error && <Alert severity="error" sx={{ mt: 2 }}>{t(error)}</Alert>}
 
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
             <Button
               onClick={() => navigate('/worksheets')}
               variant="outlined"
             >
-              Exit
+              {t('common.exit')}
             </Button>
             <Button
               onClick={handleSubmitAnswer}
               variant="contained"
               disabled={!answer}
             >
-              {currentQuestionIndex + 1 === worksheet.questions.length ? 'Finish' : 'Next'}
+              {currentQuestionIndex + 1 === worksheet.questions.length
+                ? t('common.finish')
+                : t('common.next')}
             </Button>
           </Box>
         </Paper>

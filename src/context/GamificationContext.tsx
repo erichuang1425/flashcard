@@ -6,6 +6,7 @@ import { getUserStudyStats } from '../services/firestore';
 import type { LevelSystem, Achievement, DailyChallenge } from '../types/gamification';
 import { db } from '../services/firebase';
 import { onSnapshot, doc } from '@firebase/firestore';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface GamificationContextType {
   levelSystem: LevelSystem | null;
@@ -32,6 +33,7 @@ export const useGamification = () => {
 
 export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [levelSystem, setLevelSystem] = useState<LevelSystem | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [dailyChallenges] = useState<DailyChallenge[]>([]);
@@ -152,7 +154,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         onClose={() => setLevelUpNotification(prev => ({ ...prev, visible: false }))}
       >
         <Alert severity="success" variant="filled" icon={false}>
-          🎉 Level up! You reached level {levelUpNotification.level}
+          {t('gamification.levelUp', { level: levelUpNotification.level })}
         </Alert>
       </Snackbar>
     </GamificationContext.Provider>

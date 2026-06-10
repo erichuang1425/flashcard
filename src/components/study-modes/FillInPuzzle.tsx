@@ -11,6 +11,7 @@ import {
   isWordSolved,
   buildPuzzleResults,
 } from './logic';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
   cards: Flashcard[];
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
+  const { t } = useLanguage();
   const layout = useMemo(
     () =>
       generateCrossword(
@@ -161,13 +163,13 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
     return (
       <Paper sx={{ p: 3, width: '100%', maxWidth: 800, textAlign: 'center' }}>
         <Typography variant="h6" gutterBottom>
-          Crossword
+          {t('study.crossword.title')}
         </Typography>
         <Typography color="text.secondary" sx={{ mb: 2 }}>
-          These cards don&apos;t share enough letters to build a crossword.
+          {t('study.crossword.unavailable')}
         </Typography>
         <Button variant="contained" onClick={() => onComplete([])}>
-          Skip puzzle
+          {t('study.crossword.skip')}
         </Button>
       </Paper>
     );
@@ -230,7 +232,7 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, width: '100%', maxWidth: 900 }}>
       <Typography variant="h6" gutterBottom align="center">
-        Crossword — fill in the words from their definitions
+        {t('study.crossword.instructions')}
       </Typography>
 
       <Box
@@ -248,7 +250,7 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
               color="text.secondary"
               sx={{ display: 'block', mb: 0.5, textAlign: 'center' }}
             >
-              Scroll horizontally to see the whole grid →
+              {t('study.crossword.scrollHint')}
             </Typography>
           )}
           <Box ref={gridScrollRef} sx={{ overflowX: 'auto' }}>
@@ -309,7 +311,10 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
                         if (el) inputRefs.current.set(keyOf(row, col), el);
                         else inputRefs.current.delete(keyOf(row, col));
                       }}
-                      aria-label={`Row ${row + 1} column ${col + 1}`}
+                      aria-label={t('study.crossword.cellAria', {
+                        row: row + 1,
+                        column: col + 1,
+                      })}
                       value={value}
                       maxLength={1}
                       disabled={done}
@@ -344,34 +349,34 @@ export const FillInPuzzle: React.FC<Props> = ({ cards, onComplete }) => {
         </Box>
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1 }}>
-          {acrossClues.length > 0 && renderClueList('Across', acrossClues)}
-          {downClues.length > 0 && renderClueList('Down', downClues)}
+          {acrossClues.length > 0 && renderClueList(t('study.crossword.across'), acrossClues)}
+          {downClues.length > 0 && renderClueList(t('study.crossword.down'), downClues)}
         </Box>
       </Box>
 
       {layout.unplaced.length > 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-          {layout.unplaced.length} card(s) didn&apos;t fit this grid and were skipped.
+          {t('study.crossword.unplaced', { count: layout.unplaced.length })}
         </Typography>
       )}
 
       {checked && !done && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          Solved {solved} of {layout.placed.length} words. Keep going!
+          {t('study.crossword.solved', { solved, total: layout.placed.length })}
         </Alert>
       )}
       {done && (
         <Alert severity="success" sx={{ mt: 2 }}>
-          Puzzle finished — {solved} of {layout.placed.length} words correct.
+          {t('study.crossword.finished', { solved, total: layout.placed.length })}
         </Alert>
       )}
 
       <Box sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'center' }}>
         <Button variant="contained" onClick={handleCheck} disabled={done}>
-          Check Answers
+          {t('study.crossword.check')}
         </Button>
         <Button variant="outlined" onClick={handleFinish} disabled={done}>
-          Finish &amp; Continue
+          {t('study.crossword.finish')}
         </Button>
       </Box>
     </Paper>

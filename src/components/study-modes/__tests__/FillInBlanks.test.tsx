@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { FillInBlanks } from '../FillInBlanks';
+import { LanguageProvider } from '../../../i18n/LanguageContext';
 import type { Flashcard } from '../../../types';
 
 const card: Flashcard = {
@@ -21,26 +22,38 @@ const card: Flashcard = {
   mastered: false,
 };
 
+const renderFillInBlanks = (onAnswer: jest.Mock) =>
+  render(
+    <LanguageProvider>
+      <FillInBlanks card={card} onAnswer={onAnswer} />
+    </LanguageProvider>
+  );
+
 const submit = (value: string) => {
   fireEvent.change(screen.getByPlaceholderText('Type the word'), { target: { value } });
   fireEvent.click(screen.getByRole('button', { name: /check answer/i }));
 };
 
 describe('<FillInBlanks />', () => {
-  beforeEach(() => jest.useFakeTimers());
+  beforeEach(() => {
+    window.localStorage.clear();
+    jest.useFakeTimers();
+  });
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
     jest.useRealTimers();
   });
 
   it('shows the definition prompt (capitalized)', () => {
-    render(<FillInBlanks card={card} onAnswer={jest.fn()} />);
+    renderFillInBlanks(jest.fn());
     expect(screen.getByText('A small domesticated feline')).toBeInTheDocument();
   });
 
   it('marks a correct (accent/case-insensitive) answer and advances', () => {
     const onAnswer = jest.fn();
-    render(<FillInBlanks card={card} onAnswer={onAnswer} />);
+    renderFillInBlanks(onAnswer);
 
     submit('  CAT ');
     expect(screen.getByRole('alert')).toHaveTextContent('Correct!');
@@ -54,7 +67,7 @@ describe('<FillInBlanks />', () => {
 
   it('reveals the answer and reports a wrong attempt', () => {
     const onAnswer = jest.fn();
-    render(<FillInBlanks card={card} onAnswer={onAnswer} />);
+    renderFillInBlanks(onAnswer);
 
     submit('dog');
     expect(screen.getByRole('alert')).toHaveTextContent('The correct answer is: cat');
@@ -66,7 +79,17 @@ describe('<FillInBlanks />', () => {
   });
 
   it('disables the submit button until something is typed', () => {
-    render(<FillInBlanks card={card} onAnswer={jest.fn()} />);
+    renderFillInBlanks(jest.fn());
     expect(screen.getByRole('button', { name: /check answer/i })).toBeDisabled();
+  });
+
+  it('translates the form and answer feedback for Traditional Chinese', () => {
+    window.localStorage.setItem('flashcard.language', 'zh');
+    renderFillInBlanks(jest.fn());
+
+    expect(screen.getByText('詞性：noun')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('輸入單字'), { target: { value: 'dog' } });
+    fireEvent.click(screen.getByRole('button', { name: '檢查答案' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('正確答案是：cat');
   });
 });

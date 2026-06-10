@@ -94,7 +94,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
           exclusive
           value={direction}
           onChange={(_, next: Direction | null) => next && setDirection(next)}
-          aria-label="Question direction"
+          aria-label={t('study.mc.directionAria')}
         >
           <ToggleButton value="wordToMeaning">{t('study.mc.wordToMeaning')}</ToggleButton>
           <ToggleButton value="meaningToWord">{t('study.mc.meaningToWord')}</ToggleButton>
@@ -194,8 +194,8 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
             }}
           >
             {isCorrect
-              ? 'Correct'
-              : `Incorrect. The correct answer is ${optionPrimary(card)}`}
+              ? t('study.mc.correct')
+              : t('study.mc.incorrectAnswer', { answer: optionPrimary(card) })}
           </Box>
         )}
 

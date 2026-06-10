@@ -46,8 +46,15 @@ const RouteFallback: React.FC = () => (
 );
 
 const App: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { ready, showOnboarding } = useOnboarding();
+
+  // Wait for Firebase to restore any existing session before routing. While it
+  // does, `user` is still null, so rendering routes here would bounce a
+  // signed-in reload through /login (and flash the chrome-less guest layout).
+  if (loading) {
+    return <RouteFallback />;
+  }
 
   // Hold rendering until we know whether a signed-in account still needs the
   // first-run guide, so the app doesn't flash behind it on a slow read.

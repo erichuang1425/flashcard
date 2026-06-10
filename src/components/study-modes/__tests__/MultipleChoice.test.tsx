@@ -37,7 +37,10 @@ const optionButton = (def: string) =>
   screen.getByRole('button', { name: new RegExp(def, 'i') });
 
 describe('<MultipleChoice />', () => {
-  beforeEach(() => jest.useFakeTimers());
+  beforeEach(() => {
+    window.localStorage.clear();
+    jest.useFakeTimers();
+  });
   afterEach(() => {
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
@@ -71,5 +74,16 @@ describe('<MultipleChoice />', () => {
     // A continue button appears; clicking it reports the miss.
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(onAnswer).toHaveBeenCalledWith(false);
+  });
+
+  it('translates the direction controls and feedback for Traditional Chinese', () => {
+    window.localStorage.setItem('flashcard.language', 'zh');
+    renderMC(jest.fn());
+
+    expect(screen.getByRole('button', { name: '單字 → 意思' })).toBeInTheDocument();
+    expect(screen.getByLabelText('題目方向')).toBeInTheDocument();
+
+    fireEvent.click(optionButton('a canine'));
+    expect(screen.getByRole('status')).toHaveTextContent('答錯了。正確答案是 A feline');
   });
 });

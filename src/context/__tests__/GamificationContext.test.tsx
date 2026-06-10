@@ -33,6 +33,15 @@ jest.mock('../../services/firestore', () => ({
 
 jest.mock('../../services/firebase', () => ({ db: {} }));
 
+jest.mock('../../i18n/LanguageContext', () => ({
+  useLanguage: () => ({
+    t: (key: string, vars?: Record<string, string | number>) =>
+      key === 'gamification.levelUp'
+        ? `🎉 升級了！你已達到等級 ${vars?.level}`
+        : key,
+  }),
+}));
+
 const mockOnSnapshot = jest.fn();
 jest.mock('@firebase/firestore', () => ({
   onSnapshot: (...args: unknown[]) => mockOnSnapshot(...args),
@@ -152,7 +161,7 @@ describe('level-up notification', () => {
     renderGamification();
     emitSnapshot(aLevel(2));
     emitSnapshot(aLevel(3));
-    expect(screen.getByText(/reached level 3/i)).toBeInTheDocument();
+    expect(screen.getByText('🎉 升級了！你已達到等級 3')).toBeInTheDocument();
     await act(async () => {});
   });
 });

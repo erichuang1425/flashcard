@@ -106,7 +106,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
           {user?.email?.[0]?.toUpperCase() || 'G'}
         </Avatar>
         <Typography variant="subtitle1" noWrap>
-          {user?.displayName || user?.email || 'Guest'}
+          {user?.displayName || user?.email || t('common.guest')}
         </Typography>
       </Box>
       <Divider />
