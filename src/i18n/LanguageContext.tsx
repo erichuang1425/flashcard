@@ -63,7 +63,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       let template = dict[key] ?? translations.en[key] ?? key;
       if (vars) {
         for (const [name, value] of Object.entries(vars)) {
-          template = template.replace(new RegExp(`\\{${name}\\}`, 'g'), String(value));
+          // split/join instead of a RegExp replace: var names need no regex
+          // escaping and values containing `$&`/`$$` are inserted literally.
+          template = template.split(`{${name}}`).join(String(value));
         }
       }
       return template;
