@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
-import { getRequiredXP, updateUserXP, loadUserAchievements, checkAndUpdateAchievements } from '../services/gamification';
+import { updateUserXP, loadUserAchievements, checkAndUpdateAchievements } from '../services/gamification';
+import { getUserStudyStats } from '../services/firestore';
 import type { LevelSystem, Achievement, DailyChallenge } from '../types/gamification';
 import { db } from '../services/firebase';
-import { onSnapshot, doc, collection, getDocs } from '@firebase/firestore';
+import { onSnapshot, doc } from '@firebase/firestore';
 
 interface GamificationContextType {
   levelSystem: LevelSystem | null;
@@ -30,42 +31,60 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { user } = useAuth();
   const [levelSystem, setLevelSystem] = useState<LevelSystem | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>([]);
-  const [notifications, setNotifications] = useState<string[]>([]);
-  const [levelUpNotification, setLevelUpNotification] = useState<{ level: number; visible: boolean }>({ level: 0, visible: false });
+  const [dailyChallenges] = useState<DailyChallenge[]>([]);
+  const [, setLevelUpNotification] = useState<{ level: number; visible: boolean }>({ level: 0, visible: false });
   const [focusMode, setFocusMode] = useState(false);
 
-  // Track previous level for level-up detection
-  const previousLevel = React.useRef(1);
+  // Track previous level for level-up detection. Starts null so the first
+  // snapshot after sign-in (which may already be a high level) doesn't fire
+  // a spurious level-up notification.
+  const previousLevel = useRef<number | null>(null);
+  const notificationTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!user) return;
-    
+    previousLevel.current = null;
+    let active = true;
+
     const unsubscribe = onSnapshot(
       doc(db, 'users', user.uid, 'stats', 'gamification'),
-      (doc) => {
-        if (doc.exists()) {
-          setLevelSystem(doc.data() as LevelSystem);
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setLevelSystem(snapshot.data() as LevelSystem);
         }
       }
     );
 
-    const loadAchievements = async () => {
-      const userAchievements = await loadUserAchievements(user.uid);
-      setAchievements(userAchievements);
-    };
-    
-    loadAchievements();
+    loadUserAchievements(user.uid)
+      .then((userAchievements) => {
+        if (active) setAchievements(userAchievements);
+      })
+      .catch((error) => console.error('Error loading achievements:', error));
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [user]);
 
+  const showLevelUpNotification = useCallback((level: number) => {
+    setLevelUpNotification({ level, visible: true });
+    clearTimeout(notificationTimeout.current);
+    notificationTimeout.current = setTimeout(
+      () => setLevelUpNotification(prev => ({ ...prev, visible: false })),
+      3000
+    );
+  }, []);
+
+  useEffect(() => () => clearTimeout(notificationTimeout.current), []);
+
   useEffect(() => {
-    if (levelSystem && levelSystem.currentLevel > previousLevel.current) {
+    if (!levelSystem) return;
+    if (previousLevel.current !== null && levelSystem.currentLevel > previousLevel.current) {
       showLevelUpNotification(levelSystem.currentLevel);
-      previousLevel.current = levelSystem.currentLevel;
     }
-  }, [levelSystem]);
+    previousLevel.current = levelSystem.currentLevel;
+  }, [levelSystem, showLevelUpNotification]);
 
   useEffect(() => {
     if (focusMode) {
@@ -79,46 +98,46 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, [focusMode]);
 
-  const checkAchievements = async (stats: any) => {
+  const checkAchievements = useCallback(async () => {
     if (!user) return;
-    
+
+    // Achievement progress is measured against real study stats, not the XP
+    // level system — fetch them fresh so the check sees the latest session.
+    const stats = await getUserStudyStats(user.uid);
     await checkAndUpdateAchievements(user.uid, {
       studySessions: stats.totalStudySessions || 0,
       cardsMastered: stats.masteredCards || 0,
-      studyTime: stats.totalStudyTime || 0,
+      studyTime: stats.totalStudyMinutes || stats.studyMinutes || 0,
       averageAccuracy: stats.averageAccuracy || 0,
-      perfectSessions: stats.perfectSessions || 0
+      perfectSessions: 0, // not tracked in study stats yet
     });
 
-    // Reload achievements after update
     const updatedAchievements = await loadUserAchievements(user.uid);
     setAchievements(updatedAchievements);
-  };
+  }, [user]);
 
-  const showLevelUpNotification = (level: number) => {
-    setLevelUpNotification({ level, visible: true });
-    setTimeout(() => setLevelUpNotification(prev => ({ ...prev, visible: false })), 3000);
-  };
+  const addXP = useCallback(async (amount: number) => {
+    if (!user) return;
+    const newStats = await updateUserXP(user.uid, amount);
+    setLevelSystem(newStats);
+    await checkAchievements();
+  }, [user, checkAchievements]);
 
-  const value = {
+  const refreshChallenges = useCallback(async () => {
+    if (!user) return;
+    // Implement daily challenges refresh logic
+  }, [user]);
+
+  const value = useMemo(() => ({
     levelSystem,
     achievements,
     dailyChallenges,
-    notifications,
-    addXP: async (amount: number) => {
-      if (!user) return;
-      const newStats = await updateUserXP(user.uid, amount);
-      setLevelSystem(newStats);
-      await checkAchievements(newStats);
-    },
-    refreshChallenges: async () => {
-      if (!user) return;
-      // Implement daily challenges refresh logic
-    },
+    addXP,
+    refreshChallenges,
     showLevelUpNotification,
     focusMode,
     setFocusMode,
-  };
+  }), [levelSystem, achievements, dailyChallenges, addXP, refreshChallenges, showLevelUpNotification, focusMode]);
 
   return (
     <GamificationContext.Provider value={value}>
