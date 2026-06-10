@@ -18,6 +18,9 @@
       "**/node_modules/**"
     ]
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "emulators": {
     "firestore": {
       "host": "127.0.0.1",

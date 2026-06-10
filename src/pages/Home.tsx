@@ -14,6 +14,7 @@ import WhatshotIcon from '@mui/icons-material/Whatshot';
 import TimerIcon from '@mui/icons-material/Timer';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { GuideTip } from '../components/guide/GuideTip';
 import { Flashcard } from '../types';
@@ -331,6 +332,19 @@ export const Home: React.FC = () => {
             }}
           >
             {t('home.addCards')}
+          </Button>
+          <Button
+            variant="outlined"
+            size="large"
+            fullWidth
+            startIcon={<AutoStoriesIcon />}
+            onClick={() => navigate('/reading')}
+            sx={{
+              py: 2,
+              fontSize: '1.1rem'
+            }}
+          >
+            {t('home.readArticles')}
           </Button>
         </Box>
 
