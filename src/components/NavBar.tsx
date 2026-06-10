@@ -5,7 +5,8 @@ import {
   Avatar, Divider, ListItemButton,
   MenuItem,
   Menu,
-  Button
+  Button,
+  alpha
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import HomeIcon from '@mui/icons-material/Home';
@@ -202,7 +203,6 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
         elevation={1}
         sx={{
           transition: 'background-color 0.3s ease',
-          bgcolor: focusMode ? 'background.paper' : 'primary.main',
           // Fixed elements ignore the <body> safe-area padding (they're laid
           // out against the viewport), so in landscape with viewport-fit=cover
           // the menu button/title would sit under the notch. Inset the toolbar
@@ -236,8 +236,9 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
               textAlign: 'left',
               background: 'none',
               border: 'none',
-              color: 'inherit',
+              color: 'primary.main',
               font: 'inherit',
+              fontWeight: 700,
               p: 0,
             }}
             onClick={() => navigate('/')}
@@ -279,13 +280,13 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
               {menuItems.map((item) => (
                 <Button
                   key={item.text}
-                  color={location.pathname === item.path ? 'secondary' : 'inherit'}
+                  color={location.pathname === item.path ? 'primary' : 'inherit'}
                   onClick={() => navigate(item.path)}
                   startIcon={item.icon}
                   sx={{
                     borderRadius: 2,
                     ...(location.pathname === item.path && {
-                      bgcolor: 'rgba(255, 255, 255, 0.12)',
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
                     })
                   }}
                 >
@@ -297,7 +298,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
               </IconButton>
               {user && (
                 <>
-                  <Divider orientation="vertical" flexItem sx={{ mx: 1, bgcolor: 'rgba(255, 255, 255, 0.12)' }} />
+                  <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
                   <IconButton
                     onClick={handleMenuOpen}
                     size="small"
