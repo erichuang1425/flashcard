@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Typography, Paper, Grid, CircularProgress, Tooltip } from '@mui/material';
 import type { UserAchievement } from '../../types/gamification';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { translateOr } from '../../i18n/fallback';
 
 interface Props {
   achievements: UserAchievement[];
@@ -12,11 +13,7 @@ export const Achievements: React.FC<Props> = ({ achievements }) => {
   const translatedAchievement = (
     achievement: UserAchievement,
     field: 'title' | 'description'
-  ) => {
-    const key = `achievement.${achievement.id}.${field}`;
-    const translated = t(key);
-    return translated === key ? achievement[field] : translated;
-  };
+  ) => translateOr(t, `achievement.${achievement.id}.${field}`, achievement[field]);
 
   return (
     <Box>

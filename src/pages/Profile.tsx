@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { UserAchievement } from '../types/gamification';
 import { PomodoroTimer } from '../components/PomodoroTimer';
 import { useLanguage } from '../i18n/LanguageContext';
+import { translateOr } from '../i18n/fallback';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -82,18 +83,14 @@ export const Profile: React.FC = () => {
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary={(() => {
-                      const key = `achievement.${achievement.id}.title`;
-                      const translated = t(key);
-                      return translated === key ? achievement.title : translated;
-                    })()}
+                    primary={translateOr(t, `achievement.${achievement.id}.title`, achievement.title)}
                     secondary={
                       <>
-                        {(() => {
-                          const key = `achievement.${achievement.id}.description`;
-                          const translated = t(key);
-                          return translated === key ? achievement.description : translated;
-                        })()}
+                        {translateOr(
+                          t,
+                          `achievement.${achievement.id}.description`,
+                          achievement.description
+                        )}
                         <Typography variant="caption" display="block" color="text.secondary">
                           {t('profile.progress', {
                             progress: achievement.progress,

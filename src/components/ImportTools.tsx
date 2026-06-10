@@ -250,7 +250,7 @@ export const ImportTools: React.FC = () => {
       };
       reader.readAsText(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('reading.import.failed'));
+      setError(err instanceof Error ? err.message : t('import.failed'));
     } finally {
       setUploading(false);
     }
