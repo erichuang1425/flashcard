@@ -151,8 +151,8 @@ export const Home: React.FC = () => {
           height: 'auto', 
           minHeight: { xs: '120px', sm: '140px' }, 
           background: theme => theme.palette.mode === 'dark' 
-            ? 'linear-gradient(145deg, #1a1a1a 0%, #262626 100%)'
-            : 'linear-gradient(145deg, #ffffff 0%, #fafafa 100%)',
+            ? 'linear-gradient(145deg, #171a23 0%, #1d2130 100%)'
+            : 'linear-gradient(145deg, #ffffff 0%, #f6f7fb 100%)',
           boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
           border: '1px solid',
           borderColor: 'divider',

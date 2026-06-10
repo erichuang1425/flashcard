@@ -126,7 +126,7 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
       sectionHeader: {
         fontSize: 16,
         bold: true,
-        color: '#2196f3'
+        color: '#4f46e5'
       },
       answerSpace: {
         fontSize: 12,
