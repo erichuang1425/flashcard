@@ -81,6 +81,7 @@ This repository includes Firebase configuration files:
 - `firebase.json`
 - `firestore.rules`
 - `firestore.indexes.json`
+- `storage.rules`
 
 Before deploying, verify environment variables and Firebase project targets.
 

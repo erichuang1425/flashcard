@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { LanguageProvider, useLanguage } from '../LanguageContext';
+import { useI18n } from '../I18nContext';
 
 const STORAGE_KEY = 'flashcard.language';
 
@@ -43,6 +44,16 @@ describe('LanguageContext', () => {
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('zh');
     // Translations switch with the language.
     expect(result.current.t('study.mc.continue')).toBe('繼續');
+  });
+
+  it('exposes the language API through the reading compatibility hook', () => {
+    const { result } = renderHook(() => useI18n(), { wrapper });
+
+    expect(result.current.language).toBe('en');
+    expect(result.current.t('study.mc.continue')).toBe('Continue');
+
+    act(() => result.current.setLanguage('zh'));
+    expect(result.current.language).toBe('zh');
   });
 
   it('throws when useLanguage is used outside a provider', () => {

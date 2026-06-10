@@ -18,6 +18,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
@@ -54,6 +55,7 @@ export const NavBar: React.FC<NavBarProps> = ({ onOpenStats }) => {
   const menuItems = [
     { text: t('nav.home'), icon: <HomeIcon />, path: '/' },
     { text: t('nav.library'), icon: <MenuBookIcon />, path: '/library' },
+    { text: t('nav.reading'), icon: <AutoStoriesIcon />, path: '/reading' },
     { text: t('nav.study'), icon: <SchoolIcon />, path: '/study' },
     { text: t('nav.worksheets'), icon: <AssignmentIcon />, path: '/worksheets' },
     { text: t('nav.import'), icon: <CloudUploadIcon />, path: '/import' },
