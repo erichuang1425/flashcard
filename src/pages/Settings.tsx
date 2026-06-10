@@ -287,26 +287,24 @@ export const Settings: React.FC = () => {
             <Paper sx={{ p: { xs: 2, sm: 3 } }}>
               {!speechSupported ? (
                 <Alert severity="info">
-                  Your browser doesn't support speech synthesis, so pronunciation
-                  isn't available here. Try the latest Chrome, Edge, or Safari.
+                  {t('settings.speechUnsupported')}
                 </Alert>
               ) : (
                 <>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Choose a voice and speed, then press preview to hear it. These
-                    settings apply instantly across your flashcards.
+                    {t('settings.pronunciationHint')}
                   </Typography>
 
                   <FormControl fullWidth margin="normal">
-                    <InputLabel>Voice</InputLabel>
+                    <InputLabel>{t('settings.voice')}</InputLabel>
                     <Select
                       value={voices.some((v) => v.voiceURI === voiceURI) ? voiceURI : ''}
-                      label="Voice"
+                      label={t('settings.voice')}
                       onChange={(e) => updatePronunciation({ voiceURI: e.target.value })}
                     >
                       {voices.length === 0 && (
                         <MenuItem value="" disabled>
-                          Loading voices…
+                          {t('settings.loadingVoices')}
                         </MenuItem>
                       )}
                       {voices.map((v) => (
@@ -318,16 +316,18 @@ export const Settings: React.FC = () => {
                   </FormControl>
 
                   <Box sx={{ mt: 3 }}>
-                    <Typography gutterBottom>Speed: {rate.toFixed(1)}x</Typography>
+                    <Typography gutterBottom>
+                      {t('settings.speed', { rate: rate.toFixed(1) })}
+                    </Typography>
                     <Slider
                       value={rate}
                       min={0.5}
                       max={1.5}
                       step={0.1}
                       marks={[
-                        { value: 0.5, label: 'Slow' },
-                        { value: 1, label: 'Normal' },
-                        { value: 1.5, label: 'Fast' },
+                        { value: 0.5, label: t('settings.speedSlow') },
+                        { value: 1, label: t('settings.speedNormal') },
+                        { value: 1.5, label: t('settings.speedFast') },
                       ]}
                       onChange={(_, value) =>
                         updatePronunciation({ rate: value as number })
@@ -346,7 +346,7 @@ export const Settings: React.FC = () => {
                           }
                         />
                       }
-                      label="Pronounce each word automatically"
+                      label={t('settings.autoPronounce')}
                     />
                   </Box>
 
@@ -357,7 +357,7 @@ export const Settings: React.FC = () => {
                       onClick={() => speak('pronunciation')}
                       disabled={speaking}
                     >
-                      {speaking ? 'Playing…' : 'Preview voice'}
+                      {speaking ? t('common.playing') : t('settings.previewVoice')}
                     </Button>
                   </Stack>
                 </>
@@ -374,7 +374,7 @@ export const Settings: React.FC = () => {
             <Paper sx={{ p: { xs: 2, sm: 3 } }}>
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Work Duration (minutes)"
+                  label={t('settings.workDuration')}
                   type="number"
                   value={preferences.pomodoroSettings.workDuration}
                   onChange={(e) => setPreferences(prev => ({
@@ -385,13 +385,13 @@ export const Settings: React.FC = () => {
                     }
                   }))}
                   inputProps={{ min: 5, max: 60 }}
-                  helperText="Time range: 5-60 minutes"
+                  helperText={t('settings.workRange')}
                 />
               </FormControl>
 
               <FormControl fullWidth margin="normal">
                 <TextField
-                  label="Break Duration (minutes)"
+                  label={t('settings.breakDuration')}
                   type="number"
                   value={preferences.pomodoroSettings.breakDuration}
                   onChange={(e) => setPreferences(prev => ({
@@ -402,7 +402,7 @@ export const Settings: React.FC = () => {
                     }
                   }))}
                   inputProps={{ min: 1, max: 30 }}
-                  helperText="Time range: 1-30 minutes"
+                  helperText={t('settings.breakRange')}
                 />
               </FormControl>
 
@@ -419,7 +419,7 @@ export const Settings: React.FC = () => {
                     }))}
                   />
                 }
-                label="Auto-start breaks"
+                label={t('settings.autoStartBreaks')}
               />
             </Paper>
           </AccordionDetails>

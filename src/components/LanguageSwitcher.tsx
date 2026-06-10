@@ -9,7 +9,7 @@ import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../i18n/translati
  * read the page in their language before they have an account or preferences.
  */
 export const LanguageSwitcher: React.FC = () => {
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -21,7 +21,7 @@ export const LanguageSwitcher: React.FC = () => {
         onChange={(_, next: Language | null) => {
           if (next) setLanguage(next);
         }}
-        aria-label="Select language"
+        aria-label={t('language.select')}
       >
         {SUPPORTED_LANGUAGES.map((lang) => (
           <ToggleButton key={lang} value={lang} sx={{ textTransform: 'none', px: 1.5 }}>

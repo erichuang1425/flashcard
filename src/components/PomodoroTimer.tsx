@@ -5,6 +5,7 @@ import PauseIcon from '@mui/icons-material/Pause';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import TimerIcon from '@mui/icons-material/Timer';
 import { useSettings } from '../context/SettingsContext';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface PomodoroTimerProps {
   compact?: boolean;
@@ -12,6 +13,7 @@ interface PomodoroTimerProps {
 
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false }) => {
   const { pomodoro } = useSettings();
+  const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -44,7 +46,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
     }}>
       {!compact && (
         <Typography variant="h6">
-          {pomodoro.isBreak ? 'Break Time' : 'Focus Time'}
+          {pomodoro.isBreak ? t('pomodoro.breakTime') : t('pomodoro.focusTime')}
         </Typography>
       )}
       
@@ -91,7 +93,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
           startIcon={pomodoro.isActive ? <PauseIcon /> : <PlayArrowIcon />}
           size={compact ? "small" : "medium"}
         >
-          {pomodoro.isActive ? 'Pause' : 'Start'}
+          {pomodoro.isActive ? t('pomodoro.pause') : t('pomodoro.start')}
         </Button>
         <Button
           variant="outlined"
@@ -99,7 +101,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false })
           startIcon={<RestartAltIcon />}
           size={compact ? "small" : "medium"}
         >
-          Reset
+          {t('pomodoro.reset')}
         </Button>
       </Box>
     </Paper>

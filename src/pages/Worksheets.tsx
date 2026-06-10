@@ -23,10 +23,13 @@ import type { Worksheet, WorksheetStats } from '../types';
 import { WorksheetGenerator } from '../components/WorksheetGenerator';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { enUS, zhTW } from 'date-fns/locale';
 import { dvhMaxHeight } from '../utils/viewport';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const Worksheets: React.FC = () => {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [worksheets, setWorksheets] = useState<Worksheet[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedWorksheet, setSelectedWorksheet] = useState<string | null>(null);
@@ -182,14 +185,14 @@ export const Worksheets: React.FC = () => {
           gap: { xs: 2, sm: 0 }
         }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            My Worksheets
+            {t('worksheets.title')}
           </Typography>
           <Button
             variant="contained"
             startIcon={<AssignmentIcon />}
             onClick={() => window.location.hash = '#create'}
           >
-            Create New
+            {t('worksheets.create')}
           </Button>
         </Box>
 
@@ -217,8 +220,10 @@ export const Worksheets: React.FC = () => {
                       <MoreVertIcon />
                     </IconButton>
                   }
-                  title={worksheet.title || `Worksheet ${worksheet.templateId}`}
-                  subheader={format(new Date(worksheet.createdAt), 'MMM d, yyyy')}
+                  title={worksheet.title || t('worksheets.fallbackTitle', { template: worksheet.templateId })}
+                  subheader={format(new Date(worksheet.createdAt), 'PP', {
+                    locale: language === 'zh' ? zhTW : enUS,
+                  })}
                 />
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box sx={{ mb: 2 }}>
@@ -231,13 +236,16 @@ export const Worksheets: React.FC = () => {
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
                     <Chip
                       size="small"
-                      label={`${worksheet.stats?.completed || 0}/${worksheet.stats?.total || worksheet.questions?.length || 0} Completed`}
+                      label={t('worksheets.completed', {
+                        completed: worksheet.stats?.completed || 0,
+                        total: worksheet.stats?.total || worksheet.questions?.length || 0,
+                      })}
                       color="primary"
                       variant="outlined"
                     />
                     <Chip
                       size="small"
-                      label={worksheet.difficulty}
+                      label={t(`worksheets.generator.${worksheet.difficulty || 'medium'}`)}
                       color={getDifficultyColor(worksheet.difficulty)}
                     />
                   </Box>
@@ -258,7 +266,7 @@ export const Worksheets: React.FC = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <ScheduleIcon fontSize="small" color="action" />
                     <Typography variant="caption">
-                      {worksheet.timeLimit} min
+                      {worksheet.timeLimit} {t('common.minutesShort')}
                     </Typography>
                   </Box>
                   <Button
@@ -267,7 +275,7 @@ export const Worksheets: React.FC = () => {
                     size="small"
                     onClick={() => handleStartWorksheet(worksheet.id || '')}
                   >
-                    {worksheet.stats?.completed ? 'Continue' : 'Start'}
+                    {worksheet.stats?.completed ? t('common.continue') : t('common.start')}
                   </Button>
                 </CardActions>
               </Card>
@@ -281,19 +289,19 @@ export const Worksheets: React.FC = () => {
           onClose={handleMenuClose}
         >
           <MenuItem onClick={() => handleViewAnswers(worksheets.find(w => w.id === selectedWorksheet)!)}>
-            <VisibilityIcon fontSize="small" sx={{ mr: 1 }} /> View Answers
+            <VisibilityIcon fontSize="small" sx={{ mr: 1 }} /> {t('worksheets.viewAnswers')}
           </MenuItem>
           <MenuItem onClick={() => handleExport('pdf')}>
-            <DownloadIcon fontSize="small" sx={{ mr: 1 }} /> Export as PDF
+            <DownloadIcon fontSize="small" sx={{ mr: 1 }} /> {t('worksheets.exportPdf')}
           </MenuItem>
           <MenuItem onClick={() => handleExport('docx')}>
-            <DescriptionIcon fontSize="small" sx={{ mr: 1 }} /> Export as Word
+            <DescriptionIcon fontSize="small" sx={{ mr: 1 }} /> {t('worksheets.exportWord')}
           </MenuItem>
           <MenuItem onClick={() => selectedWorksheet && handleEditWorksheet(selectedWorksheet)}>
-            <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+            <EditIcon fontSize="small" sx={{ mr: 1 }} /> {t('common.edit')}
           </MenuItem>
           <MenuItem onClick={() => selectedWorksheet && handleDeleteWorksheet(selectedWorksheet)}>
-            <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+            <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> {t('common.delete')}
           </MenuItem>
         </Menu>
 
@@ -311,7 +319,7 @@ export const Worksheets: React.FC = () => {
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {selectedWorksheetAnswers?.title} - Answer Key
+            {t('worksheets.answerKey', { title: selectedWorksheetAnswers?.title || '' })}
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button 
                 size="small" 
@@ -353,7 +361,7 @@ export const Worksheets: React.FC = () => {
                     variant={activeQuestion === 0 ? "contained" : "outlined"}
                     onClick={() => scrollToQuestion(0)}
                   >
-                    First
+                    {t('common.first')}
                   </Button>
                   <Button
                     size="small"
@@ -361,7 +369,7 @@ export const Worksheets: React.FC = () => {
                     onClick={() => scrollToQuestion(Math.max(0, activeQuestion - 1))}
                     disabled={activeQuestion === 0}
                   >
-                    Prev
+                    {t('common.previous')}
                   </Button>
                   <Button
                     size="small"
@@ -373,7 +381,7 @@ export const Worksheets: React.FC = () => {
                     disabled={!selectedWorksheetAnswers || 
                       activeQuestion === Object.keys(selectedWorksheetAnswers.answers).length - 1}
                   >
-                    Next
+                    {t('common.next')}
                   </Button>
                   <Button
                     size="small"
@@ -383,7 +391,7 @@ export const Worksheets: React.FC = () => {
                     onClick={() => selectedWorksheetAnswers && 
                       scrollToQuestion(Object.keys(selectedWorksheetAnswers.answers).length - 1)}
                   >
-                    Last
+                    {t('common.last')}
                   </Button>
                 </Box>
                 <List dense sx={{
@@ -413,7 +421,7 @@ export const Worksheets: React.FC = () => {
                       onClick={() => scrollToQuestion(index)}
                     >
                       <ListItemText 
-                        primary={`Question ${index + 1}`}
+                        primary={t('worksheets.questionNumber', { number: index + 1 })}
                         primaryTypographyProps={{
                           color: activeQuestion === index ? 'primary' : 'textPrimary',
                           variant: 'body2'
@@ -440,7 +448,10 @@ export const Worksheets: React.FC = () => {
                       primary={
                         <Box sx={{ mb: 1 }}>
                           <span style={{ fontSize: '1rem', fontWeight: 500 }}>
-                            Question {index + 1}: {data.question}
+                            {t('worksheets.questionWithText', {
+                              number: index + 1,
+                              question: data.question,
+                            })}
                           </span>
                         </Box>
                       }
@@ -456,7 +467,9 @@ export const Worksheets: React.FC = () => {
                               fontSize: '0.875rem'
                             }}
                           >
-                            Answer: {data.correctAnswer || '—'}
+                            {t('worksheets.answerWithText', {
+                              answer: data.correctAnswer || '—',
+                            })}
                           </Typography>
                           {data.explanation && (
                             <Typography

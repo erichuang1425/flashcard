@@ -35,4 +35,24 @@ describe('translations', () => {
       }
     }
   });
+
+  it('covers every major first-party UI surface in Traditional Chinese', () => {
+    const requiredKeys = [
+      'common.loading',
+      'study.mode.flashcards',
+      'study.crossword.title',
+      'import.title',
+      'worksheets.title',
+      'diary.newEntry',
+      'profile.achievements',
+      'pomodoro.focusTime',
+      'gamification.levelUp',
+    ];
+
+    for (const key of requiredKeys) {
+      expect(translations.en[key]).toBeTruthy();
+      expect(translations.zh[key]).toBeTruthy();
+      expect(translations.zh[key]).not.toBe(translations.en[key]);
+    }
+  });
 });

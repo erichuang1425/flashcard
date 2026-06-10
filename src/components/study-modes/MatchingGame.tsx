@@ -4,6 +4,7 @@ import type { Flashcard } from '../../types';
 import { shuffle } from '../../utils/helpers';
 import { isMatchingPair } from './logic';
 import type { BatchResult } from './types';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
   cards: Flashcard[];
@@ -18,6 +19,7 @@ interface Selection {
 }
 
 export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
+  const { t } = useLanguage();
   const [selected, setSelected] = useState<Selection | null>(null);
   // Track matches by card id rather than by the displayed text, so cards that
   // happen to share a word or definition can't collide.
@@ -71,7 +73,7 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
   return (
     <Paper sx={{ p: { xs: 2, sm: 3 }, width: '100%', maxWidth: 800 }}>
       <Typography variant="h6" gutterBottom align="center">
-        Match the words with their definitions
+        {t('study.matching.title')}
       </Typography>
       {/* Stack the two groups vertically on phones so the (often long)
           definitions get the full width to read and the tap targets stay
@@ -91,7 +93,7 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
             color="text.secondary"
             sx={{ display: 'block', mb: 0.5 }}
           >
-            Words
+            {t('study.matching.words')}
           </Typography>
           {wordItems.map((item) => (
             <Button
@@ -100,7 +102,10 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
               variant={isSelected(item.id, 'word') ? 'contained' : 'outlined'}
               disabled={matched.has(item.id)}
               aria-pressed={isSelected(item.id, 'word')}
-              aria-label={`Word: ${item.text}${matched.has(item.id) ? ', matched' : ''}`}
+              aria-label={t('study.matching.wordAria', {
+                text: item.text,
+                status: matched.has(item.id) ? t('study.matching.matchedStatus') : '',
+              })}
               onClick={() => handleSelect(item.id, 'word')}
               sx={{ mb: 1, textTransform: 'none', minHeight: 48 }}
             >
@@ -114,7 +119,7 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
             color="text.secondary"
             sx={{ display: 'block', mb: 0.5 }}
           >
-            Definitions
+            {t('study.matching.definitions')}
           </Typography>
           {definitionItems.map((item) => (
             <Button
@@ -123,7 +128,10 @@ export const MatchingGame: React.FC<Props> = ({ cards, onComplete }) => {
               variant={isSelected(item.id, 'definition') ? 'contained' : 'outlined'}
               disabled={matched.has(item.id)}
               aria-pressed={isSelected(item.id, 'definition')}
-              aria-label={`Definition: ${item.text}${matched.has(item.id) ? ', matched' : ''}`}
+              aria-label={t('study.matching.definitionAria', {
+                text: item.text,
+                status: matched.has(item.id) ? t('study.matching.matchedStatus') : '',
+              })}
               onClick={() => handleSelect(item.id, 'definition')}
               sx={{ mb: 1, textTransform: 'none', minHeight: 48 }}
             >

@@ -88,7 +88,7 @@ export const Study: React.FC = () => {
     } catch (err) {
       console.error('Error loading cards:', err);
       setCards([]);
-      setError('Failed to load flashcards. Please check your connection and try again.');
+      setError('study.loadFailed');
     } finally {
       setLoading(false);
     }
@@ -311,7 +311,7 @@ export const Study: React.FC = () => {
         minHeight: '50vh',
         '@supports (min-height: 100dvh)': { minHeight: '50dvh' },
       }}>
-        <CircularProgress aria-label="Loading flashcards" />
+        <CircularProgress aria-label={t('study.loading')} />
       </Container>
     );
   }
@@ -320,11 +320,11 @@ export const Study: React.FC = () => {
     return (
       <CenteredState>
         <Alert severity="error" sx={{ textAlign: 'left' }}>
-          <AlertTitle>Error</AlertTitle>
-          {error}
+          <AlertTitle>{t('common.error')}</AlertTitle>
+          {t(error)}
         </Alert>
         <Button variant="contained" onClick={resetSession} sx={{ mt: 3 }}>
-          Try Again
+          {t('common.tryAgain')}
         </Button>
       </CenteredState>
     );
@@ -334,10 +334,9 @@ export const Study: React.FC = () => {
     return (
       <CenteredState>
         <Typography variant="h4" gutterBottom>🎉</Typography>
-        <Typography variant="h6" gutterBottom>All caught up!</Typography>
+        <Typography variant="h6" gutterBottom>{t('study.emptyTitle')}</Typography>
         <Typography color="text.secondary">
-          No cards are due for study right now. Come back later, or add more
-          words to your library.
+          {t('study.emptyBody')}
         </Typography>
       </CenteredState>
     );
@@ -350,7 +349,7 @@ export const Study: React.FC = () => {
     return (
       <CenteredState>
         <Typography variant="h4" gutterBottom>🎉</Typography>
-        <Typography variant="h5" gutterBottom>Study session complete!</Typography>
+        <Typography variant="h5" gutterBottom>{t('study.completeTitle')}</Typography>
         <Box
           sx={{
             display: 'flex',
@@ -362,23 +361,23 @@ export const Study: React.FC = () => {
         >
           <Box>
             <Typography variant="h4">{progress.cardsReviewed}</Typography>
-            <Typography variant="body2" color="text.secondary">Reviewed</Typography>
+            <Typography variant="body2" color="text.secondary">{t('study.reviewed')}</Typography>
           </Box>
           <Box>
             <Typography variant="h4" color="success.main">{progress.correct}</Typography>
-            <Typography variant="body2" color="text.secondary">Correct</Typography>
+            <Typography variant="body2" color="text.secondary">{t('study.correct')}</Typography>
           </Box>
           <Box>
             <Typography variant="h4" color="error.main">{progress.incorrect}</Typography>
-            <Typography variant="body2" color="text.secondary">Incorrect</Typography>
+            <Typography variant="body2" color="text.secondary">{t('study.incorrect')}</Typography>
           </Box>
           <Box>
             <Typography variant="h4">{accuracy}%</Typography>
-            <Typography variant="body2" color="text.secondary">Accuracy</Typography>
+            <Typography variant="body2" color="text.secondary">{t('study.accuracy')}</Typography>
           </Box>
         </Box>
         <Button variant="contained" onClick={resetSession}>
-          Start New Session
+          {t('study.startNewSession')}
         </Button>
       </CenteredState>
     );
@@ -433,7 +432,7 @@ export const Study: React.FC = () => {
             variant="body2"
             sx={{ textAlign: 'center', color: 'text.secondary' }}
           >
-            Card {currentIndex + 1} of {cards.length}
+            {t('study.cardOf', { current: currentIndex + 1, total: cards.length })}
           </Typography>
         </Box>
 
