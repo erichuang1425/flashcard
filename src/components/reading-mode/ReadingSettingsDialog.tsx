@@ -47,7 +47,7 @@ export const ReadingSettingsDialog: React.FC<ReadingSettingsDialogProps> = ({
               }
             >
               <MenuItem value="Georgia, serif">Georgia</MenuItem>
-              <MenuItem value="system-ui, sans-serif">System</MenuItem>
+              <MenuItem value="system-ui, sans-serif">{t('reading.settings.fontSystem')}</MenuItem>
               <MenuItem value="'Times New Roman', serif">Times New Roman</MenuItem>
             </Select>
           </Stack>

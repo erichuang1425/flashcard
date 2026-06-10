@@ -2,9 +2,11 @@ import React from 'react';
 import { Box, Typography, LinearProgress, Paper, Tooltip, Zoom } from '@mui/material';
 import { useGamification } from '../../context/GamificationContext';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export const LevelProgress: React.FC = () => {
   const { levelSystem } = useGamification();
+  const { t } = useLanguage();
   
   if (!levelSystem) return null;
   
@@ -40,11 +42,16 @@ export const LevelProgress: React.FC = () => {
               }
             }} 
           />
-          <Typography variant="h6">Level {levelSystem.currentLevel}</Typography>
+          <Typography variant="h6">
+            {t('gamification.level', { level: levelSystem.currentLevel })}
+          </Typography>
         </Box>
         
         <Tooltip 
-          title={`${levelSystem.requiredXP - levelSystem.currentXP} XP until Level ${nextLevel}`}
+          title={t('gamification.untilLevel', {
+            xp: levelSystem.requiredXP - levelSystem.currentXP,
+            level: nextLevel,
+          })}
           arrow
           placement="top"
         >

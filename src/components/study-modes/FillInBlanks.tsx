@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, Button, Typography, Paper, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { isFillInBlankCorrect } from './logic';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
   card: Flashcard;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
+  const { t } = useLanguage();
   const [answer, setAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -52,21 +54,23 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
           </Typography>
         )}
         <Typography variant="caption" display="block" sx={{ mb: 3 }}>
-          Part of Speech: {card.partOfSpeech}
+          {t('study.fill.partOfSpeech', { partOfSpeech: card.partOfSpeech })}
         </Typography>
         
         <TextField
           fullWidth
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          placeholder="Type the word"
+          placeholder={t('study.fill.placeholder')}
           disabled={showResult}
           sx={{ mb: 2 }}
         />
         
         {showResult && (
           <Alert severity={isCorrect ? 'success' : 'error'} role="alert" sx={{ mb: 2 }}>
-            {isCorrect ? 'Correct!' : `The correct answer is: ${card.word}`}
+            {isCorrect
+              ? t('study.fill.correct')
+              : t('study.fill.correctAnswer', { word: card.word })}
           </Alert>
         )}
         
@@ -76,7 +80,7 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
           fullWidth 
           disabled={!answer.trim() || showResult}
         >
-          Check Answer
+          {t('study.fill.check')}
         </Button>
       </Box>
     </Paper>

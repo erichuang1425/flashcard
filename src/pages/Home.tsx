@@ -107,7 +107,7 @@ export const Home: React.FC = () => {
         console.error('Error loading stats:', error);
         setStats(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Failed to load stats'
+          error: error instanceof Error ? error.message : t('home.loadStatsFailed')
         }));
       } finally {
         if (mounted) setLoading(false);
@@ -128,7 +128,7 @@ export const Home: React.FC = () => {
       mounted = false;
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [user]);
+  }, [user, t]);
 
   if (loading) {
     return (

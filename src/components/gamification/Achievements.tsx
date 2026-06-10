@@ -1,15 +1,23 @@
 import React from 'react';
 import { Box, Typography, Paper, Grid, CircularProgress, Tooltip } from '@mui/material';
 import type { UserAchievement } from '../../types/gamification';
+import { useLanguage } from '../../i18n/LanguageContext';
+import { translateOr } from '../../i18n/fallback';
 
 interface Props {
   achievements: UserAchievement[];
 }
 
 export const Achievements: React.FC<Props> = ({ achievements }) => {
+  const { t } = useLanguage();
+  const translatedAchievement = (
+    achievement: UserAchievement,
+    field: 'title' | 'description'
+  ) => translateOr(t, `achievement.${achievement.id}.${field}`, achievement[field]);
+
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Achievements</Typography>
+      <Typography variant="h6" gutterBottom>{t('profile.achievements')}</Typography>
       <Grid container spacing={2}>
         {achievements.map(achievement => (
           <Grid item xs={12} sm={6} md={4} key={achievement.id}>
@@ -48,7 +56,9 @@ export const Achievements: React.FC<Props> = ({ achievements }) => {
                   </Box>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle1">{achievement.title}</Typography>
+                  <Typography variant="subtitle1">
+                    {translatedAchievement(achievement, 'title')}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {achievement.progress} / {achievement.requirement}
                   </Typography>

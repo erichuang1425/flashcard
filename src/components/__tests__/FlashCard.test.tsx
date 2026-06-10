@@ -15,7 +15,13 @@ jest.mock('../../context/PronunciationContext', () => ({
 }));
 jest.mock('../../i18n/LanguageContext', () => ({
   useLanguage: () => ({
-    t: (key: string) => key,
+    t: (key: string) => ({
+      'flashcard.rating.again': 'Again',
+      'flashcard.rating.hard': 'Hard',
+      'flashcard.rating.good': 'Good',
+      'flashcard.rating.easy': 'Easy',
+      'flashcard.rating.perfect': 'Perfect',
+    }[key] ?? key),
   }),
 }));
 

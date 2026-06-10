@@ -2,6 +2,7 @@ import React from 'react';
 import { IconButton, Tooltip, CircularProgress, Box } from '@mui/material';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import { usePronunciation } from '../context/PronunciationContext';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface PronunciationButtonProps {
   /** Word or phrase to pronounce. */
@@ -20,6 +21,7 @@ export const PronunciationButton: React.FC<PronunciationButtonProps> = ({
   size = 'medium',
 }) => {
   const { supported, speak, stop, speaking } = usePronunciation();
+  const { t } = useLanguage();
 
   if (!supported) return null;
 
@@ -34,13 +36,16 @@ export const PronunciationButton: React.FC<PronunciationButtonProps> = ({
   };
 
   return (
-    <Tooltip title={speaking ? 'Stop' : 'Pronounce'} arrow>
+    <Tooltip
+      title={speaking ? t('pronunciation.stop') : t('pronunciation.pronounce')}
+      arrow
+    >
       <Box sx={{ position: 'relative', display: 'inline-flex' }}>
         <IconButton
           onClick={handleClick}
           color="primary"
           size={size}
-          aria-label={`Pronounce ${text}`}
+          aria-label={t('pronunciation.aria', { text })}
         >
           <VolumeUpIcon fontSize={size === 'large' ? 'large' : 'inherit'} />
         </IconButton>

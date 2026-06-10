@@ -33,16 +33,18 @@ import {
 } from '../services/firestore';
 import type { DiaryEntry, Flashcard } from '../types';
 import { inset } from '../utils/safe-area';
+import { useLanguage } from '../i18n/LanguageContext';
 
-const WRITING_PROMPTS = [
-  'Write about something that challenged you today.',
-  'Describe a conversation that made you think differently.',
-  'What are you grateful for this week?',
-  'Detail a goal you want to accomplish and why.',
+const WRITING_PROMPT_KEYS = [
+  'diary.prompt.challenge',
+  'diary.prompt.conversation',
+  'diary.prompt.gratitude',
+  'diary.prompt.goal',
 ];
 
 export const Diary: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -79,7 +81,7 @@ export const Diary: React.FC = () => {
   };
 
   const handleOpenNew = async () => {
-    setPrompt(WRITING_PROMPTS[Math.floor(Math.random() * WRITING_PROMPTS.length)]);
+    setPrompt(WRITING_PROMPT_KEYS[Math.floor(Math.random() * WRITING_PROMPT_KEYS.length)]);
     setUsedWords([]);
     setShowSuggestions(true);
     setOpen(true);
@@ -128,7 +130,7 @@ export const Diary: React.FC = () => {
                   component="img"
                   height="140"
                   image={entry.imageUrl}
-                  alt="diary"
+                  alt={t('diary.imageAlt')}
                 />
               )}
               <CardContent>
@@ -170,11 +172,11 @@ export const Diary: React.FC = () => {
       </Fab>
 
       <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>New Diary Entry</DialogTitle>
+        <DialogTitle>{t('diary.newEntry')}</DialogTitle>
         <DialogContent>
           {prompt && (
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {prompt}
+              {t(prompt)}
             </Typography>
           )}
           {showSuggestions && suggestions.length > 0 && (
@@ -188,9 +190,13 @@ export const Diary: React.FC = () => {
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Use these words you&apos;re studying:
+                  {t('diary.suggestions')}
                 </Typography>
-                <IconButton size="small" onClick={() => setShowSuggestions(false)} aria-label="Dismiss suggestions">
+                <IconButton
+                  size="small"
+                  onClick={() => setShowSuggestions(false)}
+                  aria-label={t('diary.dismissSuggestions')}
+                >
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </Box>
@@ -215,20 +221,22 @@ export const Diary: React.FC = () => {
             minRows={4}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            label="What happened today?"
+            label={t('diary.entryLabel')}
           />
           <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-            Word count: {text.trim() ? text.trim().split(/\s+/).length : 0}
+            {t('diary.wordCount', {
+              count: text.trim() ? text.trim().split(/\s+/).length : 0,
+            })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleAdd} variant="contained">Add</Button>
+          <Button onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleAdd} variant="contained">{t('common.add')}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)}>
-        <DialogTitle>Edit Entry</DialogTitle>
+        <DialogTitle>{t('diary.editEntry')}</DialogTitle>
         <DialogContent>
           <TextField
             multiline
@@ -236,15 +244,17 @@ export const Diary: React.FC = () => {
             minRows={4}
             value={editingText}
             onChange={(e) => setEditingText(e.target.value)}
-            label="Update your entry"
+            label={t('diary.updateLabel')}
           />
           <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-            Word count: {editingText.trim() ? editingText.trim().split(/\s+/).length : 0}
+            {t('diary.wordCount', {
+              count: editingText.trim() ? editingText.trim().split(/\s+/).length : 0,
+            })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-          <Button onClick={handleUpdate} variant="contained">Save</Button>
+          <Button onClick={() => setEditOpen(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleUpdate} variant="contained">{t('common.save')}</Button>
         </DialogActions>
       </Dialog>
     </Container>
