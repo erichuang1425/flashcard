@@ -8,7 +8,7 @@
  */
 import '@testing-library/jest-dom';
 import React from 'react';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor, screen } from '@testing-library/react';
 import type { LevelSystem } from '../../types/gamification';
 
 let mockUser: { uid: string } | null = { uid: 'alice' };
@@ -137,6 +137,23 @@ describe('addXP', () => {
     });
 
     expect(mockUpdateUserXP).not.toHaveBeenCalled();
+  });
+});
+
+describe('level-up notification', () => {
+  it('does not fire on the first snapshot, even at a high level', async () => {
+    renderGamification();
+    emitSnapshot(aLevel(5));
+    expect(screen.queryByText(/level up/i)).not.toBeInTheDocument();
+    await act(async () => {});
+  });
+
+  it('fires when a later snapshot raises the level', async () => {
+    renderGamification();
+    emitSnapshot(aLevel(2));
+    emitSnapshot(aLevel(3));
+    expect(screen.getByText(/reached level 3/i)).toBeInTheDocument();
+    await act(async () => {});
   });
 });
 

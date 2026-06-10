@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Snackbar, Alert } from '@mui/material';
 import { useAuth } from './AuthContext';
 import { updateUserXP, loadUserAchievements, checkAndUpdateAchievements } from '../services/gamification';
 import { getUserStudyStats } from '../services/firestore';
@@ -34,7 +35,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [levelSystem, setLevelSystem] = useState<LevelSystem | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [dailyChallenges] = useState<DailyChallenge[]>([]);
-  const [, setLevelUpNotification] = useState<{ level: number; visible: boolean }>({ level: 0, visible: false });
+  const [levelUpNotification, setLevelUpNotification] = useState<{ level: number; visible: boolean }>({ level: 0, visible: false });
   const [focusMode, setFocusMode] = useState(false);
 
   // Track previous level for level-up detection. Starts null so the first
@@ -145,6 +146,15 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <GamificationContext.Provider value={value}>
       {children}
+      <Snackbar
+        open={levelUpNotification.visible}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        onClose={() => setLevelUpNotification(prev => ({ ...prev, visible: false }))}
+      >
+        <Alert severity="success" variant="filled" icon={false}>
+          🎉 Level up! You reached level {levelUpNotification.level}
+        </Alert>
+      </Snackbar>
     </GamificationContext.Provider>
   );
 };
