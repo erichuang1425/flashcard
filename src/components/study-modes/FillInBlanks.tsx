@@ -18,6 +18,16 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
   // this card.
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
+  // Reset the form whenever the card changes — the parent may advance the
+  // session by other means than our own timer (skip, mode switch), and a
+  // pending timer must not register an answer against the new card.
+  useEffect(() => {
+    clearTimeout(advanceTimer.current);
+    setAnswer('');
+    setShowResult(false);
+    setIsCorrect(false);
+  }, [card.id]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const correct = isFillInBlankCorrect(answer, card.word);

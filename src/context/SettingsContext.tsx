@@ -41,26 +41,25 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [preferences]);
 
-  const toggleTheme = () => {
+  const toggleTheme = React.useCallback(() => {
     const themes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
-    const currentIndex = themes.indexOf(theme);
-    const nextTheme = themes[(currentIndex + 1) % themes.length];
+    const nextTheme = themes[(themes.indexOf(theme) + 1) % themes.length];
     setTheme(nextTheme);
     updatePreferences({ theme: nextTheme }).catch(console.error);
-  };
+  }, [theme, updatePreferences]);
 
-  const startTimer = () => {
+  const startTimer = React.useCallback(() => {
     // Runs inside the Start button's click handler — a real user gesture — so
     // resume the audio context now; iOS won't let the later, timer-driven cue
     // play otherwise.
     primeNotificationAudio();
     setIsActive(true);
-  };
-  const pauseTimer = () => setIsActive(false);
-  const resetTimer = () => {
+  }, []);
+  const pauseTimer = React.useCallback(() => setIsActive(false), []);
+  const resetTimer = React.useCallback(() => {
     setIsActive(false);
     setTimeLeft(isBreak ? breakSeconds : workSeconds);
-  };
+  }, [isBreak, breakSeconds, workSeconds]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -68,7 +67,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       interval = setInterval(() => {
         setTimeLeft(time => time - 1);
       }, 1000);
-    } else if (timeLeft === 0) {
+    } else if (isActive && timeLeft === 0) {
       setIsBreak(prev => !prev);
       // Switching out of a break starts the next work block, and vice versa.
       setTimeLeft(isBreak ? workSeconds : breakSeconds);
@@ -79,21 +78,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => clearInterval(interval);
   }, [isActive, timeLeft, isBreak, workSeconds, breakSeconds]);
 
+  const value = React.useMemo(() => ({
+    theme,
+    toggleTheme,
+    pomodoro: {
+      isActive,
+      timeLeft,
+      isBreak,
+      workDuration: workSeconds,
+      breakDuration: breakSeconds,
+      start: startTimer,
+      pause: pauseTimer,
+      reset: resetTimer
+    }
+  }), [theme, toggleTheme, isActive, timeLeft, isBreak, workSeconds, breakSeconds, startTimer, pauseTimer, resetTimer]);
+
   return (
-    <SettingsContext.Provider value={{
-      theme,
-      toggleTheme,
-      pomodoro: {
-        isActive,
-        timeLeft,
-        isBreak,
-        workDuration: workSeconds,
-        breakDuration: breakSeconds,
-        start: startTimer,
-        pause: pauseTimer,
-        reset: resetTimer
-      }
-    }}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );
