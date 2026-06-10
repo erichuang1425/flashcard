@@ -5,6 +5,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { NavBar } from './NavBar';
 import { LevelProgress } from './gamification/LevelProgress';
+import { useAuth } from '../context/AuthContext';
 import { useGamification } from '../context/GamificationContext';
 import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
@@ -17,6 +18,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const { levelSystem } = useGamification();
   const { focusMode } = useFocusMode();
   const theme = useTheme();
@@ -36,6 +38,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   // (the bottom sheet covers small screens), so no width watcher is needed and
   // collapse is driven purely by this user toggle.
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+
+  // The app chrome (NavBar, side panel, progress/timer sheet) belongs to the
+  // signed-in experience. Visitors on /login and /register get a bare canvas —
+  // those pages center themselves and bring their own language switcher.
+  if (!user) {
+    return (
+      <Box
+        sx={{
+          ...dvhMinHeight(),
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: 'background.default',
+        }}
+      >
+        {children}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{

@@ -14,6 +14,7 @@ import { addWorksheet, getCategories, getUserFlashcards, getVocabularyWords, get
 import { VocabularyWord } from '@/types';
 import type { Category, Worksheet, WorksheetQuestion } from '../types';  
 import { useLanguage } from '../i18n/LanguageContext';
+import { translateOr } from '../i18n/fallback';
 
 interface WorksheetData {
   userId: string;
@@ -371,7 +372,7 @@ export const WorksheetGenerator: React.FC = () => {
               >
                 {Object.entries(templates).map(([id, template]) => (
                   <MenuItem key={id} value={id}>
-                    {t(`worksheets.generator.template.${id}`)}
+                    {translateOr(t, `worksheets.generator.template.${id}`, template.title)}
                   </MenuItem>
                 ))}
               </Select>
