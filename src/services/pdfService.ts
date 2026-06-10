@@ -88,19 +88,23 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
   }
 
   if (worksheet.answers) {
+    type AnswerKeyEntry = { correctAnswer: string; explanation?: string; examples?: string[] };
     content.push(
       { text: 'Answer Key', style: 'sectionHeader', pageBreak: 'before' },
-      ...Object.entries(worksheet.answers).map(([qId, ans]) => ({
-        stack: [
-          { text: `Question ${qId}:`, style: 'answerHeader' },
-          { text: `Correct Answer: ${(ans as { correctAnswer: string }).correctAnswer}`, style: 'answer' },
-          (ans as { explanation?: string }).explanation ? 
-            { text: `Explanation: ${(ans as { explanation: string }).explanation}`, style: 'explanation' } : [],
-          (ans as { examples?: string[] }).examples ? 
-            { ul: (ans as { examples: string[] }).examples.map((ex: string) => ({ text: ex })) } : []
-        ],
-        margin: [0, 5, 0, 10]
-      }))
+      ...Object.entries(worksheet.answers).map(([qId, rawAnswer]) => {
+        const answer = rawAnswer as AnswerKeyEntry;
+        return {
+          stack: [
+            { text: `Question ${qId}:`, style: 'answerHeader' },
+            { text: `Correct Answer: ${answer.correctAnswer}`, style: 'answer' },
+            answer.explanation ?
+              { text: `Explanation: ${answer.explanation}`, style: 'explanation' } : [],
+            answer.examples ?
+              { ul: answer.examples.map((ex: string) => ({ text: ex })) } : []
+          ],
+          margin: [0, 5, 0, 10]
+        };
+      })
     );
   }
 
@@ -126,7 +130,7 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
       sectionHeader: {
         fontSize: 16,
         bold: true,
-        color: '#2196f3'
+        color: '#4f46e5'
       },
       answerSpace: {
         fontSize: 12,
