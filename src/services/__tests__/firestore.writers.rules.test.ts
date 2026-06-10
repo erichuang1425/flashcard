@@ -35,13 +35,15 @@ jest.mock('../firebase', () => ({
   get auth() {
     return mockAuth;
   },
-  storage: {},
 }));
 
 import {
   updateStudyStats,
   updateUserStudyStats,
   updateDailyStreak,
+  addFlashcard,
+  categoryDocumentId,
+  getCategories,
 } from '../firestore';
 import { isoDate, previousIsoDate } from '../../utils/study-stats';
 
@@ -76,6 +78,67 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await testEnv.clearFirestore();
+});
+
+
+describe('category migration', () => {
+  it('copies an owner-readable legacy category into the private user subtree', async () => {
+    await testEnv.withSecurityRulesDisabled(async context => {
+      await setDoc(doc(context.firestore(), 'categories', 'legacy-sat'), {
+        name: 'SAT',
+        userId: USER,
+        count: 4,
+      });
+    });
+
+    await expect(getCategories(USER)).resolves.toEqual([
+      expect.objectContaining({ id: categoryDocumentId('SAT'), name: 'SAT', count: 4 }),
+    ]);
+
+    const migrated = await getDoc(doc(
+      mockDb,
+      'users',
+      USER,
+      'categories',
+      categoryDocumentId('SAT')
+    ));
+    expect(migrated.data()).toMatchObject({ name: 'SAT', count: 4 });
+  });
+});
+
+describe('addFlashcard category writes', () => {
+  it('stores normalized categories in the owner subtree and increments each once', async () => {
+    await addFlashcard({
+      userId: USER,
+      word: 'abate',
+      englishDefinition: 'become less intense',
+      chineseTranslation: '減弱',
+      partOfSpeech: 'verb',
+      categories: [' SAT ', 'sat', 'Exam Prep'],
+      difficulty: 0,
+      created: new Date(),
+      nextReview: new Date(),
+      mastered: false,
+    });
+
+    const sat = await getDoc(doc(
+      mockDb,
+      'users',
+      USER,
+      'categories',
+      categoryDocumentId('SAT')
+    ));
+    const examPrep = await getDoc(doc(
+      mockDb,
+      'users',
+      USER,
+      'categories',
+      categoryDocumentId('Exam Prep')
+    ));
+
+    expect(sat.data()).toMatchObject({ name: 'SAT', count: 1 });
+    expect(examPrep.data()).toMatchObject({ name: 'Exam Prep', count: 1 });
+  });
 });
 
 describe('updateStudyStats (transaction)', () => {

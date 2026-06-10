@@ -21,7 +21,7 @@ Flashcard Studio is a React + TypeScript web application designed for focused le
 - **Frontend:** React 18, TypeScript, Vite
 - **UI:** Material UI, Framer Motion
 - **Routing:** React Router
-- **Backend services:** Firebase Authentication, Firestore, Cloud Storage
+- **Backend services:** Firebase Authentication and Firestore
 - **Testing:** Jest + ts-jest
 
 ## Project structure
