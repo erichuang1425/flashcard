@@ -20,10 +20,12 @@ import { useGamification } from '../context/GamificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import type { UserAchievement } from '../types/gamification';
 import { PomodoroTimer } from '../components/PomodoroTimer';
+import { useLanguage } from '../i18n/LanguageContext';
 
 export const Profile: React.FC = () => {
   const { user } = useAuth();
   const { levelSystem, achievements } = useGamification();
+  const { t } = useLanguage();
 
   if (!user || !levelSystem) return null;
 
@@ -40,13 +42,15 @@ export const Profile: React.FC = () => {
               src={user.photoURL || undefined}
             />
             <Typography variant="h5" gutterBottom>
-              {user.displayName || 'User'}
+              {user.displayName || t('common.user')}
             </Typography>
             <Typography color="textSecondary" gutterBottom>
               {user.email}
             </Typography>
             <Box sx={{ mt: 2 }}>
-              <Typography variant="h6">Level {levelSystem.currentLevel}</Typography>
+              <Typography variant="h6">
+                {t('profile.level', { level: levelSystem.currentLevel })}
+              </Typography>
               <LinearProgress 
                 variant="determinate" 
                 value={progress} 
@@ -66,7 +70,7 @@ export const Profile: React.FC = () => {
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Achievements
+              {t('profile.achievements')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <List>
@@ -78,12 +82,23 @@ export const Profile: React.FC = () => {
                     />
                   </ListItemIcon>
                   <ListItemText
-                    primary={achievement.title}
+                    primary={(() => {
+                      const key = `achievement.${achievement.id}.title`;
+                      const translated = t(key);
+                      return translated === key ? achievement.title : translated;
+                    })()}
                     secondary={
                       <>
-                        {achievement.description}
+                        {(() => {
+                          const key = `achievement.${achievement.id}.description`;
+                          const translated = t(key);
+                          return translated === key ? achievement.description : translated;
+                        })()}
                         <Typography variant="caption" display="block" color="text.secondary">
-                          Progress: {achievement.progress} / {achievement.requirement}
+                          {t('profile.progress', {
+                            progress: achievement.progress,
+                            requirement: achievement.requirement,
+                          })}
                         </Typography>
                       </>
                     }

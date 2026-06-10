@@ -12,6 +12,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import { addCategory, addFlashcard, getCategories } from '../services/firestore';
 import { useAuth } from '../context/AuthContext';
 import { parseCSVLine, normalizeCSVText } from '../utils/csv';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface ImportStats {
   total: number;
@@ -38,13 +39,13 @@ interface BundledPack {
   /** Stable id used to track which pack is currently loading. */
   id: string;
   /** Button label shown to the user. */
-  label: string;
+  labelKey: string;
   /** Public path fetched for the pack's CSV. */
   file: string;
   /** Category automatically tagged onto every card in the pack. */
   category: string;
   /** Short helper text describing the pack. */
-  description: string;
+  descriptionKey: string;
 }
 
 // Curated word lists bundled with the app and importable in one click. Each
@@ -54,44 +55,45 @@ interface BundledPack {
 const BUNDLED_PACKS: BundledPack[] = [
   {
     id: 'sat',
-    label: 'SAT Word List',
+    labelKey: 'import.pack.satLabel',
     file: '/sat.csv',
     category: 'SAT',
-    description: 'High-frequency SAT vocabulary tagged with the "SAT" category.',
+    descriptionKey: 'import.pack.sat',
   },
   {
     id: 'pte-academic-core',
-    label: 'PTE Academic — Core Vocabulary',
+    labelKey: 'import.pack.pteCoreLabel',
     file: '/pte-academic-core.csv',
     category: 'PTE Academic',
-    description: 'Essential academic words for PTE Academic, with Traditional Chinese translations.',
+    descriptionKey: 'import.pack.pteCore',
   },
   {
     id: 'pte-academic-advanced',
-    label: 'PTE Academic — Advanced Vocabulary',
+    labelKey: 'import.pack.pteAdvancedLabel',
     file: '/pte-academic-advanced.csv',
     category: 'PTE Academic',
-    description: 'Higher-level academic words for PTE Academic, with Traditional Chinese translations.',
+    descriptionKey: 'import.pack.pteAdvanced',
   },
   {
     id: 'pte-describe-image',
-    label: 'PTE Academic — Describe Image',
+    labelKey: 'import.pack.pteImageLabel',
     file: '/pte-describe-image.csv',
     category: 'PTE Academic',
-    description: 'Trend and data-description vocabulary for the Describe Image task (Traditional Chinese).',
+    descriptionKey: 'import.pack.pteImage',
   },
   {
     id: 'pte-essay-connectors',
-    label: 'PTE Academic — Essay Connectors',
+    labelKey: 'import.pack.pteEssayLabel',
     file: '/pte-essay-connectors.csv',
     category: 'PTE Academic',
-    description: 'Linking words and argument vocabulary for PTE essays (Traditional Chinese).',
+    descriptionKey: 'import.pack.pteEssay',
   },
 ];
 
 
 export const ImportTools: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<ImportStats>({ 
@@ -134,11 +136,11 @@ export const ImportTools: React.FC = () => {
         const uniqueCategories = new Set<string>(cats.map(cat => cat.name));
         setGlobalCategories(Array.from(uniqueCategories));
       } catch (err) {
-        setError('Failed to load categories');
+        setError(t('import.loadCategoriesFailed'));
       }
     };
     loadCategories();
-  }, [user]);
+  }, [user, t]);
 
   const processCSV = async (csvText: string) => {
     try {
@@ -180,7 +182,7 @@ export const ImportTools: React.FC = () => {
             // Previously these rows were silently skipped, leaving
             // processed < total so the progress bar never reached 100% and
             // the completion alert never appeared.
-            recordFailure(missing ? 'Missing required field(s)' : 'Not signed in');
+            recordFailure(missing ? t('import.missingFields') : t('import.notSignedIn'));
             continue;
           }
 
@@ -206,7 +208,7 @@ export const ImportTools: React.FC = () => {
               completed: (lineIndex + 1) === dataLines.length
             }));
           } catch (err) {
-            recordFailure(err instanceof Error ? err.message : 'Failed to save');
+            recordFailure(err instanceof Error ? err.message : t('import.saveFailed'));
           }
         }
         
@@ -214,7 +216,7 @@ export const ImportTools: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to import flashcards');
+      setError(err instanceof Error ? err.message : t('import.failed'));
     }
   };
 
@@ -248,7 +250,7 @@ export const ImportTools: React.FC = () => {
       };
       reader.readAsText(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed');
+      setError(err instanceof Error ? err.message : t('reading.import.failed'));
     } finally {
       setUploading(false);
     }
@@ -262,13 +264,17 @@ export const ImportTools: React.FC = () => {
       setError(null);
       const response = await fetch(pack.file);
       if (!response.ok) {
-        throw new Error(`Could not load the ${pack.label}`);
+        throw new Error(t('import.couldNotLoadPack', { pack: t(pack.labelKey) }));
       }
       const csvText = await response.text();
       setSelectedCategories(prev => (prev.includes(pack.category) ? prev : [...prev, pack.category]));
       buildPreviewFromText(csvText);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to load ${pack.label}`);
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('import.loadPackFailed', { pack: t(pack.labelKey) })
+      );
     } finally {
       setLoadingPackId(null);
     }
@@ -310,11 +316,11 @@ export const ImportTools: React.FC = () => {
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Word</TableCell>
-              <TableCell>Part of Speech</TableCell>
-              <TableCell>English Definition</TableCell>
-              <TableCell>Chinese Translation</TableCell>
-              <TableCell align="center">Status</TableCell>
+              <TableCell>{t('common.word')}</TableCell>
+              <TableCell>{t('common.partOfSpeech')}</TableCell>
+              <TableCell>{t('common.englishDefinition')}</TableCell>
+              <TableCell>{t('common.chineseTranslation')}</TableCell>
+              <TableCell align="center">{t('common.status')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -337,11 +343,11 @@ export const ImportTools: React.FC = () => {
                 <TableCell>{row.chineseTranslation}</TableCell>
                 <TableCell align="center">
                   {!row.word || !row.partOfSpeech || !row.englishDefinition || !row.chineseTranslation ? (
-                    <Tooltip title="Missing required fields" arrow>
+                    <Tooltip title={t('import.table.missingFields')} arrow>
                       <ErrorIcon color="error" />
                     </Tooltip>
                   ) : (
-                    <Tooltip title="Valid entry" arrow>
+                    <Tooltip title={t('import.table.valid')} arrow>
                       <PreviewIcon color="success" />
                     </Tooltip>
                   )}
@@ -359,6 +365,10 @@ export const ImportTools: React.FC = () => {
         rowsPerPage={rowsPerPage}
         onRowsPerPageChange={handleChangeRowsPerPage}
         rowsPerPageOptions={[5, 10, 25]}
+        labelRowsPerPage={t('import.pagination.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) =>
+          t('import.pagination.displayedRows', { from, to, count })
+        }
       />
     </Paper>
   );
@@ -373,34 +383,38 @@ export const ImportTools: React.FC = () => {
         sx={{ height: 8, borderRadius: 2 }}
       />
       <Typography variant="body2" sx={{ mt: 1 }}>
-        Progress: {Math.round(progressPct)}%
-        ({stats.processed}/{stats.total})
+        {t('import.progress', {
+          percent: Math.round(progressPct),
+          processed: stats.processed,
+          total: stats.total,
+        })}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        Success: {stats.success}, Failed: {stats.failed}
+        {t('import.stats', { success: stats.success, failed: stats.failed })}
       </Typography>
       {stats.completed && (
         <Alert severity={stats.failed > 0 ? 'warning' : 'success'} sx={{ mt: 2 }}>
-          Import completed! Successfully imported {stats.success} cards
-          {stats.failed > 0 ? ` (${stats.failed} failed)` : ''}
+          {stats.failed > 0
+            ? t('import.completeWithFailures', { success: stats.success, failed: stats.failed })
+            : t('import.complete', { success: stats.success })}
         </Alert>
       )}
       {rowErrors.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
             <Typography variant="subtitle2">
-              Rows that could not be imported ({rowErrors.length})
+              {t('import.rowsFailed', { count: rowErrors.length })}
             </Typography>
             <Button size="small" onClick={handleDownloadErrors}>
-              Download error report
+              {t('import.downloadErrors')}
             </Button>
           </Box>
           <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Row</TableCell>
-                  <TableCell>Reason</TableCell>
+                  <TableCell>{t('common.row')}</TableCell>
+                  <TableCell>{t('common.reason')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -471,7 +485,7 @@ export const ImportTools: React.FC = () => {
         completed: true
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add flashcard');
+      setError(err instanceof Error ? err.message : t('import.addFailed'));
     } finally {
       setUploading(false);
     }
@@ -483,7 +497,7 @@ export const ImportTools: React.FC = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Word"  
+            label={t('common.word')}
             value={manualEntry.word}
             onChange={(e) => setManualEntry(prev => ({ ...prev, word: e.target.value }))}
           />
@@ -491,7 +505,7 @@ export const ImportTools: React.FC = () => {
         <Grid item xs={12} sm={6}>
           <TextField
             fullWidth
-            label="Part of Speech"
+            label={t('common.partOfSpeech')}
             value={manualEntry.partOfSpeech}
             onChange={(e) => setManualEntry(prev => ({ ...prev, partOfSpeech: e.target.value }))}
           />
@@ -501,7 +515,7 @@ export const ImportTools: React.FC = () => {
             fullWidth
             multiline
             rows={2}
-            label="English Definition"
+            label={t('common.englishDefinition')}
             value={manualEntry.englishDefinition}
             onChange={(e) => setManualEntry(prev => ({ ...prev, englishDefinition: e.target.value }))}
           />
@@ -509,7 +523,7 @@ export const ImportTools: React.FC = () => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Chinese Translation"
+            label={t('common.chineseTranslation')}
             value={manualEntry.chineseTranslation}
             onChange={(e) => setManualEntry(prev => ({ ...prev, chineseTranslation: e.target.value }))}
           />
@@ -517,13 +531,13 @@ export const ImportTools: React.FC = () => {
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Categories (comma-separated)"
+            label={t('import.categoriesLabel')}
             value={manualEntry.categories.join(', ')}
             onChange={(e) => setManualEntry(prev => ({ 
               ...prev, 
               categories: e.target.value.split(',').map(c => c.trim()).filter(c => c)
             }))}
-            helperText="Enter categories separated by commas"
+            helperText={t('import.categoriesHint')}
           />
         </Grid>
         <Grid item xs={12}>
@@ -538,13 +552,13 @@ export const ImportTools: React.FC = () => {
               !manualEntry.chineseTranslation.trim()
             }
           >
-            Add Flashcard
+            {t('import.addFlashcard')}
           </Button>
         </Grid>
         {manualSuccess && (
           <Grid item xs={12}>
             <Alert severity="success" onClose={() => setManualSuccess(null)}>
-              Added &quot;{manualSuccess}&quot; to your library.
+              {t('import.added', { word: manualSuccess })}
             </Alert>
           </Grid>
         )}
@@ -557,7 +571,7 @@ export const ImportTools: React.FC = () => {
       <TextField
         select
         fullWidth
-        label="Add Categories to Imported Cards"
+        label={t('import.addCategories')}
         value={selectedCategories}
         onChange={(e) => setSelectedCategories(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
         SelectProps={{
@@ -575,8 +589,8 @@ export const ImportTools: React.FC = () => {
       </TextField>
       <TextField
         fullWidth
-        label="Add New Category"
-        placeholder="Type and press Enter to add"
+        label={t('import.addCategory')}
+        placeholder={t('import.addCategoryPlaceholder')}
         sx={{ mt: 1 }}
         onKeyDown={async (e) => {
           if (e.key === 'Enter' && (e.target as HTMLInputElement).value) {
@@ -599,7 +613,7 @@ export const ImportTools: React.FC = () => {
       setGlobalCategories(prev => [...prev, newCategory.trim()]);
       setSelectedCategories(prev => [...prev, newCategory.trim()]);
     } catch (err) {
-      setError('Failed to create new category');
+      setError(t('import.createCategoryFailed'));
     }
   };
 
@@ -619,10 +633,10 @@ export const ImportTools: React.FC = () => {
         }}
       >
         <ToggleButton value="file">
-          File Import
+          {t('import.mode.file')}
         </ToggleButton>
         <ToggleButton value="manual">
-          Manual Entry
+          {t('import.mode.manual')}
         </ToggleButton>
       </ToggleButtonGroup>
 
@@ -653,20 +667,20 @@ export const ImportTools: React.FC = () => {
             }}
           >
             <Step>
-              <StepLabel>Select File</StepLabel>
+              <StepLabel>{t('import.step.select')}</StepLabel>
             </Step>
             <Step>
-              <StepLabel>Preview</StepLabel>
+              <StepLabel>{t('import.step.preview')}</StepLabel>
             </Step>
             <Step>
-              <StepLabel>Import</StepLabel>
+              <StepLabel>{t('import.step.import')}</StepLabel>
             </Step>
           </Stepper>
 
           {activeStep === 0 && (
             <>
               <Typography variant="h6" gutterBottom>
-                Import Flashcards
+                {t('import.action.import')}
               </Typography>
               {renderCategorySelect()}
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
@@ -675,7 +689,7 @@ export const ImportTools: React.FC = () => {
                   component="label"
                   disabled={uploading || loadingPackId !== null}
                 >
-                  Upload CSV File
+                  {t('import.upload')}
                   <input
                     type="file"
                     hidden
@@ -685,11 +699,11 @@ export const ImportTools: React.FC = () => {
                 </Button>
               </Box>
               <Typography variant="subtitle2" sx={{ mt: 3 }}>
-                Ready-made packs
+                {t('import.packs')}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mt: 1 }}>
                 {BUNDLED_PACKS.map((pack) => (
-                  <Tooltip key={pack.id} title={pack.description} arrow>
+                  <Tooltip key={pack.id} title={t(pack.descriptionKey)} arrow>
                     <span>
                       <Button
                         variant="outlined"
@@ -697,14 +711,14 @@ export const ImportTools: React.FC = () => {
                         disabled={uploading || loadingPackId !== null}
                         startIcon={loadingPackId === pack.id ? <CircularProgress size={16} /> : undefined}
                       >
-                        {pack.label}
+                        {t(pack.labelKey)}
                       </Button>
                     </span>
                   </Tooltip>
                 ))}
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                The PTE Academic packs are curated for PTE Academic preparation and include Traditional Chinese translations.
+                {t('import.packsDescription')}
               </Typography>
             </>
           )}
@@ -712,19 +726,19 @@ export const ImportTools: React.FC = () => {
           {activeStep === 1 && (
             <>
               <Typography variant="h6" gutterBottom>
-                Preview Import Data
+                {t('import.previewTitle')}
               </Typography>
               {renderPreview()}
               <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
                 <Button variant="contained" onClick={() => setActiveStep(0)}>
-                  Back
+                  {t('common.back')}
                 </Button>
                 <Button 
                   variant="contained" 
                   onClick={() => text && processCSV(text)}
                   disabled={!text}
                 >
-                  Start Import
+                  {t('import.start')}
                 </Button>
               </Box>
             </>
@@ -733,13 +747,13 @@ export const ImportTools: React.FC = () => {
           {activeStep === 2 && (
             <>
               <Typography variant="h6" gutterBottom>
-                Import Progress
+                {t('import.progressTitle')}
               </Typography>
               {renderProgress()}
               {stats.completed && (
                 <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   <Button variant="contained" onClick={resetImport}>
-                    Import more
+                    {t('import.more')}
                   </Button>
                 </Box>
               )}
@@ -749,7 +763,7 @@ export const ImportTools: React.FC = () => {
       ) : (
         <>
           <Typography variant="h6" gutterBottom>
-            Manual Entry
+            {t('import.manualTitle')}
           </Typography>
           {renderManualEntry()}
         </>

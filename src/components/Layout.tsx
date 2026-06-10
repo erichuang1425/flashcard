@@ -9,12 +9,14 @@ import { useGamification } from '../context/GamificationContext';
 import { useFocusMode } from '../context/FocusModeContext';
 import { PomodoroTimer } from './PomodoroTimer';
 import { dvhMinHeight, dvhHeight, dvhMaxHeight } from '../utils/viewport';
+import { useLanguage } from '../i18n/LanguageContext';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { t } = useLanguage();
   const { levelSystem } = useGamification();
   const { focusMode } = useFocusMode();
   const theme = useTheme();
@@ -208,7 +210,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Progress & Timer
+            {t('layout.progressTimer')}
           </Typography>
           {levelSystem && <LevelProgress />}
           <PomodoroTimer />

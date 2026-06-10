@@ -19,12 +19,12 @@ interface FlashCardProps {
   onToggleAnswer?: () => void;
 }
 
-const ratings: { value: 1 | 2 | 3 | 4 | 5; emoji: string; label: string }[] = [
-  { value: 1, emoji: '😟', label: 'Again' },
-  { value: 2, emoji: '😐', label: 'Hard' },
-  { value: 3, emoji: '🙂', label: 'Good' },
-  { value: 4, emoji: '😊', label: 'Easy' },
-  { value: 5, emoji: '🎯', label: 'Perfect' },
+const ratings: { value: 1 | 2 | 3 | 4 | 5; emoji: string; labelKey: string }[] = [
+  { value: 1, emoji: '😟', labelKey: 'flashcard.rating.again' },
+  { value: 2, emoji: '😐', labelKey: 'flashcard.rating.hard' },
+  { value: 3, emoji: '🙂', labelKey: 'flashcard.rating.good' },
+  { value: 4, emoji: '😊', labelKey: 'flashcard.rating.easy' },
+  { value: 5, emoji: '🎯', labelKey: 'flashcard.rating.perfect' },
 ];
 
 // Shared face styling: each face is absolutely positioned so the front and back
@@ -267,7 +267,9 @@ export const FlashCard: React.FC<FlashCardProps> = ({
                 margin: '0 auto',
               }}
             >
-              {ratings.map(({ value, emoji, label }) => (
+              {ratings.map(({ value, emoji, labelKey }) => {
+                const label = t(labelKey);
+                return (
                 <Tooltip key={value} title={label} arrow>
                   <Button
                     onClick={() => onRating(value)}
@@ -295,7 +297,8 @@ export const FlashCard: React.FC<FlashCardProps> = ({
                     {isMobile ? emoji : `${emoji} ${label}`}
                   </Button>
                 </Tooltip>
-              ))}
+                );
+              })}
             </Box>
           )}
         </Card>

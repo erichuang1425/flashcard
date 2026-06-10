@@ -8,21 +8,23 @@ import {
   Extension as ExtensionIcon
 } from '@mui/icons-material';
 import type { StudyMode } from '../../types';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 interface StudyModeSelectorProps {
   mode: StudyMode;
   onModeChange: (mode: StudyMode) => void;
 }
 
-const modes: { value: StudyMode; label: string; icon: JSX.Element }[] = [
-  { value: 'flashcard', label: 'Flashcards', icon: <SchoolIcon /> },
-  { value: 'multipleChoice', label: 'Multiple Choice', icon: <CheckBoxIcon /> },
-  { value: 'fillInBlanks', label: 'Fill Blanks', icon: <TextFieldsIcon /> },
-  { value: 'matching', label: 'Matching', icon: <CompareIcon /> },
-  { value: 'fillInPuzzle', label: 'Crossword', icon: <ExtensionIcon /> }
+const modes: { value: StudyMode; labelKey: string; icon: JSX.Element }[] = [
+  { value: 'flashcard', labelKey: 'study.mode.flashcards', icon: <SchoolIcon /> },
+  { value: 'multipleChoice', labelKey: 'study.mode.multipleChoice', icon: <CheckBoxIcon /> },
+  { value: 'fillInBlanks', labelKey: 'study.mode.fillInBlanks', icon: <TextFieldsIcon /> },
+  { value: 'matching', labelKey: 'study.mode.matching', icon: <CompareIcon /> },
+  { value: 'fillInPuzzle', labelKey: 'study.mode.crossword', icon: <ExtensionIcon /> }
 ];
 
 export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({ mode, onModeChange }) => {
+  const { t } = useLanguage();
   const currentIndex = useMemo(() => modes.findIndex(m => m.value === mode), [mode]);
   
   const handleChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -66,7 +68,7 @@ export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({ mode, onMo
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
-        aria-label="study mode tabs"
+        aria-label={t('study.mode.aria')}
         sx={{
           borderBottom: 1,
           borderColor: 'divider',
@@ -77,7 +79,7 @@ export const StudyModeSelector: React.FC<StudyModeSelectorProps> = ({ mode, onMo
           <Tab
             key={m.value}
             icon={m.icon}
-            label={m.label}
+            label={t(m.labelKey)}
             value={index}
             sx={{
               '&:hover': {

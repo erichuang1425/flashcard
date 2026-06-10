@@ -17,7 +17,7 @@ export const Import: React.FC = () => {
         gap: { xs: 2, sm: 3 }
       }}>
         <Typography variant="h4" gutterBottom>
-          Import Flashcards
+          {t('import.title')}
         </Typography>
         <GuideTip
           id="import.add"
@@ -31,7 +31,7 @@ export const Import: React.FC = () => {
             overflow: 'hidden' // Prevent content overflow
           }}>
             <Typography variant="body1" paragraph>
-              Upload a CSV file with four columns: word, part of speech, English definition, and Chinese translation.
+              {t('import.description')}
             </Typography>
             <ImportTools />
           </Paper>
