@@ -7,6 +7,15 @@ jest.mock('../firebase', () => ({ db: {} }));
 
 const mockGetDoc = jest.fn();
 const mockSetDoc = jest.fn();
+// updateUserXP runs inside a transaction; route the transaction's get/set
+// through the same mocks so the assertions below stay shape-compatible.
+const mockRunTransaction = jest.fn(
+  async (_db: unknown, fn: (tx: unknown) => Promise<unknown>) =>
+    fn({
+      get: (ref: unknown) => mockGetDoc(ref),
+      set: (ref: unknown, data: unknown, options: unknown) => mockSetDoc(ref, data, options),
+    })
+);
 
 jest.mock('firebase/firestore', () => ({
   doc: jest.fn(() => ({})),
@@ -21,6 +30,7 @@ jest.mock('firebase/firestore', () => ({
   increment: jest.fn(),
   Timestamp: {},
   getDoc: (...args: unknown[]) => mockGetDoc(...args),
+  runTransaction: (...args: unknown[]) => mockRunTransaction(...(args as [unknown, (tx: unknown) => Promise<unknown>])),
 }));
 
 import {

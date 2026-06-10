@@ -11,7 +11,8 @@ import {
   updateDoc, 
   increment,
   Timestamp,
-  getDoc
+  getDoc,
+  runTransaction
 } from 'firebase/firestore';
 import type { Achievement, UserAchievement, DailyChallenge, LeaderboardEntry, LevelSystem } from '../types/gamification';
 
@@ -58,20 +59,22 @@ export const updateUserXP = async (userId: string, xpGained: number): Promise<Le
   const userStatsRef = doc(db, 'users', userId, 'stats', 'gamification');
 
   try {
-    // First try to get existing stats
-    const statsDoc = await getDoc(userStatsRef);
+    // Read-modify-write inside a transaction so concurrent awards (e.g. a
+    // session bonus and an achievement bonus) can't clobber each other's XP.
+    return await runTransaction(db, async (transaction) => {
+      const statsDoc = await transaction.get(userStatsRef);
 
-    // Initialize default stats if none exist
-    const currentStats: LevelSystem = statsDoc.exists()
-      ? statsDoc.data() as LevelSystem
-      : initialLevelSystem();
+      // Initialize default stats if none exist
+      const currentStats: LevelSystem = statsDoc.exists()
+        ? statsDoc.data() as LevelSystem
+        : initialLevelSystem();
 
-    const newStats = applyXPGain(currentStats, xpGained);
+      const newStats = applyXPGain(currentStats, xpGained);
 
-    // Use setDoc with merge option to ensure all fields are properly updated
-    await setDoc(userStatsRef, newStats, { merge: true });
-
-    return newStats;
+      // Merge so unrelated fields on the stats doc aren't clobbered
+      transaction.set(userStatsRef, newStats, { merge: true });
+      return newStats;
+    });
   } catch (error) {
     console.error('Error updating XP:', error);
     throw error;

@@ -8,7 +8,7 @@
  */
 import '@testing-library/jest-dom';
 import React from 'react';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act, waitFor, screen } from '@testing-library/react';
 import type { LevelSystem } from '../../types/gamification';
 
 let mockUser: { uid: string } | null = { uid: 'alice' };
@@ -24,6 +24,11 @@ jest.mock('../../services/gamification', () => ({
   updateUserXP: (...args: unknown[]) => mockUpdateUserXP(...args),
   loadUserAchievements: (...args: unknown[]) => mockLoadAchievements(...args),
   checkAndUpdateAchievements: (...args: unknown[]) => mockCheckAchievements(...args),
+}));
+
+const mockGetUserStudyStats = jest.fn();
+jest.mock('../../services/firestore', () => ({
+  getUserStudyStats: (...args: unknown[]) => mockGetUserStudyStats(...args),
 }));
 
 jest.mock('../../services/firebase', () => ({ db: {} }));
@@ -62,6 +67,13 @@ beforeEach(() => {
   mockOnSnapshot.mockReturnValue(() => {}); // unsubscribe fn
   mockLoadAchievements.mockResolvedValue([]);
   mockCheckAchievements.mockResolvedValue(undefined);
+  mockGetUserStudyStats.mockResolvedValue({
+    totalStudySessions: 4,
+    masteredCards: 7,
+    totalStudyMinutes: 30,
+    studyMinutes: 30,
+    averageAccuracy: 80,
+  });
   document.body.style.filter = '';
 });
 
@@ -103,6 +115,15 @@ describe('addXP', () => {
     expect(mockUpdateUserXP).toHaveBeenCalledWith('alice', 50);
     expect(result.current.levelSystem).toEqual(aLevel(3));
     expect(mockCheckAchievements).toHaveBeenCalledTimes(1);
+    // The achievement check runs against real study stats, not the XP totals.
+    expect(mockGetUserStudyStats).toHaveBeenCalledWith('alice');
+    expect(mockCheckAchievements).toHaveBeenCalledWith('alice', {
+      studySessions: 4,
+      cardsMastered: 7,
+      studyTime: 30,
+      averageAccuracy: 80,
+      perfectSessions: 0,
+    });
     // Achievements are reloaded after the check: once on mount, once here.
     expect(mockLoadAchievements).toHaveBeenCalledTimes(2);
   });
@@ -116,6 +137,23 @@ describe('addXP', () => {
     });
 
     expect(mockUpdateUserXP).not.toHaveBeenCalled();
+  });
+});
+
+describe('level-up notification', () => {
+  it('does not fire on the first snapshot, even at a high level', async () => {
+    renderGamification();
+    emitSnapshot(aLevel(5));
+    expect(screen.queryByText(/level up/i)).not.toBeInTheDocument();
+    await act(async () => {});
+  });
+
+  it('fires when a later snapshot raises the level', async () => {
+    renderGamification();
+    emitSnapshot(aLevel(2));
+    emitSnapshot(aLevel(3));
+    expect(screen.getByText(/reached level 3/i)).toBeInTheDocument();
+    await act(async () => {});
   });
 });
 

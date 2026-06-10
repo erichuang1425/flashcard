@@ -40,21 +40,31 @@ export const FocusModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
 
-    // Clean up scroll position when leaving focus mode
-    if (!focusMode) {
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [toggleFocusMode]);
+
+  // Restore the saved scroll position only on the focus → normal transition,
+  // not on mount (a stale sessionStorage entry would otherwise jump the page).
+  const wasFocused = React.useRef(false);
+  useEffect(() => {
+    if (wasFocused.current && !focusMode) {
       const savedPos = sessionStorage.getItem('scrollPos');
       if (savedPos) {
-        window.scrollTo(0, parseInt(savedPos));
+        window.scrollTo(0, parseInt(savedPos, 10));
         sessionStorage.removeItem('scrollPos');
       }
     }
+    wasFocused.current = focusMode;
+  }, [focusMode]);
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [focusMode, toggleFocusMode]);
+  const value = React.useMemo(
+    () => ({ focusMode, toggleFocusMode, isFocusSession }),
+    [focusMode, toggleFocusMode, isFocusSession]
+  );
 
   return (
-    <FocusModeContext.Provider value={{ focusMode, toggleFocusMode, isFocusSession }}>
+    <FocusModeContext.Provider value={value}>
       {children}
     </FocusModeContext.Provider>
   );
