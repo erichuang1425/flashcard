@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Container, Typography, Box, Button, Paper, Alert, AlertTitle, CircularProgress } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
-import { getUserFlashcards, updateCardReview } from '../services/firestore';
+import { useGamification } from '../context/GamificationContext';
+import { getUserFlashcards, updateCardReview, updateUserStudyStats, updateDailyStreak } from '../services/firestore';
 import { FlashCard } from '../components/FlashCard';
 import { GuideTip } from '../components/guide/GuideTip';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -47,6 +48,7 @@ const CenteredState: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 export const Study: React.FC = () => {
   const { user } = useAuth();
+  const { checkAchievements } = useGamification();
   const { t } = useLanguage();
   const [cards, setCards] = useState<Flashcard[]>([]);
   // Full deck kept around so study modes that need distractors (e.g. Multiple
@@ -67,6 +69,10 @@ export const Study: React.FC = () => {
   // briefly flashing the "No cards due" empty state before the fetch resolves.
   const [loading, setLoading] = useState(true);
 
+  // Session bookkeeping for the stats written on completion.
+  const sessionStart = useRef(Date.now());
+  const masteredCount = useRef(0);
+
   const loadCards = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -77,6 +83,8 @@ export const Study: React.FC = () => {
       setDeck(allCards);
       setCards(loaded.dueCards);
       setError(loaded.error);
+      sessionStart.current = Date.now();
+      masteredCount.current = 0;
     } catch (err) {
       console.error('Error loading cards:', err);
       setCards([]);
@@ -105,14 +113,28 @@ export const Study: React.FC = () => {
     loadCards();
   }, [loadCards]);
 
-  const validModes = ['flashcard', 'multipleChoice', 'fillInBlanks', 'matching', 'fillInPuzzle'] as const;
-  
-  useEffect(() => {
+  // Persist the finished session: study stats (sessions, minutes, accuracy),
+  // the daily streak, and a re-check of achievement progress. Totals are
+  // passed in explicitly because the `progress` state update for the final
+  // card hasn't flushed yet when the session completes.
+  const finishSession = async (sessionCorrect: number, sessionReviewed: number) => {
+    setIsComplete(true);
+    if (!user || sessionReviewed === 0) return;
 
-    if (!validModes.includes(studyMode)) {
-      setStudyMode('flashcard');
+    try {
+      await updateUserStudyStats(user.uid, {
+        duration: Math.max(0, Math.round((Date.now() - sessionStart.current) / 1000)),
+        cardsStudied: sessionReviewed,
+        accuracy: Math.round((sessionCorrect / sessionReviewed) * 100),
+        masteredCards: masteredCount.current,
+      });
+      await updateDailyStreak(user.uid);
+      await checkAchievements();
+    } catch (err) {
+      // The session itself succeeded; stats are best-effort.
+      console.error('Error recording study session:', err);
     }
-  }, [studyMode]);
+  };
 
   const handleAnswer = async (isCorrect: boolean) => {
     if (!user || currentIndex >= cards.length) return;
@@ -131,11 +153,21 @@ export const Study: React.FC = () => {
     if (!card.id) return; 
     
     const schedule = scheduleCardReview(card, rating);
-    await updateCardReview(user.uid, card.id, schedule);
-
     // Add XP based on rating
     const xpGained = rating >= 4 ? 10 : rating >= 3 ? 5 : 2;
-    await updateUserXP(user.uid, xpGained);
+    try {
+      // Independent writes — run them in parallel rather than back-to-back.
+      await Promise.all([
+        updateCardReview(user.uid, card.id, schedule),
+        updateUserXP(user.uid, xpGained),
+      ]);
+    } catch (err) {
+      // Don't strand the session on a failed write; the card can be reviewed
+      // again next session.
+      console.error('Error saving card review:', err);
+    }
+
+    if (rating >= 4) masteredCount.current += 1;
 
     setProgress(prev => ({
       correct: prev.correct + (rating >= 3 ? 1 : 0),
@@ -148,7 +180,10 @@ export const Study: React.FC = () => {
       setCurrentIndex(prev => prev + 1);
       setShowAnswer(false);
     } else {
-      setIsComplete(true);
+      await finishSession(
+        progress.correct + (rating >= 3 ? 1 : 0),
+        progress.cardsReviewed + 1
+      );
     }
   };
 
@@ -160,16 +195,23 @@ export const Study: React.FC = () => {
   const handleBatchComplete = async (results: BatchResult[], batchSize: number) => {
     if (!user) return;
 
+    const reviews: Promise<void>[] = [];
     let correct = 0;
     for (const result of results) {
       const card = cards.find(c => c.id === result.id);
       if (!card?.id) continue;
       const schedule = scheduleCardReview(card, result.correct ? 4 : 2);
-      await updateCardReview(user.uid, card.id, schedule);
+      reviews.push(updateCardReview(user.uid, card.id, schedule));
       if (result.correct) correct++;
     }
 
-    await updateUserXP(user.uid, correct * 5);
+    try {
+      await Promise.all([...reviews, updateUserXP(user.uid, correct * 5)]);
+    } catch (err) {
+      console.error('Error saving batch results:', err);
+    }
+
+    masteredCount.current += correct;
 
     setProgress(prev => ({
       ...prev,
@@ -180,11 +222,23 @@ export const Study: React.FC = () => {
     }));
 
     if (currentIndex + batchSize >= cards.length) {
-      setIsComplete(true);
+      await finishSession(
+        progress.correct + correct,
+        progress.cardsReviewed + results.length
+      );
     } else {
       setCurrentIndex(prev => prev + batchSize);
     }
   };
+
+  // Memoize the batch for the batch modes: a fresh `.slice()` every render
+  // would change the `cards` prop identity on unrelated re-renders (e.g. the
+  // XP snapshot listener), reshuffling the game and wiping matches mid-play.
+  const batchSize = studyMode === 'matching' ? MATCHING_BATCH_SIZE : PUZZLE_BATCH_SIZE;
+  const batch = React.useMemo(
+    () => cards.slice(currentIndex, currentIndex + batchSize),
+    [cards, currentIndex, batchSize]
+  );
 
   const renderStudyMode = () => {
     switch (studyMode) {
@@ -209,8 +263,7 @@ export const Study: React.FC = () => {
         return <MultipleChoice card={cards[currentIndex]} deck={deck} onAnswer={handleAnswer} />;
       case 'fillInBlanks':
         return <FillInBlanks card={cards[currentIndex]} onAnswer={handleAnswer} />;
-      case 'matching': {
-        const batch = cards.slice(currentIndex, currentIndex + MATCHING_BATCH_SIZE);
+      case 'matching':
         return (
           <MatchingGame
             key={`matching-${currentIndex}`}
@@ -218,9 +271,7 @@ export const Study: React.FC = () => {
             onComplete={(results) => handleBatchComplete(results, batch.length)}
           />
         );
-      }
-      case 'fillInPuzzle': {
-        const batch = cards.slice(currentIndex, currentIndex + PUZZLE_BATCH_SIZE);
+      case 'fillInPuzzle':
         return (
           <FillInPuzzle
             key={`puzzle-${currentIndex}`}
@@ -228,7 +279,6 @@ export const Study: React.FC = () => {
             onComplete={(results) => handleBatchComplete(results, batch.length)}
           />
         );
-      }
     }
   };
 
