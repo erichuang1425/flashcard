@@ -11,6 +11,8 @@ interface GamificationContextType {
   achievements: Achievement[];
   dailyChallenges: DailyChallenge[];
   addXP: (amount: number) => Promise<void>;
+  /** Re-evaluate achievement progress against the latest study stats. */
+  checkAchievements: () => Promise<void>;
   refreshChallenges: () => Promise<void>;
   showLevelUpNotification: (level: number) => void;
   focusMode: boolean;
@@ -133,11 +135,12 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     achievements,
     dailyChallenges,
     addXP,
+    checkAchievements,
     refreshChallenges,
     showLevelUpNotification,
     focusMode,
     setFocusMode,
-  }), [levelSystem, achievements, dailyChallenges, addXP, refreshChallenges, showLevelUpNotification, focusMode]);
+  }), [levelSystem, achievements, dailyChallenges, addXP, checkAchievements, refreshChallenges, showLevelUpNotification, focusMode]);
 
   return (
     <GamificationContext.Provider value={value}>
