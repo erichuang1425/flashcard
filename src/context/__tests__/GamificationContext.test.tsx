@@ -26,6 +26,11 @@ jest.mock('../../services/gamification', () => ({
   checkAndUpdateAchievements: (...args: unknown[]) => mockCheckAchievements(...args),
 }));
 
+const mockGetUserStudyStats = jest.fn();
+jest.mock('../../services/firestore', () => ({
+  getUserStudyStats: (...args: unknown[]) => mockGetUserStudyStats(...args),
+}));
+
 jest.mock('../../services/firebase', () => ({ db: {} }));
 
 const mockOnSnapshot = jest.fn();
@@ -62,6 +67,13 @@ beforeEach(() => {
   mockOnSnapshot.mockReturnValue(() => {}); // unsubscribe fn
   mockLoadAchievements.mockResolvedValue([]);
   mockCheckAchievements.mockResolvedValue(undefined);
+  mockGetUserStudyStats.mockResolvedValue({
+    totalStudySessions: 4,
+    masteredCards: 7,
+    totalStudyMinutes: 30,
+    studyMinutes: 30,
+    averageAccuracy: 80,
+  });
   document.body.style.filter = '';
 });
 
@@ -103,6 +115,15 @@ describe('addXP', () => {
     expect(mockUpdateUserXP).toHaveBeenCalledWith('alice', 50);
     expect(result.current.levelSystem).toEqual(aLevel(3));
     expect(mockCheckAchievements).toHaveBeenCalledTimes(1);
+    // The achievement check runs against real study stats, not the XP totals.
+    expect(mockGetUserStudyStats).toHaveBeenCalledWith('alice');
+    expect(mockCheckAchievements).toHaveBeenCalledWith('alice', {
+      studySessions: 4,
+      cardsMastered: 7,
+      studyTime: 30,
+      averageAccuracy: 80,
+      perfectSessions: 0,
+    });
     // Achievements are reloaded after the check: once on mount, once here.
     expect(mockLoadAchievements).toHaveBeenCalledTimes(2);
   });

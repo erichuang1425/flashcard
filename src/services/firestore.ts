@@ -1,7 +1,8 @@
 import { auth, db } from './firebase';
 import {
   collection, addDoc, getDocs, getCountFromServer, query, where, orderBy,
-  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc
+  updateDoc, deleteDoc, doc, writeBatch, startAt, endAt, limit, runTransaction, increment, getDoc, setDoc,
+  QueryConstraint
 }  from 'firebase/firestore';
 import { Flashcard, StudySessionSummary, StudyStats, Worksheet, VocabularyWord, WorksheetStats, VocabularyDefinition, DiaryEntry } from '../types';
 import { shuffle } from '../utils/helpers';
@@ -268,26 +269,27 @@ export const searchVocabularyAdvanced = async (
     limit?: number;
   }
 ) => {
-  let q = query(collection(db, 'vocabulary'));
+  // Firestore requires constraints in order: filters, then orderBy, then
+  // cursors, then limit \u2014 appending a where() after startAt()/endAt() throws.
+  const constraints: QueryConstraint[] = [];
+
+  if (options.partOfSpeech) {
+    constraints.push(where('partOfSpeech', '==', options.partOfSpeech));
+  }
 
   if (options.searchTerm) {
-    q = query(
-      q,
+    constraints.push(
       orderBy('word'),
       startAt(options.searchTerm),
       endAt(options.searchTerm + '\uf8ff')
     );
   }
 
-  if (options.partOfSpeech) {
-    q = query(q, where('partOfSpeech', '==', options.partOfSpeech));
-  }
-
   if (options.limit) {
-    q = query(q, limit(options.limit));
+    constraints.push(limit(options.limit));
   }
 
-  const querySnapshot = await getDocs(q);
+  const querySnapshot = await getDocs(query(collection(db, 'vocabulary'), ...constraints));
   return querySnapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
@@ -647,47 +649,53 @@ export const updateUserStudyStats = async (
 ) => {
   const statsRef = doc(db, 'users', userId, 'stats', 'study');
   const today = isoDate();
+  const sessionMinutes = Math.round(sessionData.duration / 60);
 
   try {
-    const statsDoc = await getDoc(statsRef);
-    const currentTime = new Date();
+    // Transaction so the running-average and new-day branching are computed
+    // against a consistent read — a concurrent session from another tab can't
+    // slip in between the read and the write.
+    await runTransaction(db, async (transaction) => {
+      const statsDoc = await transaction.get(statsRef);
+      const currentTime = new Date();
 
-    if (!statsDoc.exists()) {
-      await setDoc(statsRef, {
+      if (!statsDoc.exists()) {
+        transaction.set(statsRef, {
+          lastStudied: currentTime,
+          streak: 1,
+          totalCards: sessionData.cardsStudied,
+          masteredCards: sessionData.masteredCards,
+          averageAccuracy: sessionData.accuracy,
+          studyMinutes: sessionMinutes,
+          lastStudyDate: today,
+          totalStudySessions: 1,
+          todayStudyMinutes: sessionMinutes,
+          weeklyStudyGoal: 60, // Default weekly goal (kept consistent with getUserStudyStats)
+          weeklyProgress: sessionMinutes,
+        });
+        return;
+      }
+
+      const existingStats = statsDoc.data();
+      const isNewDay = existingStats.lastStudyDate !== today;
+
+      transaction.update(statsRef, {
         lastStudied: currentTime,
-        streak: 1,
-        totalCards: sessionData.cardsStudied,
-        masteredCards: sessionData.masteredCards,
-        averageAccuracy: sessionData.accuracy,
-        studyMinutes: Math.round(sessionData.duration / 60),
+        totalCards: increment(sessionData.cardsStudied),
+        masteredCards: increment(sessionData.masteredCards),
+        studyMinutes: increment(sessionMinutes),
+        averageAccuracy: updateRunningAverage(
+          existingStats.averageAccuracy,
+          existingStats.totalStudySessions,
+          sessionData.accuracy
+        ),
         lastStudyDate: today,
-        totalStudySessions: 1,
-        todayStudyMinutes: Math.round(sessionData.duration / 60),
-        weeklyStudyGoal: 60, // Default weekly goal (kept consistent with getUserStudyStats)
-        weeklyProgress: Math.round(sessionData.duration / 60),
+        totalStudySessions: increment(1),
+        todayStudyMinutes: isNewDay
+          ? sessionMinutes
+          : increment(sessionMinutes),
+        weeklyProgress: increment(sessionMinutes)
       });
-      return;
-    }
-
-    const existingStats = statsDoc.data();
-    const isNewDay = existingStats.lastStudyDate !== today;
-
-    await updateDoc(statsRef, {
-      lastStudied: currentTime,
-      totalCards: increment(sessionData.cardsStudied),
-      masteredCards: increment(sessionData.masteredCards),
-      studyMinutes: increment(Math.round(sessionData.duration / 60)),
-      averageAccuracy: updateRunningAverage(
-        existingStats.averageAccuracy,
-        existingStats.totalStudySessions,
-        sessionData.accuracy
-      ),
-      lastStudyDate: today,
-      totalStudySessions: increment(1),
-      todayStudyMinutes: isNewDay 
-        ? Math.round(sessionData.duration / 60)
-        : increment(Math.round(sessionData.duration / 60)),
-      weeklyProgress: increment(Math.round(sessionData.duration / 60))
     });
   } catch (error) {
     console.error('Error updating study stats:', error);
