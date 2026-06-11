@@ -41,9 +41,13 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
 
   try {
     const categories = normalizeCategoryNames(flashcard.categories);
+    // `difficulty` is a retired, derived field. Strip it from the spread so the
+    // various import call sites that still pass `difficulty: 0` can't reintroduce
+    // it onto new card documents — this is the single write chokepoint.
+    const { difficulty: _difficulty, ...cardData } = flashcard;
     const flashcardRef = doc(collection(db, 'users', flashcard.userId, 'flashcards'));
     batch.set(flashcardRef, {
-      ...flashcard,
+      ...cardData,
       categories,
       lastReviewed: null,
       nextReview: new Date(),
