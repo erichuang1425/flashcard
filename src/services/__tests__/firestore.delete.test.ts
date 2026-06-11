@@ -105,10 +105,32 @@ describe('deleteFlashcards', () => {
     expect(batches[1].deletes).toHaveLength(100);
     expect(batches.every(batch => batch.committed)).toBe(true);
   });
+
+  it('never mixes counter updates and deletes in a batch once chunking kicks in', async () => {
+    // 499 deletes + 2 counter updates exceed one batch. Counters must come
+    // after every delete, in their own batch: if a commit fails partway and
+    // the caller retries, replayed deletes are no-ops and each decrement is
+    // applied at most once instead of drifting the counts downward.
+    const cards = Array.from({ length: 499 }, (_, i) => ({
+      id: `card-${i}`,
+      categories: [i === 0 ? 'TOEFL' : 'Verbs'],
+    }));
+
+    await deleteFlashcards('user-1', cards);
+
+    expect(batches).toHaveLength(2);
+    expect(batches[0].deletes).toHaveLength(499);
+    expect(batches[0].sets).toHaveLength(0);
+    expect(batches[1].deletes).toHaveLength(0);
+    expect(batches[1].sets).toHaveLength(2);
+  });
 });
 
 describe('deleteCategoryWithWords', () => {
   it('deletes every word in the category and the category document itself', async () => {
+    // The user's full flashcard collection: two TOEFL members with different
+    // casings (they share one category document, keyed by lowercased ID) and
+    // one card from an unrelated set.
     mockGetDocs.mockResolvedValue({
       docs: [
         {
@@ -117,13 +139,19 @@ describe('deleteCategoryWithWords', () => {
         },
         {
           id: 'b',
-          data: () => ({ word: 'belie', categories: ['TOEFL'] }),
+          data: () => ({ word: 'belie', categories: ['toefl'] }),
+        },
+        {
+          id: 'c',
+          data: () => ({ word: 'corroborate', categories: ['Verbs'] }),
         },
       ],
     });
 
     const deleted = await deleteCategoryWithWords('user-1', 'TOEFL');
 
+    // Membership is matched by canonical ID, so the lowercased variant is
+    // deleted too while the unrelated card survives.
     expect(deleted.map(word => word.id)).toEqual(['a', 'b']);
 
     expect(batches).toHaveLength(1);

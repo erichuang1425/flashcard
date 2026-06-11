@@ -802,25 +802,42 @@ export const deleteFlashcards = async (
     }
 
     type BatchOperation = (batch: ReturnType<typeof writeBatch>) => void;
-    const operations: BatchOperation[] = cards.map(card => batch => {
+    const deleteOperations: BatchOperation[] = cards.map(card => batch => {
       batch.delete(doc(db, 'users', userId, 'flashcards', card.id));
     });
-    for (const [categoryId, count] of decrements) {
-      operations.push(batch => {
+    const counterOperations: BatchOperation[] = [...decrements].map(
+      ([categoryId, count]) => batch => {
         batch.set(
           doc(db, 'users', userId, 'categories', categoryId),
           { count: increment(-count), updatedAt: new Date() },
           { merge: true }
         );
-      });
-    }
-
-    for (let start = 0; start < operations.length; start += BATCH_OPERATION_LIMIT) {
-      const batch = writeBatch(db);
-      for (const apply of operations.slice(start, start + BATCH_OPERATION_LIMIT)) {
-        apply(batch);
       }
-      await batch.commit();
+    );
+
+    const commitChunks = async (operations: BatchOperation[]) => {
+      for (let start = 0; start < operations.length; start += BATCH_OPERATION_LIMIT) {
+        const batch = writeBatch(db);
+        for (const apply of operations.slice(start, start + BATCH_OPERATION_LIMIT)) {
+          apply(batch);
+        }
+        await batch.commit();
+      }
+    };
+
+    if (deleteOperations.length + counterOperations.length <= BATCH_OPERATION_LIMIT) {
+      // Everything fits in one atomic batch: a retry after failure replays
+      // the whole deletion exactly once.
+      await commitChunks([...deleteOperations, ...counterOperations]);
+    } else {
+      // Multi-batch deletions commit all card deletes before any counter
+      // decrement, never mixing the two in one batch. If a commit fails
+      // partway through and the caller retries, the replayed deletes are
+      // no-ops and each decrement is applied at most once. Counter drift
+      // would need the decrements themselves to span multiple batches —
+      // a single deletion touching 500+ distinct categories.
+      await commitChunks(deleteOperations);
+      await commitChunks(counterOperations);
     }
   } catch (error) {
     console.error('Error deleting flashcards:', error);
@@ -838,11 +855,22 @@ export const deleteCategoryWithWords = async (
   categoryName: string
 ): Promise<VocabularyWord[]> => {
   try {
-    const words = await getWordsByCategory(userId, categoryName);
+    const categoryId = categoryDocumentId(categoryName);
+    // Cards keep whatever casing they were written with while category
+    // documents are keyed by the lowercased ID, so an exact array-contains
+    // query on the display name would miss variant casings and orphan those
+    // cards once the shared category document is removed. Scan the user's
+    // cards and match by canonical ID instead.
+    const snapshot = await getDocs(collection(db, 'users', userId, 'flashcards'));
+    const words = snapshot.docs
+      .map(cardDoc => ({ id: cardDoc.id, ...cardDoc.data() }) as VocabularyWord)
+      .filter(word =>
+        (word.categories ?? []).some(
+          name => name.trim() && categoryDocumentId(name) === categoryId
+        )
+      );
     await deleteFlashcards(userId, words);
-    await deleteDoc(
-      doc(db, 'users', userId, 'categories', categoryDocumentId(categoryName))
-    );
+    await deleteDoc(doc(db, 'users', userId, 'categories', categoryId));
     return words;
   } catch (error) {
     console.error('Error deleting category:', error);
