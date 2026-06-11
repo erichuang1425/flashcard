@@ -82,7 +82,11 @@ export const Worksheets: React.FC = () => {
           // the initial bundle.
           const { initializePdfMake, generateWorksheetPDF } = await import('../services/pdfService');
           const pdfMake = await initializePdfMake();
-          const docDefinition = await generateWorksheetPDF(worksheet);
+          const docDefinition = await generateWorksheetPDF(
+            worksheet,
+            t,
+            language === 'zh' ? 'zh-TW' : 'en-US'
+          );
           pdfMake.createPdf(docDefinition).download(`${worksheet.title}.pdf`);
         } catch (pdfError) {
           console.error('PDF generation failed:', pdfError);
@@ -91,7 +95,7 @@ export const Worksheets: React.FC = () => {
       } else {
         // Heavy DOCX library is loaded on demand as well.
         const { generateDOCX, downloadDOCX } = await import('../services/exportService');
-        const doc = await generateDOCX(worksheet);
+        const doc = await generateDOCX(worksheet, t);
         await downloadDOCX(doc, `${worksheet.title}.docx`);
       }
     } catch (error) {

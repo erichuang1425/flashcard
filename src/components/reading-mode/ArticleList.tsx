@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { Article } from '../../types/reading';
 import { useI18n } from '../../i18n/I18nContext';
+import { articleCategory, articleTitle } from '../../i18n/articleLabels';
 
 interface ArticleListProps {
   articles: Article[];
@@ -55,12 +56,12 @@ export const ArticleList: React.FC<ArticleListProps> = ({
               ) : null}
               <CardContent>
                 <Chip
-                  label={article.category}
+                  label={articleCategory(article, t)}
                   size="small"
                   sx={{ mb: 1 }}
                 />
                 <Typography variant="h6" gutterBottom>
-                  {article.title}
+                  {articleTitle(article, t)}
                 </Typography>
                 {article.subtitle ? (
                   <Typography

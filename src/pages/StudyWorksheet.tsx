@@ -128,7 +128,9 @@ export const StudyWorksheet = () => {
   return (
     <Container maxWidth="md">
       <Box sx={{ py: 4 }}>
-        <Typography variant="h4" gutterBottom>{worksheet.title}</Typography>
+        <Typography variant="h4" gutterBottom>
+          {worksheet.title || t('worksheets.fallbackTitle', { template: worksheet.templateId })}
+        </Typography>
         
         <LinearProgress 
           variant="determinate"

@@ -916,7 +916,7 @@ export const getWorksheet = async (userId: string, worksheetId: string): Promise
     
     return {
       id: docSnap.id,
-      title: data.title || 'Untitled Worksheet',
+      title: data.title || '',
       description: data.description || '',
       questions: shuffleArray(data.questions || []), // Shuffle questions
       content: data.content || '',
