@@ -15,6 +15,21 @@ import {
   exportWorksheet,
 } from '../worksheet-templates';
 import type { VocabularyDefinition, Worksheet } from '../../types';
+import { translations, type Language } from '../../i18n/translations';
+
+const translator = (language: Language) => (
+  key: string,
+  vars?: Record<string, string | number>
+) => {
+  let value = translations[language][key] ?? translations.en[key] ?? key;
+  for (const [name, replacement] of Object.entries(vars ?? {})) {
+    value = value.split(`{${name}}`).join(String(replacement));
+  }
+  return value;
+};
+
+const en = translator('en');
+const zh = translator('zh');
 
 const def = (over: Partial<VocabularyDefinition> & { word: string }): VocabularyDefinition => ({
   englishDefinition: 'a default definition',
@@ -30,7 +45,7 @@ describe('generateWorksheet', () => {
   });
 
   it('throws on an unknown template id', async () => {
-    await expect(generateWorksheet(['cat'], 'nope', 'medium')).rejects.toThrow('Invalid template');
+    await expect(generateWorksheet(['cat'], 'nope', 'medium', en)).rejects.toThrow('Invalid template');
   });
 
   it('builds MC, translation and usage questions for a non-easy difficulty', async () => {
@@ -40,7 +55,12 @@ describe('generateWorksheet', () => {
     ];
     mockGetVocabularyDefinitions.mockResolvedValue(definitions);
 
-    const { questions, answers } = await generateWorksheet(['cat'], 'comprehensivePractice', 'medium');
+    const { questions, answers } = await generateWorksheet(
+      ['cat'],
+      'comprehensivePractice',
+      'medium',
+      en
+    );
 
     const types = questions.map((q) => q.type);
     expect(types).toEqual(['multipleChoice', 'translation', 'writing']);
@@ -61,21 +81,56 @@ describe('generateWorksheet', () => {
 
   it('awards 10 points for the writing question on hard difficulty', async () => {
     mockGetVocabularyDefinitions.mockResolvedValue([def({ word: 'cat', englishDefinition: 'a feline' })]);
-    const { questions } = await generateWorksheet(['cat'], 'comprehensivePractice', 'hard');
+    const { questions } = await generateWorksheet(
+      ['cat'],
+      'comprehensivePractice',
+      'hard',
+      en
+    );
     expect(questions.find((q) => q.type === 'writing')!.points).toBe(10);
   });
 
   it('emits only the translation question on easy difficulty', async () => {
     mockGetVocabularyDefinitions.mockResolvedValue([def({ word: 'cat' })]);
-    const { questions } = await generateWorksheet(['cat'], 'comprehensivePractice', 'easy');
+    const { questions } = await generateWorksheet(
+      ['cat'],
+      'comprehensivePractice',
+      'easy',
+      en
+    );
     expect(questions.map((q) => q.type)).toEqual(['translation']);
   });
 
   it('skips words that have no definition', async () => {
     mockGetVocabularyDefinitions.mockResolvedValue([def({ word: 'cat' })]);
-    const { questions } = await generateWorksheet(['cat', 'ghost'], 'comprehensivePractice', 'medium');
+    const { questions } = await generateWorksheet(
+      ['cat', 'ghost'],
+      'comprehensivePractice',
+      'medium',
+      en
+    );
     // Only "cat" has a definition; "ghost" contributes nothing.
     expect(questions.every((q) => !q.question.includes('ghost'))).toBe(true);
+  });
+
+  it('uses the active language for generated worksheet prompts and explanations', async () => {
+    mockGetVocabularyDefinitions.mockResolvedValue([
+      def({ word: 'cat', englishDefinition: 'a feline', chineseTranslation: '貓' }),
+    ]);
+
+    const { questions, answers } = await generateWorksheet(
+      ['cat'],
+      'comprehensivePractice',
+      'medium',
+      zh
+    );
+
+    expect(questions.map((question) => question.question)).toEqual([
+      '「cat」的意思是什麼？',
+      '將「cat」翻譯成中文：',
+      '使用「cat」正確造句：',
+    ]);
+    expect(answers.q0_mc.explanation).toBe('「cat」的意思是 a feline');
   });
 });
 
@@ -85,7 +140,12 @@ describe('templates.comprehensivePractice.generate', () => {
       def({ word: 'cat', englishDefinition: 'a feline', chineseTranslation: '貓' }),
       def({ word: 'dog', englishDefinition: 'a canine', chineseTranslation: '狗' }),
     ];
-    const questions = await templates.comprehensivePractice.generate(['cat'], 'medium', definitions);
+    const questions = await templates.comprehensivePractice.generate(
+      ['cat'],
+      'medium',
+      definitions,
+      en
+    );
 
     const mc = questions.find((q) => q.type === 'multipleChoice')!;
     expect(mc.correctAnswer).toBe('a feline');
@@ -95,7 +155,12 @@ describe('templates.comprehensivePractice.generate', () => {
 
   it('omits the writing exercise on easy difficulty', async () => {
     const definitions = [def({ word: 'cat', englishDefinition: 'a feline', chineseTranslation: '貓' })];
-    const questions = await templates.comprehensivePractice.generate(['cat'], 'easy', definitions);
+    const questions = await templates.comprehensivePractice.generate(
+      ['cat'],
+      'easy',
+      definitions,
+      en
+    );
     expect(questions.some((q) => q.type === 'writing')).toBe(false);
   });
 });
@@ -105,7 +170,8 @@ describe('templates.translationMastery.generate', () => {
     const questions = await templates.translationMastery.generate(
       ['cat', 'dog'],
       'medium',
-      [def({ word: 'cat' }), def({ word: 'dog' })]
+      [def({ word: 'cat' }), def({ word: 'dog' })],
+      en
     );
     expect(questions).toHaveLength(2);
     expect(questions.every((q) => q.type === 'translation')).toBe(true);
@@ -124,7 +190,7 @@ describe('exportWorksheet', () => {
   } as unknown as Worksheet;
 
   it('renders a document with the title and one entry per question', async () => {
-    const doc = await exportWorksheet(worksheet, 'pdf');
+    const doc = await exportWorksheet(worksheet, 'pdf', en);
     const texts = JSON.stringify(doc.content);
     expect(texts).toContain('My Worksheet');
     expect(texts).toContain('1. What is a cat?');
@@ -134,8 +200,18 @@ describe('exportWorksheet', () => {
   });
 
   it('produces the same document for the docx format', async () => {
-    const pdf = await exportWorksheet(worksheet, 'pdf');
-    const docx = await exportWorksheet(worksheet, 'docx');
+    const pdf = await exportWorksheet(worksheet, 'pdf', en);
+    const docx = await exportWorksheet(worksheet, 'docx', en);
     expect(docx).toEqual(pdf);
+  });
+
+  it('localizes exported worksheet metadata', async () => {
+    const doc = await exportWorksheet(worksheet, 'pdf', zh);
+    const texts = JSON.stringify(doc.content);
+
+    expect(texts).toContain('難度：中等');
+    expect(texts).toContain('時間限制：20 分鐘');
+    expect(texts).not.toContain('Difficulty:');
+    expect(texts).not.toContain('Time Limit:');
   });
 });

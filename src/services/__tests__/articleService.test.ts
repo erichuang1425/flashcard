@@ -62,6 +62,10 @@ describe('normalizeArticleDocument', () => {
       },
     });
   });
+
+  it('leaves a missing title empty so the UI can localize its fallback', () => {
+    expect(normalizeArticleDocument('missing-title', {}).title).toBe('');
+  });
 });
 
 describe('countArticleWords', () => {

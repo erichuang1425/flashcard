@@ -27,6 +27,7 @@ import { useI18n } from '../../i18n/I18nContext';
 import { DictionaryLookup } from './DictionaryLookup';
 import { NoteSystem } from './NoteSystem';
 import { ReadingSettingsDialog } from './ReadingSettingsDialog';
+import { articleTitle } from '../../i18n/articleLabels';
 
 const selectedText = () => window.getSelection()?.toString().trim() ?? '';
 
@@ -158,7 +159,7 @@ export const ReadingInterface: React.FC = () => {
             </IconButton>
           </Tooltip>
           <Typography noWrap sx={{ flex: 1, fontWeight: 600 }}>
-            {currentArticle.title}
+            {articleTitle(currentArticle, t)}
           </Typography>
           <Tooltip title={t('reading.reader.dictionary')}>
             <IconButton onClick={openDictionary}><MenuBookIcon /></IconButton>
@@ -197,7 +198,7 @@ export const ReadingInterface: React.FC = () => {
           }}
         >
           <Typography variant="h3" component="h1" gutterBottom>
-            {currentArticle.title}
+            {articleTitle(currentArticle, t)}
           </Typography>
           {currentArticle.subtitle ? (
             <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>

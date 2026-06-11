@@ -9,6 +9,20 @@ interface ArticlePackageDetails {
   article_url?: unknown;
 }
 
+export type ArticleImportErrorCode =
+  | 'missingDetails'
+  | 'missingContent'
+  | 'invalidDetails'
+  | 'missingTitle'
+  | 'emptyContent';
+
+export class ArticleImportError extends Error {
+  constructor(public readonly code: ArticleImportErrorCode) {
+    super(code);
+    this.name = 'ArticleImportError';
+  }
+}
+
 const optionalString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
@@ -26,29 +40,29 @@ export const parseArticleArchive = async (
   const zip = await JSZip.loadAsync(archive);
   const detailsFile = zip.file('details.json');
   if (!detailsFile) {
-    throw new Error('Article archive is missing details.json');
+    throw new ArticleImportError('missingDetails');
   }
 
   const contentFile = zip.file('content.txt');
   if (!contentFile) {
-    throw new Error('Article archive is missing content.txt');
+    throw new ArticleImportError('missingContent');
   }
 
   let details: ArticlePackageDetails;
   try {
     details = JSON.parse(await detailsFile.async('string')) as ArticlePackageDetails;
   } catch {
-    throw new Error('Article archive contains invalid details.json');
+    throw new ArticleImportError('invalidDetails');
   }
 
   const title = optionalString(details.title);
   if (!title) {
-    throw new Error('Article archive details.json is missing a title');
+    throw new ArticleImportError('missingTitle');
   }
 
   const content = await contentFile.async('string');
   if (!content.trim()) {
-    throw new Error('Article archive content.txt is empty');
+    throw new ArticleImportError('emptyContent');
   }
 
   const coverName = optionalString(details.cover_image);

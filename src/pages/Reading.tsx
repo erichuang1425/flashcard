@@ -58,11 +58,8 @@ export const Reading: React.FC = () => {
       setArticles(result.articles);
       setTotalCount(result.totalCount);
     } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : t('reading.library.loadFailed')
-      );
+      console.error('Failed to load articles:', loadError);
+      setError(t('reading.library.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -78,15 +75,13 @@ export const Reading: React.FC = () => {
     try {
       const fullArticle = await getFullArticle(user.uid, article.id);
       if (!fullArticle?.content) {
-        throw new Error(t('reading.library.contentMissing'));
+        setError(t('reading.library.contentMissing'));
+        return;
       }
       setCurrentArticle(fullArticle);
     } catch (selectError) {
-      setError(
-        selectError instanceof Error
-          ? selectError.message
-          : t('reading.library.loadFailed')
-      );
+      console.error('Failed to open article:', selectError);
+      setError(t('reading.library.loadFailed'));
     } finally {
       setLoading(false);
     }
