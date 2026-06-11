@@ -1,6 +1,7 @@
 import { Worksheet } from '@/types';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
+import type { Translate } from '../i18n/translations';
 
 let isInitialized = false;
 
@@ -20,32 +21,33 @@ export const initializePdfMake = async () => {
   return pdfMake;
 };
 
-export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocumentDefinitions> => {
-  const pdfMakeInstance = await initializePdfMake();
-  if (!pdfMakeInstance) {
-    throw new Error('PDF generation is not available');
-  }
-
+export const buildWorksheetPDFDefinition = (
+  worksheet: Worksheet,
+  t: Translate,
+  locale: string
+): TDocumentDefinitions => {
   const content: any[] = [
     {
       text: worksheet.title,
       style: 'header'
     },
     {
-      text: `Created: ${worksheet.createdAt.toLocaleDateString()}`,
+      text: t('worksheets.export.created', {
+        date: worksheet.createdAt.toLocaleDateString(locale),
+      }),
       style: 'subheader'
     },
     {
-      text: `Difficulty: ${worksheet.difficulty}`,
+      text: t('worksheets.export.difficulty', {
+        difficulty: t(`worksheets.generator.${worksheet.difficulty}`),
+      }),
       style: 'subheader'
     }
   ];
 
   let currentSection = '';
   worksheet.questions.forEach((question, index) => {
-    const sectionName = question.type === 'multipleChoice' ? 'Multiple Choice' :
-                       question.type === 'translation' ? 'Translation' : 
-                       'Writing Practice';
+    const sectionName = t(`worksheets.export.section.${question.type}`);
 
     if (currentSection !== sectionName) {
       currentSection = sectionName;
@@ -73,7 +75,7 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
     }
 
     content.push({
-      text: 'Answer: _________________________________',
+      text: t('worksheets.export.answerBlank'),
       style: 'answerSpace',
       margin: [0, 10, 0, 15]
     });
@@ -90,15 +92,32 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
   if (worksheet.answers) {
     type AnswerKeyEntry = { correctAnswer: string; explanation?: string; examples?: string[] };
     content.push(
-      { text: 'Answer Key', style: 'sectionHeader', pageBreak: 'before' },
+      {
+        text: t('worksheets.export.answerKey'),
+        style: 'sectionHeader',
+        pageBreak: 'before'
+      },
       ...Object.entries(worksheet.answers).map(([qId, rawAnswer]) => {
         const answer = rawAnswer as AnswerKeyEntry;
         return {
           stack: [
-            { text: `Question ${qId}:`, style: 'answerHeader' },
-            { text: `Correct Answer: ${answer.correctAnswer}`, style: 'answer' },
+            {
+              text: t('worksheets.export.question', { question: qId }),
+              style: 'answerHeader'
+            },
+            {
+              text: t('worksheets.export.correctAnswer', {
+                answer: answer.correctAnswer,
+              }),
+              style: 'answer'
+            },
             answer.explanation ?
-              { text: `Explanation: ${answer.explanation}`, style: 'explanation' } : [],
+              {
+                text: t('worksheets.export.explanation', {
+                  explanation: answer.explanation,
+                }),
+                style: 'explanation'
+              } : [],
             answer.examples ?
               { ul: answer.examples.map((ex: string) => ({ text: ex })) } : []
           ],
@@ -153,4 +172,17 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
       font: 'Roboto'
     }
   };
+};
+
+export const generateWorksheetPDF = async (
+  worksheet: Worksheet,
+  t: Translate,
+  locale: string
+): Promise<TDocumentDefinitions> => {
+  const pdfMakeInstance = await initializePdfMake();
+  if (!pdfMakeInstance) {
+    throw new Error('PDF generation is not available');
+  }
+
+  return buildWorksheetPDFDefinition(worksheet, t, locale);
 };

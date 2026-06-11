@@ -60,14 +60,20 @@ describe('pickDefaultVoice', () => {
 });
 
 describe('accentLabel', () => {
+  const t = (key: string) => ({
+    'settings.accent.american': '美式英語',
+    'settings.accent.british': '英式英語',
+    'settings.accent.australian': '澳洲英語',
+  }[key] ?? key);
+
   it('maps known English locales to friendly names', () => {
-    expect(accentLabel('en-US')).toBe('American');
-    expect(accentLabel('en-GB')).toBe('British');
-    expect(accentLabel('en-au')).toBe('Australian');
+    expect(accentLabel('en-US', t)).toBe('美式英語');
+    expect(accentLabel('en-GB', t)).toBe('英式英語');
+    expect(accentLabel('en-au', t)).toBe('澳洲英語');
   });
 
   it('returns the raw tag for unknown locales', () => {
-    expect(accentLabel('en-XX')).toBe('en-XX');
+    expect(accentLabel('en-XX', t)).toBe('en-XX');
   });
 });
 

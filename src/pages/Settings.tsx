@@ -309,7 +309,7 @@ export const Settings: React.FC = () => {
                       )}
                       {voices.map((v) => (
                         <MenuItem key={v.voiceURI} value={v.voiceURI}>
-                          {v.name} — {accentLabel(v.lang)}
+                          {v.name} — {accentLabel(v.lang, t)}
                         </MenuItem>
                       ))}
                     </Select>

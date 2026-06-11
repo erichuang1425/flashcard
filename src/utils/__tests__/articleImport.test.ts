@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { parseArticleArchive } from '../articleImport';
+import { ArticleImportError, parseArticleArchive } from '../articleImport';
 
 describe('parseArticleArchive', () => {
   it('reads article details, content, and an optional cover image', async () => {
@@ -33,8 +33,8 @@ describe('parseArticleArchive', () => {
   it('rejects archives missing required article files', async () => {
     const archive = await new JSZip().generateAsync({ type: 'uint8array' });
 
-    await expect(parseArticleArchive(archive)).rejects.toThrow(
-      /details\.json/
-    );
+    await expect(parseArticleArchive(archive)).rejects.toMatchObject({
+      code: 'missingDetails',
+    } satisfies Partial<ArticleImportError>);
   });
 });

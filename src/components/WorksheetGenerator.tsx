@@ -214,7 +214,12 @@ export const WorksheetGenerator: React.FC = () => {
         }
       };
 
-      const { questions, answers } = await generateWorksheet(wordList, templateId, difficulty);
+      const { questions, answers } = await generateWorksheet(
+        wordList,
+        templateId,
+        difficulty,
+        t
+      );
       worksheetData.questions = questions;
       worksheetData.answers = answers;
       worksheetData.stats.total = questions.length;
@@ -372,7 +377,7 @@ export const WorksheetGenerator: React.FC = () => {
               >
                 {Object.entries(templates).map(([id, template]) => (
                   <MenuItem key={id} value={id}>
-                    {translateOr(t, `worksheets.generator.template.${id}`, template.title)}
+                    {translateOr(t, template.titleKey, id)}
                   </MenuItem>
                 ))}
               </Select>
