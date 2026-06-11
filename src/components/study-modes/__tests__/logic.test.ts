@@ -10,6 +10,9 @@ import {
   cellKey,
   isWordSolved,
   buildPuzzleResults,
+  gradeRecall,
+  outcomesFromBatchResults,
+  xpForQuality,
 } from '../logic';
 
 // A deterministic "shuffle" so option ordering is predictable in assertions.
@@ -97,6 +100,46 @@ describe('buildMultipleChoiceOptions', () => {
     const options = buildMultipleChoiceOptions(card, tiny, 'wordToMeaning', identity);
     expect(options.length).toBe(2);
     expect(options.some((o) => o.id === 'c1')).toBe(true);
+  });
+});
+
+describe('gradeRecall', () => {
+  it('grades a wrong answer as a lapse (1), never "Hard"', () => {
+    expect(gradeRecall(false, 0, 5000)).toBe(1);
+    expect(gradeRecall(false, 99999, 5000)).toBe(1);
+  });
+
+  it('grades a fast correct answer as Easy (4)', () => {
+    expect(gradeRecall(true, 4999, 5000)).toBe(4);
+    expect(gradeRecall(true, 5000, 5000)).toBe(4);
+  });
+
+  it('grades a slow correct answer as Good (3)', () => {
+    expect(gradeRecall(true, 5001, 5000)).toBe(3);
+  });
+});
+
+describe('outcomesFromBatchResults', () => {
+  it('maps correct results to Good and misses to lapses, per card', () => {
+    expect(
+      outcomesFromBatchResults([
+        { id: 'a', correct: true },
+        { id: 'b', correct: false },
+      ])
+    ).toEqual([
+      { cardId: 'a', quality: 3 },
+      { cardId: 'b', quality: 1 },
+    ]);
+  });
+});
+
+describe('xpForQuality', () => {
+  it('awards the same XP for the same quality in every mode', () => {
+    expect(xpForQuality(1)).toBe(2);
+    expect(xpForQuality(2)).toBe(2);
+    expect(xpForQuality(3)).toBe(5);
+    expect(xpForQuality(4)).toBe(10);
+    expect(xpForQuality(5)).toBe(10);
   });
 });
 

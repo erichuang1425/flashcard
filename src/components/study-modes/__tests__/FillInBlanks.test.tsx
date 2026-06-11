@@ -22,10 +22,10 @@ const card: Flashcard = {
   mastered: false,
 };
 
-const renderFillInBlanks = (onAnswer: jest.Mock) =>
+const renderFillInBlanks = (onOutcome: jest.Mock) =>
   render(
     <LanguageProvider>
-      <FillInBlanks card={card} onAnswer={onAnswer} />
+      <FillInBlanks card={card} onOutcome={onOutcome} />
     </LanguageProvider>
   );
 
@@ -51,23 +51,38 @@ describe('<FillInBlanks />', () => {
     expect(screen.getByText('A small domesticated feline')).toBeInTheDocument();
   });
 
-  it('marks a correct (accent/case-insensitive) answer and advances', () => {
-    const onAnswer = jest.fn();
-    renderFillInBlanks(onAnswer);
+  it('marks a fast correct (accent/case-insensitive) answer as Easy and advances', () => {
+    const onOutcome = jest.fn();
+    renderFillInBlanks(onOutcome);
 
     submit('  CAT ');
     expect(screen.getByRole('alert')).toHaveTextContent('Correct!');
-    expect(onAnswer).not.toHaveBeenCalled(); // advance is delayed
+    expect(onOutcome).not.toHaveBeenCalled(); // advance is delayed
 
     act(() => {
       jest.advanceTimersByTime(1500);
     });
-    expect(onAnswer).toHaveBeenCalledWith(true);
+    expect(onOutcome).toHaveBeenCalledWith({ cardId: 'c1', quality: 4 });
   });
 
-  it('reveals the answer and reports a wrong attempt', () => {
-    const onAnswer = jest.fn();
-    renderFillInBlanks(onAnswer);
+  it('grades a slow correct answer as Good rather than Easy', () => {
+    const onOutcome = jest.fn();
+    renderFillInBlanks(onOutcome);
+
+    // Let more than the fast-answer window pass before answering.
+    act(() => {
+      jest.advanceTimersByTime(11000);
+    });
+    submit('cat');
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(onOutcome).toHaveBeenCalledWith({ cardId: 'c1', quality: 3 });
+  });
+
+  it('reveals the answer and reports a wrong attempt as a lapse', () => {
+    const onOutcome = jest.fn();
+    renderFillInBlanks(onOutcome);
 
     submit('dog');
     expect(screen.getByRole('alert')).toHaveTextContent('The correct answer is: cat');
@@ -75,7 +90,7 @@ describe('<FillInBlanks />', () => {
     act(() => {
       jest.advanceTimersByTime(1500);
     });
-    expect(onAnswer).toHaveBeenCalledWith(false);
+    expect(onOutcome).toHaveBeenCalledWith({ cardId: 'c1', quality: 1 });
   });
 
   it('disables the submit button until something is typed', () => {

@@ -335,6 +335,7 @@ const en: Dict = {
 
   // Study page and modes
   'study.loadFailed': 'Failed to load flashcards. Please check your connection and try again.',
+  'study.saveFailed': 'Some reviews could not be saved. They will be retried before the session ends.',
   'study.loading': 'Loading flashcards',
   'study.emptyTitle': 'All caught up!',
   'study.emptyBody': 'No cards are due for study right now. Come back later, or add more words to your library.',
@@ -898,6 +899,7 @@ const zh: Dict = {
 
   // 學習頁面與模式
   'study.loadFailed': '載入單字卡失敗。請檢查網路連線後再試一次。',
+  'study.saveFailed': '部分複習紀錄尚未儲存，將在本次學習結束前自動重試。',
   'study.loading': '正在載入單字卡',
   'study.emptyTitle': '今天都複習完了！',
   'study.emptyBody': '目前沒有需要複習的卡片。稍後再回來，或到單字庫新增更多單字。',
