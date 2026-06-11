@@ -13,7 +13,7 @@ Flashcard Studio is a React + TypeScript web application designed for focused le
 - Tap-to-hear pronunciation on every card, with a choice of accent/voice and adjustable speed (browser text-to-speech, no setup required).
 - Progress tracking, study feedback, and gamification mechanics.
 - Import/export tooling for external study content.
-- Ready-made vocabulary packs (SAT plus PTE Academic sets with Traditional Chinese translations) importable in one click.
+- Ready-made vocabulary packs (SAT, PTE Academic, and current-format TOEFL iBT sets with Traditional Chinese translations) importable in one click.
 - Worksheet generation for printable learning workflows.
 
 ## Tech stack
@@ -118,7 +118,7 @@ I built Flashcard Studio to solve my own consistency problem: I had vocabulary n
 Use this path so reviewers can experience the product quickly:
 
 1. Start the app (`npm run dev`) and log in.
-2. Go to **Import** and upload `sample-data/flashcards-sample.csv`, or click a ready-made pack (e.g. **PTE Academic — Core Vocabulary**) to import curated cards instantly.
+2. Go to **Import** and upload `sample-data/flashcards-sample.csv`, or click a ready-made pack (e.g. **TOEFL iBT — Reading Academic Core**) to import curated cards instantly.
 3. Assign one or two categories during import (for example: `work`, `communication`).
 4. Open **Library** to confirm cards were saved.
 5. Start a session in **Study** using two different modes (e.g., flashcard + multiple choice).
