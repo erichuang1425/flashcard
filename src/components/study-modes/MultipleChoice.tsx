@@ -4,15 +4,16 @@ import {
 } from '@mui/material';
 import type { Flashcard } from '../../types';
 import { capitalizeFirstWord } from '../../utils/helpers';
-import { buildMultipleChoiceOptions } from './logic';
-import type { MultipleChoiceDirection as Direction } from './logic';
+import { buildMultipleChoiceOptions, gradeRecall, MC_FAST_ANSWER_MS } from './logic';
+import type { ModeOutcome, MultipleChoiceDirection as Direction } from './logic';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
   card: Flashcard;
   /** The full deck, used to draw plausible wrong answers. */
   deck: Flashcard[];
-  onAnswer: (correct: boolean) => void;
+  /** Graded recall result: wrong → lapse, correct → Good, fast → Easy. */
+  onOutcome: (outcome: ModeOutcome) => void;
 }
 
 /**
@@ -23,7 +24,7 @@ interface Props {
  *   options are the vocabulary words.
  */
 
-export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.Element => {
+export const MultipleChoice: React.FC<Props> = ({ card, deck, onOutcome }): JSX.Element => {
   const { t } = useLanguage();
   const [direction, setDirection] = useState<Direction>('wordToMeaning');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -31,6 +32,8 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
   const [canProceed, setCanProceed] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
+  // When the question was shown, so a correct answer can be graded on speed.
+  const questionStart = useRef(Date.now());
 
   // Build the answer choices from real cards in the deck. We keep whole
   // Flashcards (not just strings) so each option can render both its main text
@@ -43,17 +46,18 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
 
   // Reset transient state when the card OR the direction (and therefore the
   // options) changes. Also clear any pending auto-advance timer so a correct
-  // answer on the previous card can't fire onAnswer against the new one.
+  // answer on the previous card can't fire onOutcome against the new one.
   useEffect(() => {
     clearTimeout(advanceTimer.current);
     setSelectedId(null);
     setShowResult(false);
     setCanProceed(false);
     setIsCorrect(false);
+    questionStart.current = Date.now();
   }, [card, direction]);
 
   // Clear any pending auto-advance timer when the component unmounts so we
-  // don't call onAnswer / setState after the study session has moved on.
+  // don't call onOutcome / setState after the study session has moved on.
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
   // The text shown on an option, plus the muted "comment" line beneath it.
@@ -63,7 +67,7 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
     direction === 'wordToMeaning' ? c.chineseTranslation : c.partOfSpeech;
 
   const handleSelect = (option: Flashcard) => {
-    if (showResult || !option.id) return;
+    if (showResult || !option.id || !card.id) return;
 
     setSelectedId(option.id);
     setShowResult(true);
@@ -72,9 +76,11 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
     setIsCorrect(correct);
 
     if (correct) {
+      // Grade speed at selection time, not when the advance timer fires.
+      const quality = gradeRecall(true, Date.now() - questionStart.current, MC_FAST_ANSWER_MS);
       // Move to next question automatically if correct
       advanceTimer.current = setTimeout(() => {
-        onAnswer(true);
+        onOutcome({ cardId: card.id!, quality });
       }, 1000);
     } else {
       // Show correct answer and wait for user to proceed
@@ -83,7 +89,8 @@ export const MultipleChoice: React.FC<Props> = ({ card, deck, onAnswer }): JSX.E
   };
 
   const handleProceed = () => {
-    onAnswer(false);
+    if (!card.id) return;
+    onOutcome({ cardId: card.id, quality: gradeRecall(false, 0, MC_FAST_ANSWER_MS) });
   };
 
   return (

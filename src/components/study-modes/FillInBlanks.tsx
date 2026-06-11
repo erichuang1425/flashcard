@@ -1,22 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, Button, Typography, Paper, Alert } from '@mui/material';
 import type { Flashcard } from '../../types';
-import { isFillInBlankCorrect } from './logic';
+import { isFillInBlankCorrect, gradeRecall, FILL_FAST_ANSWER_MS } from './logic';
+import type { ModeOutcome } from './logic';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface Props {
   card: Flashcard;
-  onAnswer: (correct: boolean) => void;
+  /** Graded recall result: wrong → lapse, correct → Good, fast → Easy. */
+  onOutcome: (outcome: ModeOutcome) => void;
 }
 
-export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
+export const FillInBlanks: React.FC<Props> = ({ card, onOutcome }) => {
   const { t } = useLanguage();
   const [answer, setAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout>>();
+  // When the prompt was shown, so a correct answer can be graded on speed.
+  const questionStart = useRef(Date.now());
 
-  // Avoid calling onAnswer / setState after the session has advanced past
+  // Avoid calling onOutcome / setState after the session has advanced past
   // this card.
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
@@ -28,15 +32,19 @@ export const FillInBlanks: React.FC<Props> = ({ card, onAnswer }) => {
     setAnswer('');
     setShowResult(false);
     setIsCorrect(false);
+    questionStart.current = Date.now();
   }, [card.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!card.id) return;
     const correct = isFillInBlankCorrect(answer, card.word);
+    // Grade speed at submit time, not when the advance timer fires.
+    const quality = gradeRecall(correct, Date.now() - questionStart.current, FILL_FAST_ANSWER_MS);
     setIsCorrect(correct);
     setShowResult(true);
     advanceTimer.current = setTimeout(() => {
-      onAnswer(correct);
+      onOutcome({ cardId: card.id!, quality });
       setAnswer('');
       setShowResult(false);
     }, 1500);
