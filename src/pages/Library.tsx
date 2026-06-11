@@ -11,7 +11,7 @@ import { CategoryBrowser } from '../components/CategoryBrowser';
 import { WordGrid } from '../components/WordGrid';
 import {
   getCategories, getVocabularyWords, deleteFlashcards,
-  deleteCategoryWithWords, categoryDocumentId
+  deleteCategoryWithWords, categoryDocumentId, isWordInCategory
 } from '../services/firestore';
 import type { Category, VocabularyWord } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -143,8 +143,14 @@ export const Library: React.FC = () => {
           message: t('library.deleteSelectedSuccess', { count: selectedWords.length })
         });
       } else {
-        const deletedWords = await deleteCategoryWithWords(user.uid, pendingDelete.category.name);
-        removeWordsFromState(deletedWords, pendingDelete.category.name);
+        // Compute the member list here and keep it stable across retries:
+        // allWords only shrinks after a successful delete, so retrying a
+        // partially failed deletion replays the exact same set.
+        const memberWords = allWords.filter(word =>
+          isWordInCategory(word, pendingDelete.category.name)
+        );
+        await deleteCategoryWithWords(user.uid, pendingDelete.category.name, memberWords);
+        removeWordsFromState(memberWords, pendingDelete.category.name);
         setSnackbar({
           severity: 'success',
           message: t('library.deleteCategorySuccess', { name: pendingDelete.category.name })

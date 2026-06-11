@@ -6,7 +6,7 @@ import {
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Category, VocabularyWord } from '../types';
 import { WordGrid } from './WordGrid';
-import { categoryDocumentId } from '../services/firestore';
+import { isWordInCategory } from '../services/firestore';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface CategoryBrowserProps {
@@ -44,15 +44,13 @@ export const CategoryBrowser: React.FC<CategoryBrowserProps> = ({
   // Match by canonical category ID rather than exact string so casing
   // variants of the same set are listed together, consistent with what
   // deleting the set removes.
-  const categoryWords = useMemo(() => {
-    if (!selectedCategory) return [];
-    const selectedId = categoryDocumentId(selectedCategory);
-    return words.filter(word =>
-      word.categories?.some(
-        name => name.trim() && categoryDocumentId(name) === selectedId
-      )
-    );
-  }, [words, selectedCategory]);
+  const categoryWords = useMemo(
+    () =>
+      selectedCategory
+        ? words.filter(word => isWordInCategory(word, selectedCategory))
+        : [],
+    [words, selectedCategory]
+  );
 
   return (
     <Box>

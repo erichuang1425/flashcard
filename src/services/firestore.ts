@@ -846,32 +846,40 @@ export const deleteFlashcards = async (
 };
 
 /**
- * Delete a whole set: every flashcard tagged with the category plus the
- * category document itself. Returns the deleted words so callers can update
- * local state — cards may also belong to other categories whose counts moved.
+ * Whether a card belongs to a category, matched by canonical ID. Cards keep
+ * whatever casing they were written with while category documents are keyed
+ * by the lowercased ID, so exact string comparison against the display name
+ * would miss variant casings.
+ */
+export const isWordInCategory = (
+  word: Pick<VocabularyWord, 'categories'>,
+  categoryName: string
+): boolean => {
+  const categoryId = categoryDocumentId(categoryName);
+  return (word.categories ?? []).some(
+    name => name.trim() && categoryDocumentId(name) === categoryId
+  );
+};
+
+/**
+ * Delete a whole set: the provided member cards plus the category document
+ * itself. Callers supply the member list (filtered with isWordInCategory
+ * from data they already hold) rather than this function re-querying it:
+ * after a partial multi-batch failure, a fresh query would no longer see the
+ * already-deleted cards, permanently skipping their counter decrements for
+ * other categories they belonged to. Retrying with the same list replays the
+ * exact same deletion set, which deleteFlashcards applies idempotently.
  */
 export const deleteCategoryWithWords = async (
   userId: string,
-  categoryName: string
-): Promise<VocabularyWord[]> => {
+  categoryName: string,
+  words: Array<Pick<VocabularyWord, 'id' | 'categories'>>
+): Promise<void> => {
   try {
-    const categoryId = categoryDocumentId(categoryName);
-    // Cards keep whatever casing they were written with while category
-    // documents are keyed by the lowercased ID, so an exact array-contains
-    // query on the display name would miss variant casings and orphan those
-    // cards once the shared category document is removed. Scan the user's
-    // cards and match by canonical ID instead.
-    const snapshot = await getDocs(collection(db, 'users', userId, 'flashcards'));
-    const words = snapshot.docs
-      .map(cardDoc => ({ id: cardDoc.id, ...cardDoc.data() }) as VocabularyWord)
-      .filter(word =>
-        (word.categories ?? []).some(
-          name => name.trim() && categoryDocumentId(name) === categoryId
-        )
-      );
     await deleteFlashcards(userId, words);
-    await deleteDoc(doc(db, 'users', userId, 'categories', categoryId));
-    return words;
+    await deleteDoc(
+      doc(db, 'users', userId, 'categories', categoryDocumentId(categoryName))
+    );
   } catch (error) {
     console.error('Error deleting category:', error);
     throw error;
