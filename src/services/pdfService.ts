@@ -1,6 +1,13 @@
 import { Worksheet } from '@/types';
 import pdfMake from 'pdfmake/build/pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
+import { worksheetContainsCJK } from '../utils/cjk';
+
+// Noto Sans TC covers both Latin and Traditional Chinese glyphs. It has no
+// italic cut, so the italic slots reuse the upright weights. pdfMake fetches a
+// registered font only when a document actually references it, so Latin-only
+// exports never pay to download this (~5MB) CJK file.
+const NOTO_SANS_TC_BASE = 'https://cdn.jsdelivr.net/npm/@expo-google-fonts/noto-sans-tc@0.2.3';
 
 let isInitialized = false;
 
@@ -12,9 +19,15 @@ export const initializePdfMake = async () => {
         bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Medium.ttf',
         italics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Italic.ttf',
         bolditalics: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-MediumItalic.ttf'
+      },
+      NotoSansTC: {
+        normal: `${NOTO_SANS_TC_BASE}/NotoSansTC_400Regular.ttf`,
+        bold: `${NOTO_SANS_TC_BASE}/NotoSansTC_700Bold.ttf`,
+        italics: `${NOTO_SANS_TC_BASE}/NotoSansTC_400Regular.ttf`,
+        bolditalics: `${NOTO_SANS_TC_BASE}/NotoSansTC_700Bold.ttf`
       }
     };
-    
+
     isInitialized = true;
   }
   return pdfMake;
@@ -150,7 +163,9 @@ export const generateWorksheetPDF = async (worksheet: Worksheet): Promise<TDocum
       }
     },
     defaultStyle: {
-      font: 'Roboto'
+      // Use the CJK-capable font whenever the worksheet contains Chinese (a
+      // translated UI label or a vocabulary translation); otherwise Roboto.
+      font: worksheetContainsCJK(worksheet) ? 'NotoSansTC' : 'Roboto'
     }
   };
 };
