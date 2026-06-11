@@ -282,6 +282,26 @@ describe('updateUserStudyStats', () => {
     expect(data.todayStudyMinutes).toBe(5);
     // lifetime minutes still accumulate
     expect(data.studyMinutes).toBe(35);
+    // updateUserStudyStats no longer advances lastStudyDate; the daily-streak
+    // writer (which runs next) owns it and needs to still see the prior day.
+    expect(data.lastStudyDate).toBe(previousIsoDate());
+  });
+
+  it('leaves the streak for updateDailyStreak: a day-boundary session increments it', async () => {
+    // Regression: updateUserStudyStats used to stamp lastStudyDate=today before
+    // updateDailyStreak ran, so the streak could never advance past its seed.
+    await seed({
+      streak: 3,
+      lastStudyDate: previousIsoDate(),
+      averageAccuracy: 80,
+      totalStudySessions: 2,
+    });
+
+    await updateUserStudyStats(USER, session);
+    await updateDailyStreak(USER);
+
+    const data = await read();
+    expect(data.streak).toBe(4);
     expect(data.lastStudyDate).toBe(isoDate());
   });
 });

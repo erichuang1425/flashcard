@@ -13,7 +13,28 @@
   answers are graded "Good" (not "Easy"), so they no longer count toward the
   session's `masteredCards` stat, and batch misses now earn the same lapse XP
   as single-card misses.
-- **Phases 2–6 — not started.**
+- **Phase 2 — implemented** (June 2026): the scheduler now credits overdue
+  reviews — a graduated card recalled "Good" or better after its due date gets
+  `interval + daysLate × 0.5` (capped at `MAX_INTERVAL_DAYS`); learning cards and
+  lapses get no bonus. Streaks (`isoDate`/`previousIsoDate`) are computed against
+  the user's **local** calendar day via `Intl.DateTimeFormat` (optional
+  `timeZone` arg for testing), fixing lost streaks west of UTC. This also
+  surfaced a pre-existing ordering bug — `updateUserStudyStats` stamped
+  `lastStudyDate = today` before `updateDailyStreak` ran, so `nextStreak` always
+  saw "already studied today" and froze every streak at 1; `updateUserStudyStats`
+  now leaves `lastStudyDate` for the streak writer to advance. The SM-2
+  `difficulty` field is **no longer written** on new cards or reviews (existing
+  values left in place; derived from ease on display where still shown). Home no
+  longer streams the whole deck: a new `getDashboardStats()` serves it from the
+  study-stats doc plus O(1) count aggregations (`getTotalCardsCount`,
+  `getMasteryCount`, new `getDueCardsCount`).
+  One deliberate deviation from the plan text: `dueTodayCount`/`masteredCount`
+  are served by count aggregations rather than stored as mutable counters on the
+  stats doc. A stored `dueTodayCount` can't stay correct — cards become due
+  through the mere passage of time, with no write to hang an `increment` on — so
+  a one-read aggregation is both cheaper to reason about and drift-free, while
+  still removing the full-deck read (the actual read-amplification win).
+- **Phases 3–6 — not started.**
 
 ## Context
 

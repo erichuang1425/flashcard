@@ -1,8 +1,16 @@
 import { isoDate, previousIsoDate, nextStreak, updateRunningAverage } from '../study-stats';
 
 describe('isoDate', () => {
-  it('formats an instant as a UTC YYYY-MM-DD string', () => {
-    expect(isoDate(new Date('2026-06-09T15:30:00Z'))).toBe('2026-06-09');
+  it('formats an instant as a YYYY-MM-DD string in the given time zone', () => {
+    expect(isoDate(new Date('2026-06-09T15:30:00Z'), 'UTC')).toBe('2026-06-09');
+  });
+
+  it('uses the local calendar day, not the UTC day', () => {
+    // 02:30 UTC is still the previous evening in the Americas: a user studying
+    // late on the 8th must not be recorded as having studied on the 9th.
+    const instant = new Date('2026-06-09T02:30:00Z');
+    expect(isoDate(instant, 'America/Los_Angeles')).toBe('2026-06-08');
+    expect(isoDate(instant, 'UTC')).toBe('2026-06-09');
   });
 
   it('defaults to today', () => {
@@ -12,15 +20,22 @@ describe('isoDate', () => {
 
 describe('previousIsoDate', () => {
   it('returns the calendar date one day earlier', () => {
-    expect(previousIsoDate(new Date('2026-06-09T00:00:00Z'))).toBe('2026-06-08');
+    expect(previousIsoDate(new Date('2026-06-09T00:00:00Z'), 'UTC')).toBe('2026-06-08');
   });
 
   it('rolls back across a month boundary', () => {
-    expect(previousIsoDate(new Date('2026-03-01T12:00:00Z'))).toBe('2026-02-28');
+    expect(previousIsoDate(new Date('2026-03-01T12:00:00Z'), 'UTC')).toBe('2026-02-28');
   });
 
   it('rolls back across a year boundary', () => {
-    expect(previousIsoDate(new Date('2026-01-01T12:00:00Z'))).toBe('2025-12-31');
+    expect(previousIsoDate(new Date('2026-01-01T12:00:00Z'), 'UTC')).toBe('2025-12-31');
+  });
+
+  it('rolls back the local day, keeping streaks intact west of UTC', () => {
+    // Same instant as the isoDate local-day test: "today" is the 8th locally,
+    // so yesterday must be the 7th — matching what a returning user expects.
+    const instant = new Date('2026-06-09T02:30:00Z');
+    expect(previousIsoDate(instant, 'America/Los_Angeles')).toBe('2026-06-07');
   });
 });
 
