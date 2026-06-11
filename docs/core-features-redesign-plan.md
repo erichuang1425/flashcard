@@ -18,7 +18,11 @@
   `interval + daysLate × 0.5` (capped at `MAX_INTERVAL_DAYS`); learning cards and
   lapses get no bonus. Streaks (`isoDate`/`previousIsoDate`) are computed against
   the user's **local** calendar day via `Intl.DateTimeFormat` (optional
-  `timeZone` arg for testing), fixing lost streaks west of UTC. The SM-2
+  `timeZone` arg for testing), fixing lost streaks west of UTC. This also
+  surfaced a pre-existing ordering bug — `updateUserStudyStats` stamped
+  `lastStudyDate = today` before `updateDailyStreak` ran, so `nextStreak` always
+  saw "already studied today" and froze every streak at 1; `updateUserStudyStats`
+  now leaves `lastStudyDate` for the streak writer to advance. The SM-2
   `difficulty` field is **no longer written** on new cards or reviews (existing
   values left in place; derived from ease on display where still shown). Home no
   longer streams the whole deck: a new `getDashboardStats()` serves it from the

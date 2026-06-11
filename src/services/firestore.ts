@@ -683,6 +683,11 @@ export const updateUserStudyStats = async (
       const existingStats = statsDoc.data();
       const isNewDay = existingStats.lastStudyDate !== today;
 
+      // Note: `lastStudyDate` is deliberately NOT advanced here. The daily
+      // streak is owned by updateDailyStreak, which runs immediately after this
+      // and needs to see the *prior* study day to decide whether the streak
+      // continues. Stamping today here first made nextStreak always read
+      // "already studied today" and froze every streak at 1.
       transaction.update(statsRef, {
         lastStudied: currentTime,
         totalCards: increment(sessionData.cardsStudied),
@@ -693,7 +698,6 @@ export const updateUserStudyStats = async (
           existingStats.totalStudySessions,
           sessionData.accuracy
         ),
-        lastStudyDate: today,
         totalStudySessions: increment(1),
         todayStudyMinutes: isNewDay
           ? sessionMinutes
