@@ -8,7 +8,58 @@
 import type { Flashcard } from '../../types';
 import type { CrosswordCell, PlacedEntry } from '../../utils/crossword';
 import { normalizeAnswer, shuffle as defaultShuffle } from '../../utils/helpers';
+import type { Rating } from '../../utils/spaced-repetition';
 import type { BatchResult } from './types';
+
+// ---------------------------------------------------------------------------
+// Graded outcomes (shared by every study mode)
+// ---------------------------------------------------------------------------
+
+/**
+ * A graded per-card result reported by a study mode. Every mode feeds the
+ * spaced-repetition scheduler through this one shape, so the same knowledge
+ * level produces the same schedule regardless of which mode it was studied in.
+ */
+export interface ModeOutcome {
+  cardId: string;
+  /** SM-2 recall quality: 1 Again · 2 Hard · 3 Good · 4 Easy · 5 Perfect. */
+  quality: Rating;
+}
+
+/**
+ * A correct answer within this window counts as confident recall ("Easy").
+ * Recognizing the right option among four is quicker than producing the word
+ * from memory, so the typing modes get a longer window.
+ */
+export const MC_FAST_ANSWER_MS = 5_000;
+export const FILL_FAST_ANSWER_MS = 10_000;
+
+/**
+ * Map a binary mode result onto an SM-2 quality. A wrong answer is a lapse
+ * (1, "Again") — not "Hard" — so the card's interval resets instead of
+ * continuing to grow. A correct answer is "Good" (3), upgraded to "Easy" (4)
+ * when given quickly.
+ */
+export const gradeRecall = (
+  correct: boolean,
+  elapsedMs: number,
+  fastMs: number
+): Rating => {
+  if (!correct) return 1;
+  return elapsedMs <= fastMs ? 4 : 3;
+};
+
+/**
+ * Grade the per-card results of a batch mode (Matching, Crossword). Batch
+ * modes can't observe per-card answer speed, so a correct answer is "Good"
+ * and a wrong one is a lapse.
+ */
+export const outcomesFromBatchResults = (results: BatchResult[]): ModeOutcome[] =>
+  results.map(({ id, correct }) => ({ cardId: id, quality: correct ? 3 : 1 }));
+
+/** XP awarded for one reviewed card, identical across all study modes. */
+export const xpForQuality = (quality: Rating): number =>
+  quality >= 4 ? 10 : quality === 3 ? 5 : 2;
 
 // ---------------------------------------------------------------------------
 // Fill in the blanks

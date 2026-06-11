@@ -24,10 +24,10 @@ const makeCard = (id: string, word: string, def: string): Flashcard => ({
 const card = makeCard('c1', 'cat', 'a feline');
 const deck = [card, makeCard('c2', 'dog', 'a canine')];
 
-const renderMC = (onAnswer: jest.Mock) =>
+const renderMC = (onOutcome: jest.Mock) =>
   render(
     <LanguageProvider>
-      <MultipleChoice card={card} deck={deck} onAnswer={onAnswer} />
+      <MultipleChoice card={card} deck={deck} onOutcome={onOutcome} />
     </LanguageProvider>
   );
 
@@ -46,34 +46,49 @@ describe('<MultipleChoice />', () => {
     jest.useRealTimers();
   });
 
-  it('prompts with the word and auto-advances on a correct choice', () => {
-    const onAnswer = jest.fn();
-    renderMC(onAnswer);
+  it('prompts with the word and auto-advances on a fast correct choice as Easy', () => {
+    const onOutcome = jest.fn();
+    renderMC(onOutcome);
 
     expect(screen.getByText('cat')).toBeInTheDocument();
     fireEvent.click(optionButton('a feline'));
 
-    expect(onAnswer).not.toHaveBeenCalled(); // 1s delay before advancing
+    expect(onOutcome).not.toHaveBeenCalled(); // 1s delay before advancing
     act(() => {
       jest.advanceTimersByTime(1000);
     });
-    expect(onAnswer).toHaveBeenCalledWith(true);
+    expect(onOutcome).toHaveBeenCalledWith({ cardId: 'c1', quality: 4 });
   });
 
-  it('waits for the user to continue after a wrong choice', () => {
-    const onAnswer = jest.fn();
-    renderMC(onAnswer);
+  it('grades a slow correct choice as Good rather than Easy', () => {
+    const onOutcome = jest.fn();
+    renderMC(onOutcome);
+
+    // Let more than the fast-answer window pass before answering.
+    act(() => {
+      jest.advanceTimersByTime(6000);
+    });
+    fireEvent.click(optionButton('a feline'));
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(onOutcome).toHaveBeenCalledWith({ cardId: 'c1', quality: 3 });
+  });
+
+  it('waits for the user to continue after a wrong choice, then reports a lapse', () => {
+    const onOutcome = jest.fn();
+    renderMC(onOutcome);
 
     fireEvent.click(optionButton('a canine')); // wrong
     act(() => {
       jest.advanceTimersByTime(2000);
     });
     // Must not auto-advance on a wrong answer.
-    expect(onAnswer).not.toHaveBeenCalled();
+    expect(onOutcome).not.toHaveBeenCalled();
 
-    // A continue button appears; clicking it reports the miss.
+    // A continue button appears; clicking it reports the miss as a lapse.
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(onAnswer).toHaveBeenCalledWith(false);
+    expect(onOutcome).toHaveBeenCalledWith({ cardId: 'c1', quality: 1 });
   });
 
   it('translates the direction controls and feedback for Traditional Chinese', () => {
