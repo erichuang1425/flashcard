@@ -775,6 +775,81 @@ export const getWordsByCategory = async (userId: string, category: string): Prom
   }));
 };
 
+// Firestore caps a write batch at 500 operations; large deletions are split
+// across sequential batches.
+const BATCH_OPERATION_LIMIT = 500;
+
+/**
+ * Delete flashcards together with their category counter updates. Counter
+ * decrements are aggregated per category so each batch carries one update per
+ * category no matter how many of the deleted cards reference it — mirroring
+ * the `increment(1)` upserts performed when cards are added.
+ */
+export const deleteFlashcards = async (
+  userId: string,
+  cards: Array<Pick<VocabularyWord, 'id' | 'categories'>>
+): Promise<void> => {
+  if (cards.length === 0) return;
+
+  try {
+    const decrements = new Map<string, number>();
+    for (const card of cards) {
+      for (const category of card.categories ?? []) {
+        if (!category.trim()) continue;
+        const categoryId = categoryDocumentId(category);
+        decrements.set(categoryId, (decrements.get(categoryId) ?? 0) + 1);
+      }
+    }
+
+    type BatchOperation = (batch: ReturnType<typeof writeBatch>) => void;
+    const operations: BatchOperation[] = cards.map(card => batch => {
+      batch.delete(doc(db, 'users', userId, 'flashcards', card.id));
+    });
+    for (const [categoryId, count] of decrements) {
+      operations.push(batch => {
+        batch.set(
+          doc(db, 'users', userId, 'categories', categoryId),
+          { count: increment(-count), updatedAt: new Date() },
+          { merge: true }
+        );
+      });
+    }
+
+    for (let start = 0; start < operations.length; start += BATCH_OPERATION_LIMIT) {
+      const batch = writeBatch(db);
+      for (const apply of operations.slice(start, start + BATCH_OPERATION_LIMIT)) {
+        apply(batch);
+      }
+      await batch.commit();
+    }
+  } catch (error) {
+    console.error('Error deleting flashcards:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a whole set: every flashcard tagged with the category plus the
+ * category document itself. Returns the deleted words so callers can update
+ * local state — cards may also belong to other categories whose counts moved.
+ */
+export const deleteCategoryWithWords = async (
+  userId: string,
+  categoryName: string
+): Promise<VocabularyWord[]> => {
+  try {
+    const words = await getWordsByCategory(userId, categoryName);
+    await deleteFlashcards(userId, words);
+    await deleteDoc(
+      doc(db, 'users', userId, 'categories', categoryDocumentId(categoryName))
+    );
+    return words;
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    throw error;
+  }
+};
+
 export const deleteWorksheet = async (userId: string, worksheetId: string) => {
   try {
     const worksheetRef = doc(db, 'users', userId, 'worksheets', worksheetId);
