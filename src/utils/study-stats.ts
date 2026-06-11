@@ -5,15 +5,32 @@
  * tested without standing up the database.
  */
 
-/** ISO calendar date (YYYY-MM-DD, UTC) for a given instant. */
-export const isoDate = (date: Date = new Date()): string =>
-  date.toISOString().split('T')[0];
+/**
+ * The YYYY-MM-DD calendar date of an instant in a given time zone. `en-CA`
+ * renders dates in ISO order; when `timeZone` is omitted the runtime's local
+ * zone is used (which, in the browser, is the user's own zone). Streaks are a
+ * human "did I study today?" notion, so they must be computed against the
+ * user's local calendar day — using UTC made users west of UTC lose streaks
+ * when studying in the evening.
+ */
+export const isoDate = (date: Date = new Date(), timeZone?: string): string =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
 
-/** The ISO calendar date one day before `date` (UTC). */
-export const previousIsoDate = (date: Date = new Date()): string => {
-  const d = new Date(date);
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split('T')[0];
+/**
+ * The local calendar date one day before `date` (in `timeZone`). Computed by
+ * arithmetic on the local date parts rather than subtracting 24h, so DST
+ * transitions (23/25-hour days) can't skip or repeat a day.
+ */
+export const previousIsoDate = (date: Date = new Date(), timeZone?: string): string => {
+  const [year, month, day] = isoDate(date, timeZone).split('-').map(Number);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  utc.setUTCDate(utc.getUTCDate() - 1);
+  return utc.toISOString().split('T')[0];
 };
 
 /**

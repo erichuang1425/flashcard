@@ -5,7 +5,11 @@ export interface Flashcard {
   partOfSpeech: string;
   englishDefinition: string;
   chineseTranslation?: string;
-  difficulty: number;
+  /**
+   * Legacy SM-2 difficulty (0–5), derived from the ease factor. No longer
+   * written on new cards or reviews; optional for cards that still carry it.
+   */
+  difficulty?: number;
   categories: string[];
   created: Date;
   lastReviewed?: Date;
