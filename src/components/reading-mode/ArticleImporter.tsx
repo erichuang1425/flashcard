@@ -11,7 +11,10 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useAuth } from '../../context/AuthContext';
 import { importArticle } from '../../services/articleService';
-import { parseArticleArchive } from '../../utils/articleImport';
+import {
+  ArticleImportError,
+  parseArticleArchive,
+} from '../../utils/articleImport';
 import { useI18n } from '../../i18n/I18nContext';
 
 interface ArticleImporterProps {
@@ -63,10 +66,11 @@ export const ArticleImporter: React.FC<ArticleImporterProps> = ({
                 ? {
                     ...status,
                     state: 'error',
-                    error:
-                      error instanceof Error
-                        ? error.message
-                        : t('reading.import.failed'),
+                    error: t(
+                      error instanceof ArticleImportError
+                        ? `reading.import.error.${error.code}`
+                        : 'reading.import.failed'
+                    ),
                   }
                 : status
             )

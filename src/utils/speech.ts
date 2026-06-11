@@ -79,19 +79,23 @@ export const pickDefaultVoice = (
   return [...english].sort((a, b) => score(b) - score(a))[0];
 };
 
-/** A short, human-friendly accent label for a voice's language tag. */
-export const accentLabel = (lang: string): string => {
+/** A short, localized accent label for a voice's language tag. */
+export const accentLabel = (
+  lang: string,
+  t: (key: string) => string
+): string => {
   const map: Record<string, string> = {
-    'en-us': 'American',
-    'en-gb': 'British',
-    'en-au': 'Australian',
-    'en-ca': 'Canadian',
-    'en-in': 'Indian',
-    'en-ie': 'Irish',
-    'en-za': 'South African',
-    'en-nz': 'New Zealand',
+    'en-us': 'settings.accent.american',
+    'en-gb': 'settings.accent.british',
+    'en-au': 'settings.accent.australian',
+    'en-ca': 'settings.accent.canadian',
+    'en-in': 'settings.accent.indian',
+    'en-ie': 'settings.accent.irish',
+    'en-za': 'settings.accent.southAfrican',
+    'en-nz': 'settings.accent.newZealand',
   };
-  return map[lang.toLowerCase()] || lang;
+  const key = map[lang.toLowerCase()];
+  return key ? t(key) : lang;
 };
 
 /**
