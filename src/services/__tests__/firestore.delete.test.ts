@@ -51,7 +51,11 @@ jest.mock('firebase/firestore', () => ({
   runTransaction: jest.fn(),
 }));
 
-import { deleteFlashcards, deleteCategoryWithWords } from '../firestore';
+import {
+  deleteFlashcards,
+  deleteCategoryWithWords,
+  isWordInCategory,
+} from '../firestore';
 
 beforeEach(() => {
   batches.length = 0;
@@ -126,33 +130,25 @@ describe('deleteFlashcards', () => {
   });
 });
 
+describe('isWordInCategory', () => {
+  it('matches by canonical ID, so casing variants count as members', () => {
+    expect(isWordInCategory({ categories: ['toefl'] }, 'TOEFL')).toBe(true);
+    expect(isWordInCategory({ categories: ['TOEFL', 'Nouns'] }, 'toefl')).toBe(true);
+    expect(isWordInCategory({ categories: ['Verbs'] }, 'TOEFL')).toBe(false);
+    expect(isWordInCategory({ categories: [] }, 'TOEFL')).toBe(false);
+    expect(isWordInCategory({}, 'TOEFL')).toBe(false);
+  });
+});
+
 describe('deleteCategoryWithWords', () => {
-  it('deletes every word in the category and the category document itself', async () => {
-    // The user's full flashcard collection: two TOEFL members with different
-    // casings (they share one category document, keyed by lowercased ID) and
-    // one card from an unrelated set.
-    mockGetDocs.mockResolvedValue({
-      docs: [
-        {
-          id: 'a',
-          data: () => ({ word: 'aberration', categories: ['TOEFL', 'Nouns'] }),
-        },
-        {
-          id: 'b',
-          data: () => ({ word: 'belie', categories: ['toefl'] }),
-        },
-        {
-          id: 'c',
-          data: () => ({ word: 'corroborate', categories: ['Verbs'] }),
-        },
-      ],
-    });
-
-    const deleted = await deleteCategoryWithWords('user-1', 'TOEFL');
-
-    // Membership is matched by canonical ID, so the lowercased variant is
-    // deleted too while the unrelated card survives.
-    expect(deleted.map(word => word.id)).toEqual(['a', 'b']);
+  it('deletes the provided member cards and the category document itself', async () => {
+    // The caller supplies the member list (instead of this function
+    // re-querying it) so a retry after a partial failure replays the exact
+    // same deletion set; here that includes a variant-cased member.
+    await deleteCategoryWithWords('user-1', 'TOEFL', [
+      { id: 'a', categories: ['TOEFL', 'Nouns'] },
+      { id: 'b', categories: ['toefl'] },
+    ]);
 
     expect(batches).toHaveLength(1);
     expect(batches[0].deletes.map(ref => ref.path)).toEqual([
