@@ -133,7 +133,7 @@ export const normalizeArticleDocument = (
 
   return {
     id,
-    title: sanitizeText(String(data.title ?? '')) || 'Untitled article',
+    title: sanitizeText(String(data.title ?? '')),
     subtitle:
       typeof data.subtitle === 'string'
         ? sanitizeText(data.subtitle) || undefined
@@ -225,7 +225,7 @@ const normalizeCounterItem = (
     title:
       typeof item.title === 'string' && item.title
         ? item.title
-        : 'Untitled article',
+        : '',
     category:
       typeof item.category === 'string' && item.category
         ? item.category

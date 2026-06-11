@@ -1,14 +1,19 @@
 import type { Worksheet, WorksheetQuestion, QuestionType, VocabularyDefinition } from '../types';
-import { getVocabularyDefinitions, getRandomVocabularyWords } from '../services/firestore';
+import { getVocabularyDefinitions } from '../services/firestore';
+import type { Translate } from '../i18n/translations';
 
 const capitalizeFirstWord = (text: string): string => {
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
 
 interface Template {
-  title: string;
-  description: string;
-  generate: (words: string[], difficulty: string, definitions: VocabularyDefinition[]) => Promise<WorksheetQuestion[]>;
+  titleKey: string;
+  generate: (
+    words: string[],
+    difficulty: string,
+    definitions: VocabularyDefinition[],
+    t: Translate
+  ) => Promise<WorksheetQuestion[]>;
 }
 
 const shuffleArray = <T>(array: T[]): T[] => {
@@ -22,9 +27,13 @@ const shuffleArray = <T>(array: T[]): T[] => {
 
 export const templates: Record<string, Template> = {
   comprehensivePractice: {
-    title: 'Comprehensive Practice',
-    description: 'Practice vocabulary with multiple exercise types',
-    generate: async (words: string[], difficulty: string, definitions: VocabularyDefinition[]) => {
+    titleKey: 'worksheets.generator.template.comprehensivePractice',
+    generate: async (
+      words: string[],
+      difficulty: string,
+      definitions: VocabularyDefinition[],
+      t: Translate
+    ) => {
       const questions: WorksheetQuestion[] = [];
       
       for (const word of words) {
@@ -39,7 +48,7 @@ export const templates: Record<string, Template> = {
 
         questions.push({
           type: 'multipleChoice',
-          question: `What is the meaning of "${word}"?`,
+          question: t('worksheets.prompt.meaning', { word }),
           // The correct answer should be the English definition, not the prompt
           // for the writing exercise
           correctAnswer: def.englishDefinition,
@@ -50,7 +59,7 @@ export const templates: Record<string, Template> = {
         if (def.chineseTranslation) {
           questions.push({
             type: 'translation',
-            question: `Translate "${word}" to Chinese:`,
+            question: t('worksheets.prompt.translateToChinese', { word }),
             correctAnswer: def.chineseTranslation,
             points: 5
           });
@@ -59,9 +68,11 @@ export const templates: Record<string, Template> = {
         if (difficulty !== 'easy') {
           questions.push({
             type: 'writing',
-            question: `Write a sentence using "${word}" correctly:`,
+            question: t('worksheets.prompt.writeSentence', { word }),
             correctAnswer: '',
-            explanation: def.examples?.[0] || `Example: Create a sentence using "${word}"`,
+            explanation:
+              def.examples?.[0] ||
+              t('worksheets.prompt.exampleSentence', { word }),
             points: difficulty === 'hard' ? 10 : 7
           });
         }
@@ -71,14 +82,18 @@ export const templates: Record<string, Template> = {
     }
   },
   translationMastery: {
-    title: 'Translation Mastery',
-    description: 'Practice translating between languages with context',
-    generate: async (words: string[], difficulty: string, definitions: VocabularyDefinition[]) => {
+    titleKey: 'worksheets.generator.template.translationMastery',
+    generate: async (
+      words: string[],
+      _difficulty: string,
+      _definitions: VocabularyDefinition[],
+      t: Translate
+    ) => {
       return words.map(word => ({
         type: 'translation',
-        question: `Translate and use "${word}" in a sentence:`,
+        question: t('worksheets.prompt.translateAndUse', { word }),
         correctAnswer: '', 
-        explanation: 'Consider the context and usage',
+        explanation: t('worksheets.prompt.considerContext'),
         points: 5
       }));
     }
@@ -99,7 +114,8 @@ interface WorksheetGenerationResult {
 export const generateWorksheet = async (
   words: string[], 
   templateId: string, 
-  difficulty: string
+  difficulty: string,
+  t: Translate
 ): Promise<WorksheetGenerationResult> => {
   const template = templates[templateId];
   if (!template) {
@@ -129,7 +145,7 @@ export const generateWorksheet = async (
       questions.push({
         id: questionId,
         type: 'multipleChoice',
-        question: capitalizeFirstWord(`What is the meaning of "${word}"?`),
+        question: t('worksheets.prompt.meaning', { word }),
         options: options.map((opt) => capitalizeFirstWord(opt)),
         points: 5,
         correctAnswer: correctOption
@@ -137,7 +153,10 @@ export const generateWorksheet = async (
 
       answers[questionId] = {
         correctAnswer: correctOption,
-        explanation: capitalizeFirstWord(`"${word}" means ${def.englishDefinition}`)
+        explanation: t('worksheets.prompt.meaningExplanation', {
+          word,
+          definition: def.englishDefinition,
+        })
       };
     }
 
@@ -145,7 +164,7 @@ export const generateWorksheet = async (
     questions.push({
       id: transQuestionId,
       type: 'translation',
-      question: `Translate "${word}" to Chinese:`,
+      question: t('worksheets.prompt.translateToChinese', { word }),
       points: 5,
       correctAnswer: def.chineseTranslation || ''
     });
@@ -157,20 +176,32 @@ export const generateWorksheet = async (
 
     if (difficulty !== 'easy') {
       const usageQuestionId = `q${wordIndex}_usage`;
-      const sampleAnswer = def.examples?.[0] || `Example: ${word} - ${def.englishDefinition}`;
+      const sampleAnswer =
+        def.examples?.[0] ||
+        t('worksheets.prompt.exampleWordDefinition', {
+          word,
+          definition: def.englishDefinition,
+        });
       
       questions.push({
         id: usageQuestionId,
         type: 'writing',
-        question: `Write a sentence using "${word}" correctly:`,
+        question: t('worksheets.prompt.writeSentence', { word }),
         points: difficulty === 'hard' ? 10 : 7,
         correctAnswer: sampleAnswer
       });
 
       answers[usageQuestionId] = {
         correctAnswer: sampleAnswer,
-        examples: def.examples || [`Example: ${def.englishDefinition}`],
-        explanation: `Use "${word}" in context with its meaning: ${def.englishDefinition}`
+        examples: def.examples || [
+          t('worksheets.prompt.exampleDefinition', {
+            definition: def.englishDefinition,
+          }),
+        ],
+        explanation: t('worksheets.prompt.usageExplanation', {
+          word,
+          definition: def.englishDefinition,
+        })
       };
     }
   });
@@ -178,12 +209,26 @@ export const generateWorksheet = async (
   return { questions, answers };
 };
 
-export const exportWorksheet = async (worksheet: Worksheet, format: 'pdf' | 'docx') => {
+export const exportWorksheet = async (
+  worksheet: Worksheet,
+  format: 'pdf' | 'docx',
+  t: Translate
+) => {
   const doc = {
     content: [
       { text: worksheet.title, style: 'header' },
-      { text: `Difficulty: ${worksheet.difficulty}`, style: 'subheader' },
-      { text: `Time Limit: ${worksheet.timeLimit} minutes`, style: 'subheader' },
+      {
+        text: t('worksheets.export.difficulty', {
+          difficulty: t(`worksheets.generator.${worksheet.difficulty}`),
+        }),
+        style: 'subheader'
+      },
+      {
+        text: t('worksheets.export.timeLimit', {
+          minutes: worksheet.timeLimit,
+        }),
+        style: 'subheader'
+      },
       { text: '\n' },
       ...worksheet.questions.map((q, i) => ([
         { text: `${i + 1}. ${q.question}`, style: 'question' },

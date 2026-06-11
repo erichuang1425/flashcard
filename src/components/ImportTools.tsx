@@ -257,7 +257,8 @@ export const ImportTools: React.FC = () => {
               completed: (lineIndex + 1) === dataLines.length
             }));
           } catch (err) {
-            recordFailure(err instanceof Error ? err.message : t('import.saveFailed'));
+            console.error('Failed to save imported flashcard:', err);
+            recordFailure(t('import.saveFailed'));
           }
         }
         
@@ -265,7 +266,8 @@ export const ImportTools: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('import.failed'));
+      console.error('Failed to import flashcards:', err);
+      setError(t('import.failed'));
     }
   };
 
@@ -299,7 +301,8 @@ export const ImportTools: React.FC = () => {
       };
       reader.readAsText(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('import.failed'));
+      console.error('Failed to read import file:', err);
+      setError(t('import.failed'));
     } finally {
       setUploading(false);
     }
@@ -313,17 +316,15 @@ export const ImportTools: React.FC = () => {
       setError(null);
       const response = await fetch(pack.file);
       if (!response.ok) {
-        throw new Error(t('import.couldNotLoadPack', { pack: t(pack.labelKey) }));
+        setError(t('import.couldNotLoadPack', { pack: t(pack.labelKey) }));
+        return;
       }
       const csvText = await response.text();
       setSelectedCategories(prev => (prev.includes(pack.category) ? prev : [...prev, pack.category]));
       buildPreviewFromText(csvText);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : t('import.loadPackFailed', { pack: t(pack.labelKey) })
-      );
+      console.error('Failed to load bundled pack:', err);
+      setError(t('import.loadPackFailed', { pack: t(pack.labelKey) }));
     } finally {
       setLoadingPackId(null);
     }
@@ -534,7 +535,8 @@ export const ImportTools: React.FC = () => {
         completed: true
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('import.addFailed'));
+      console.error('Failed to add flashcard:', err);
+      setError(t('import.addFailed'));
     } finally {
       setUploading(false);
     }

@@ -61,6 +61,16 @@ describe('translations', () => {
       'import.pack.toeflWordFamiliesLabel',
       'import.pack.toeflListeningSpeaking',
       'import.pack.toeflListeningSpeakingLabel',
+      'reading.library.untitled',
+      'reading.library.uncategorized',
+      'reading.import.error.missingDetails',
+      'settings.accent.american',
+      'settings.accent.newZealand',
+      'worksheets.prompt.meaning',
+      'worksheets.prompt.translateToChinese',
+      'worksheets.prompt.writeSentence',
+      'worksheets.export.created',
+      'worksheets.export.correctAnswer',
     ];
 
     for (const key of requiredKeys) {

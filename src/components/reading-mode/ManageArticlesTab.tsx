@@ -22,6 +22,7 @@ import {
 } from '../../services/articleService';
 import { Article } from '../../types/reading';
 import { useI18n } from '../../i18n/I18nContext';
+import { articleCategory, articleTitle } from '../../i18n/articleLabels';
 
 interface ManageArticlesTabProps {
   articles: Article[];
@@ -120,16 +121,16 @@ export const ManageArticlesTab: React.FC<ManageArticlesTabProps> = ({
             <Checkbox
               checked={selected.has(article.id)}
               onChange={() => toggleSelected(article.id)}
-              inputProps={{ 'aria-label': article.title }}
+              inputProps={{ 'aria-label': articleTitle(article, t) }}
             />
             <ListItemAvatar>
               <Avatar src={article.coverImage}>
-                {article.title.charAt(0).toUpperCase()}
+                {articleTitle(article, t).charAt(0).toUpperCase()}
               </Avatar>
             </ListItemAvatar>
             <ListItemText
-              primary={article.title}
-              secondary={`${article.category} · ${article.wordCount}`}
+              primary={articleTitle(article, t)}
+              secondary={`${articleCategory(article, t)} · ${article.wordCount}`}
             />
           </ListItem>
         ))}
