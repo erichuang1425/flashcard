@@ -1,5 +1,20 @@
 # Core Features Redesign Plan
 
+## Status
+
+- **Phase 1 — implemented** (June 2026): session engine extracted to
+  `src/hooks/useStudySession.ts`; all five modes feed the scheduler through
+  `submitRating`/`submitBatch` with graded `ModeOutcome`s (a wrong answer now
+  lapses the card instead of growing its interval); XP is one
+  `xpForQuality()` function; failed review writes retry once, then queue with
+  a non-blocking toast. The shared distractor builder
+  (`buildMultipleChoiceOptions`) was already centralized.
+  One intentional behavior change beyond the plan text: batch-mode correct
+  answers are graded "Good" (not "Easy"), so they no longer count toward the
+  session's `masteredCards` stat, and batch misses now earn the same lapse XP
+  as single-card misses.
+- **Phases 2–6 — not started.**
+
 ## Context
 
 Flashcard Studio has grown feature-by-feature across ~95 PRs: five study modes, an SM-2
