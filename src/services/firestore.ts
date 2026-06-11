@@ -41,9 +41,13 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
 
   try {
     const categories = normalizeCategoryNames(flashcard.categories);
+    // `difficulty` is a retired, derived field. Strip it from the spread so the
+    // various import call sites that still pass `difficulty: 0` can't reintroduce
+    // it onto new card documents — this is the single write chokepoint.
+    const { difficulty: _difficulty, ...cardData } = flashcard;
     const flashcardRef = doc(collection(db, 'users', flashcard.userId, 'flashcards'));
     batch.set(flashcardRef, {
-      ...flashcard,
+      ...cardData,
       categories,
       lastReviewed: null,
       nextReview: new Date(),
@@ -51,7 +55,6 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
       easeFactor: DEFAULT_EASE,
       interval: 0,
       repetitions: 0,
-      difficulty: flashcard.difficulty ?? 0,
       mastered: false,
     });
 
@@ -139,18 +142,19 @@ export const updateCardReview = async (
   cardId: string,
   schedule: {
     nextReview: Date;
-    difficulty: number;
     easeFactor: number;
     interval: number;
     repetitions: number;
     mastered: boolean;
   }
 ) => {
+  // `difficulty` is intentionally no longer persisted: it was derived from the
+  // ease factor on every write yet read almost nowhere. Existing values are
+  // left in place; where still shown it is derived on display from `easeFactor`.
   const cardRef = doc(db, 'users', userId, 'flashcards', cardId);
   await updateDoc(cardRef, {
     lastReviewed: new Date(),
     nextReview: schedule.nextReview,
-    difficulty: schedule.difficulty,
     easeFactor: schedule.easeFactor,
     interval: schedule.interval,
     repetitions: schedule.repetitions,
@@ -679,6 +683,11 @@ export const updateUserStudyStats = async (
       const existingStats = statsDoc.data();
       const isNewDay = existingStats.lastStudyDate !== today;
 
+      // Note: `lastStudyDate` is deliberately NOT advanced here. The daily
+      // streak is owned by updateDailyStreak, which runs immediately after this
+      // and needs to see the *prior* study day to decide whether the streak
+      // continues. Stamping today here first made nextStreak always read
+      // "already studied today" and froze every streak at 1.
       transaction.update(statsRef, {
         lastStudied: currentTime,
         totalCards: increment(sessionData.cardsStudied),
@@ -689,7 +698,6 @@ export const updateUserStudyStats = async (
           existingStats.totalStudySessions,
           sessionData.accuracy
         ),
-        lastStudyDate: today,
         totalStudySessions: increment(1),
         todayStudyMinutes: isNewDay
           ? sessionMinutes
@@ -753,6 +761,71 @@ export const getMasteryCount = async (userId: string): Promise<number> => {
   );
   const snapshot = await getCountFromServer(q);
   return snapshot.data().count;
+};
+
+export const getDueCardsCount = async (
+  userId: string,
+  now: Date = new Date()
+): Promise<number> => {
+  // Cards whose nextReview has passed are due. Server-side counts keep this at
+  // a constant couple of billable reads regardless of deck size — and, unlike a
+  // stored counter, can't drift as cards become due through the passage of time.
+  //
+  // A `<=` range query skips documents whose nextReview is null, but the study
+  // loader (isDueForReview) treats an unscheduled card as due, so those cards
+  // are counted separately to keep the dashboard consistent with the queue.
+  // (Documents missing the field entirely are unreachable by any Firestore
+  // query; addFlashcard always stamps a concrete nextReview, so none exist.)
+  const cardsRef = collection(db, 'users', userId, 'flashcards');
+  const [dueSnap, unscheduledSnap] = await Promise.all([
+    getCountFromServer(query(cardsRef, where('nextReview', '<=', now))),
+    getCountFromServer(query(cardsRef, where('nextReview', '==', null))),
+  ]);
+  return dueSnap.data().count + unscheduledSnap.data().count;
+};
+
+export interface DashboardStats {
+  totalCards: number;
+  studiedCards: number;
+  remainingCards: number;
+  dueToday: number;
+  mastered: number;
+  streak: number;
+  averageAccuracy: number;
+  studyMinutes: number;
+  weeklyProgress: number;
+  weeklyGoal: number;
+  totalStudySessions: number;
+}
+
+/**
+ * Everything the Home dashboard needs, assembled from the persisted study-stats
+ * document plus a handful of O(1) count aggregations. This replaces the old
+ * full-deck `getUserFlashcards` read on Home — the single biggest source of
+ * Firestore read amplification — with a constant number of reads independent of
+ * how large the user's library grows.
+ */
+export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
+  const [counts, mastered, dueToday, studyStats] = await Promise.all([
+    getTotalCardsCount(userId),
+    getMasteryCount(userId),
+    getDueCardsCount(userId),
+    getUserStudyStats(userId),
+  ]);
+
+  return {
+    totalCards: counts.totalCards,
+    studiedCards: counts.studiedCards,
+    remainingCards: counts.remainingCards,
+    dueToday,
+    mastered,
+    streak: studyStats.streak,
+    averageAccuracy: studyStats.averageAccuracy,
+    studyMinutes: studyStats.totalStudyMinutes || studyStats.studyMinutes || 0,
+    weeklyProgress: studyStats.weeklyProgress,
+    weeklyGoal: studyStats.weeklyStudyGoal,
+    totalStudySessions: studyStats.totalStudySessions,
+  };
 };
 
 export const getWordsByCategory = async (userId: string, category: string): Promise<VocabularyWord[]> => {

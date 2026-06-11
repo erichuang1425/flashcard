@@ -8,6 +8,7 @@ import {
   MAX_EASE,
   LEARNING_STEP_MINUTES,
   MASTERED_INTERVAL_DAYS,
+  MAX_INTERVAL_DAYS,
   type SrsState,
 } from '../spaced-repetition';
 
@@ -106,6 +107,44 @@ describe('scheduleReview', () => {
     const hard = scheduleReview({ easeFactor: MIN_EASE, interval: 5, repetitions: 2 }, 3, baseDate);
     expect(hard.difficulty).toBe(5);
   });
+
+  describe('overdue credit', () => {
+    const state: SrsState = { easeFactor: 2.5, interval: 10, repetitions: 3 };
+
+    it('credits a graduated card recalled well after its due date', () => {
+      const dueDate = addDays(baseDate, -8); // 8 days late
+      const result = scheduleReview(state, 3, baseDate, dueDate);
+      // Base interval round(10 * 2.5) = 25, plus round(8 * 0.5) = 4.
+      expect(result.interval).toBe(29);
+      expect(result.nextReview).toEqual(addDays(baseDate, 29));
+    });
+
+    it('does not shorten the interval when the card is reviewed early', () => {
+      const dueDate = addDays(baseDate, 5); // not yet due
+      const result = scheduleReview(state, 3, baseDate, dueDate);
+      expect(result.interval).toBe(25);
+    });
+
+    it('gives no overdue credit on a lapse', () => {
+      const dueDate = addDays(baseDate, -30);
+      const result = scheduleReview(state, 1, baseDate, dueDate);
+      expect(result.interval).toBe(0);
+    });
+
+    it('gives no overdue credit to a still-learning card', () => {
+      const learning: SrsState = { easeFactor: 2.5, interval: 0, repetitions: 0 };
+      const dueDate = addDays(baseDate, -30);
+      const result = scheduleReview(learning, 3, baseDate, dueDate);
+      expect(result.interval).toBe(1); // graduating interval, no bonus
+    });
+
+    it('caps the credited interval at the maximum', () => {
+      const mature: SrsState = { easeFactor: 2.5, interval: 300, repetitions: 8 };
+      const dueDate = addDays(baseDate, -400);
+      const result = scheduleReview(mature, 5, baseDate, dueDate);
+      expect(result.interval).toBe(MAX_INTERVAL_DAYS);
+    });
+  });
 });
 
 describe('getSrsState', () => {
@@ -130,6 +169,15 @@ describe('scheduleCardReview', () => {
   it('schedules straight from a card object', () => {
     const result = scheduleCardReview({ interval: 1, repetitions: 1, easeFactor: 2.5 }, 3, baseDate);
     expect(result.interval).toBe(6);
+  });
+
+  it('credits overdue cards using the card nextReview date', () => {
+    const result = scheduleCardReview(
+      { interval: 10, repetitions: 3, easeFactor: 2.5, nextReview: addDays(baseDate, -8) },
+      3,
+      baseDate
+    );
+    expect(result.interval).toBe(29); // round(10 * 2.5) + round(8 * 0.5)
   });
 });
 

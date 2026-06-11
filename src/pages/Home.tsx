@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getUserFlashcards, getUserStudyStats } from '../services/firestore';
+import { getDashboardStats } from '../services/firestore';
 import SchoolIcon from '@mui/icons-material/School';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -17,7 +17,6 @@ import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import { AnimatedCounter } from '../components/AnimatedCounter';
 import { GuideTip } from '../components/guide/GuideTip';
-import { Flashcard } from '../types';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface StudyStats {
@@ -65,43 +64,26 @@ export const Home: React.FC = () => {
       
       try {
         setLoading(true);
-        // A single read of the user's flashcards covers every card-derived
-        // metric below. Previously this also issued getTotalCardsCount and
-        // getMasteryCount, which re-scanned the same collection two more times.
-        const [cards, studyStats] = await Promise.all([
-          getUserFlashcards(user.uid),
-          getUserStudyStats(user.uid),
-        ]);
+        // The dashboard reads from the study-stats doc plus a few O(1) count
+        // aggregations. Previously it streamed the user's entire flashcard
+        // collection just to tally due/mastered counts — the biggest single
+        // source of Firestore read amplification on the app.
+        const dashboard = await getDashboardStats(user.uid);
 
         if (!mounted) return;
 
-        const now = new Date();
-        let dueToday = 0;
-        let masteredCount = 0;
-        let studiedCards = 0;
-        for (const card of cards) {
-          if (card.mastered) masteredCount++;
-          if (card.lastReviewed) studiedCards++;
-          const nextReview = card.nextReview instanceof Date
-            ? card.nextReview
-            : card.nextReview ? new Date(card.nextReview) : null;
-          if (!nextReview || nextReview <= now) dueToday++;
-        }
-        const totalCards = cards.length;
-
-        // Map Firestore data to component state
         setStats({
-          total: totalCards,
-          dueToday,
-          streak: studyStats.streak,
-          mastered: masteredCount,
-          averageAccuracy: studyStats.averageAccuracy,
-          studyMinutes: studyStats.totalStudyMinutes || studyStats.studyMinutes || 0,
-          weeklyProgress: studyStats.weeklyProgress,
-          weeklyGoal: studyStats.weeklyStudyGoal,
-          totalInDatabase: totalCards,
-          remainingToStudy: totalCards - studiedCards,
-          totalStudied: studyStats.totalStudySessions
+          total: dashboard.totalCards,
+          dueToday: dashboard.dueToday,
+          streak: dashboard.streak,
+          mastered: dashboard.mastered,
+          averageAccuracy: dashboard.averageAccuracy,
+          studyMinutes: dashboard.studyMinutes,
+          weeklyProgress: dashboard.weeklyProgress,
+          weeklyGoal: dashboard.weeklyGoal,
+          totalInDatabase: dashboard.totalCards,
+          remainingToStudy: dashboard.remainingCards,
+          totalStudied: dashboard.totalStudySessions
         });
       } catch (error) {
         console.error('Error loading stats:', error);
