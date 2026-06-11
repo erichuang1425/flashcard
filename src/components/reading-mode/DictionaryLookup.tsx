@@ -56,17 +56,16 @@ export const DictionaryLookup: React.FC<DictionaryLookupProps> = ({
       { signal: controller.signal }
     )
       .then(async (response) => {
-        if (!response.ok) throw new Error(t('reading.dictionary.notFound'));
+        if (!response.ok) {
+          setError(t('reading.dictionary.notFound'));
+          return;
+        }
         const data = (await response.json()) as DictionaryDefinition[];
         setDefinition(data[0] ?? null);
       })
       .catch((lookupError) => {
         if ((lookupError as Error).name !== 'AbortError') {
-          setError(
-            lookupError instanceof Error
-              ? lookupError.message
-              : t('reading.dictionary.failed')
-          );
+          setError(t('reading.dictionary.failed'));
         }
       })
       .finally(() => setLoading(false));

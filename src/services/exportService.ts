@@ -1,6 +1,22 @@
 import { Worksheet } from '../types';
 import { Document, Paragraph, Packer } from 'docx';
-export const generateDOCX = async (worksheet: Worksheet): Promise<Document> => {
+import type { Translate } from '../i18n/translations';
+
+export const buildWorksheetDocumentLines = (
+  worksheet: Worksheet,
+  t: Translate
+): string[] => [
+  t('worksheets.export.difficulty', {
+    difficulty: t(`worksheets.generator.${worksheet.difficulty}`),
+  }),
+  t('worksheets.export.timeLimit', { minutes: worksheet.timeLimit }),
+];
+
+export const generateDOCX = async (
+  worksheet: Worksheet,
+  t: Translate
+): Promise<Document> => {
+  const [difficulty, timeLimit] = buildWorksheetDocumentLines(worksheet, t);
   const doc = new Document({
     sections: [{
       properties: {},
@@ -10,10 +26,10 @@ export const generateDOCX = async (worksheet: Worksheet): Promise<Document> => {
           heading: "Heading1"
         }),
         new Paragraph({
-          text: `Difficulty: ${worksheet.difficulty}`
+          text: difficulty
         }),
         new Paragraph({
-          text: `Time Limit: ${worksheet.timeLimit} minutes`
+          text: timeLimit
         }),
         ...worksheet.questions.map((question, index) => [
           new Paragraph({

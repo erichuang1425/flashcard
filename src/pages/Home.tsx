@@ -107,7 +107,7 @@ export const Home: React.FC = () => {
         console.error('Error loading stats:', error);
         setStats(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : t('home.loadStatsFailed')
+          error: t('home.loadStatsFailed')
         }));
       } finally {
         if (mounted) setLoading(false);
