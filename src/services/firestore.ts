@@ -763,15 +763,21 @@ export const getDueCardsCount = async (
   userId: string,
   now: Date = new Date()
 ): Promise<number> => {
-  // Cards whose nextReview has passed are due. A server-side count keeps this
-  // at one billable read regardless of deck size — unlike a stored counter,
-  // it can't drift as cards become due simply through the passage of time.
-  const q = query(
-    collection(db, 'users', userId, 'flashcards'),
-    where('nextReview', '<=', now)
-  );
-  const snapshot = await getCountFromServer(q);
-  return snapshot.data().count;
+  // Cards whose nextReview has passed are due. Server-side counts keep this at
+  // a constant couple of billable reads regardless of deck size — and, unlike a
+  // stored counter, can't drift as cards become due through the passage of time.
+  //
+  // A `<=` range query skips documents whose nextReview is null, but the study
+  // loader (isDueForReview) treats an unscheduled card as due, so those cards
+  // are counted separately to keep the dashboard consistent with the queue.
+  // (Documents missing the field entirely are unreachable by any Firestore
+  // query; addFlashcard always stamps a concrete nextReview, so none exist.)
+  const cardsRef = collection(db, 'users', userId, 'flashcards');
+  const [dueSnap, unscheduledSnap] = await Promise.all([
+    getCountFromServer(query(cardsRef, where('nextReview', '<=', now))),
+    getCountFromServer(query(cardsRef, where('nextReview', '==', null))),
+  ]);
+  return dueSnap.data().count + unscheduledSnap.data().count;
 };
 
 export interface DashboardStats {

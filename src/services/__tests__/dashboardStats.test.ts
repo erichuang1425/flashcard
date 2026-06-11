@@ -48,19 +48,23 @@ beforeEach(() => {
   // the right number for total / studied / mastered / due reads.
   mockCollection.mockImplementation((_db, ...path: string[]) => ({ path: path.join('/') }));
   mockWhere.mockImplementation((field: string, op: string) => ({ field, op }));
-  mockQuery.mockImplementation((ref: { path: string }, constraint?: { field: string }) => ({
-    path: ref.path,
-    field: constraint?.field,
-  }));
+  mockQuery.mockImplementation(
+    (ref: { path: string }, constraint?: { field: string; op: string }) => ({
+      path: ref.path,
+      field: constraint?.field,
+      op: constraint?.op,
+    })
+  );
   mockDoc.mockReturnValue({ __ref: 'users/u1/stats/study' });
 
-  mockGetCountFromServer.mockImplementation((q: { field?: string }) => {
+  mockGetCountFromServer.mockImplementation((q: { field?: string; op?: string }) => {
     const counts: Record<string, number> = {
-      lastReviewed: 6, // studied cards
-      mastered: 3,
-      nextReview: 4, // due today
+      'lastReviewed:!=': 6, // studied cards
+      'mastered:==': 3,
+      'nextReview:<=': 4, // due today (scheduled)
+      'nextReview:==': 2, // unscheduled (null nextReview) cards, also due
     };
-    const count = q.field ? counts[q.field] : 10; // unconstrained query → deck size
+    const count = q.field ? counts[`${q.field}:${q.op}`] ?? 0 : 10; // unconstrained → deck size
     return Promise.resolve({ data: () => ({ count }) });
   });
 
@@ -85,7 +89,7 @@ describe('getDashboardStats', () => {
       totalCards: 10,
       studiedCards: 6,
       remainingCards: 4,
-      dueToday: 4,
+      dueToday: 6, // 4 scheduled-and-due + 2 unscheduled
       mastered: 3,
       streak: 5,
       averageAccuracy: 88,
@@ -99,12 +103,14 @@ describe('getDashboardStats', () => {
   it('never streams the flashcard collection', async () => {
     await getDashboardStats('u1');
     expect(mockGetDocs).not.toHaveBeenCalled();
-    // total + studied + mastered + due = four O(1) count aggregations.
-    expect(mockGetCountFromServer).toHaveBeenCalledTimes(4);
+    // total + studied + mastered + due(scheduled) + due(unscheduled) = five
+    // O(1) count aggregations, none of them a deck stream.
+    expect(mockGetCountFromServer).toHaveBeenCalledTimes(5);
   });
 
-  it('queries due cards by nextReview <= now', async () => {
+  it('counts both scheduled-and-due and unscheduled cards as due', async () => {
     await getDashboardStats('u1');
     expect(mockWhere).toHaveBeenCalledWith('nextReview', '<=', expect.any(Date));
+    expect(mockWhere).toHaveBeenCalledWith('nextReview', '==', null);
   });
 });
