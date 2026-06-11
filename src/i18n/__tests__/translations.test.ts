@@ -47,6 +47,20 @@ describe('translations', () => {
       'profile.achievements',
       'pomodoro.focusTime',
       'gamification.levelUp',
+      'import.pack.toeflReadingCore',
+      'import.pack.toeflReadingCoreLabel',
+      'import.pack.toeflConnectors',
+      'import.pack.toeflConnectorsLabel',
+      'import.pack.toeflBuildSentence',
+      'import.pack.toeflBuildSentenceLabel',
+      'import.pack.toeflEmail',
+      'import.pack.toeflEmailLabel',
+      'import.pack.toeflDiscussion',
+      'import.pack.toeflDiscussionLabel',
+      'import.pack.toeflWordFamilies',
+      'import.pack.toeflWordFamiliesLabel',
+      'import.pack.toeflListeningSpeaking',
+      'import.pack.toeflListeningSpeakingLabel',
     ];
 
     for (const key of requiredKeys) {

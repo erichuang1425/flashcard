@@ -1,0 +1,25 @@
+word,partOfSpeech,englishDefinition,chineseTranslation
+also,connector,adds another related point,也；加入另一個相關重點
+in addition,connector,adds extra information,此外；補充額外資訊
+furthermore,connector,adds a supporting point in formal writing,而且；在較正式寫作中補充支持觀點
+however,connector,introduces an opposite or limiting point,然而；引出相反或限制性的觀點
+in contrast,connector,shows a clear difference between ideas,相較之下；顯示兩個想法的明顯差異
+whereas,connector,joins two facts that are different,然而；連接兩個相反或不同的事實
+although,connector,introduces a fact that makes the main idea surprising,雖然；引出讓主要內容形成轉折的事實
+even though,connector,means although with stronger emphasis,即使；比 although 更強調讓步
+despite,connector,introduces a noun that does not prevent the result,儘管；後面接名詞而非完整子句
+because,connector,introduces the reason for something,因為；後面接完整原因子句
+since,connector,means because when giving a reason,由於；表示原因時等同 because
+therefore,connector,introduces a logical conclusion or result,因此；引出合理結論或結果
+as a result,connector,shows what happened because of something,結果；說明前面事件造成的後果
+consequently,connector,shows a formal cause-and-result relationship,因此；較正式地表示因果結果
+for example,connector,introduces one example that supports an idea,例如；引出支持觀點的一個例子
+for instance,connector,has the same use as for example,舉例來說；用法與 for example 相同
+such as,connector,introduces examples after a noun,例如；接在名詞後列出例子
+first,sequence connector,introduces the first point or step,首先；引出第一個重點或步驟
+next,sequence connector,introduces the following point or step,接著；引出下一個重點或步驟
+finally,sequence connector,introduces the last point or step,最後；引出最後一點或步驟
+similarly,connector,shows that two ideas are alike,同樣地；顯示兩個想法相似
+compared with,connector,places one thing beside another for comparison,與……相比；把兩件事放在一起比較
+if,condition connector,introduces a condition that may produce a result,如果；引出可能造成結果的條件
+overall,summary connector,introduces the main general conclusion,整體而言；引出主要的總結

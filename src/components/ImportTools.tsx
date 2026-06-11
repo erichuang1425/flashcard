@@ -51,7 +51,7 @@ interface BundledPack {
 // Curated word lists bundled with the app and importable in one click. Each
 // CSV lives under /public and uses the standard
 // word,partOfSpeech,englishDefinition,chineseTranslation columns. The PTE
-// Academic packs ship with Traditional Chinese translations.
+// Academic and TOEFL iBT packs ship with Traditional Chinese translations.
 const BUNDLED_PACKS: BundledPack[] = [
   {
     id: 'sat',
@@ -87,6 +87,55 @@ const BUNDLED_PACKS: BundledPack[] = [
     file: '/pte-essay-connectors.csv',
     category: 'PTE Academic',
     descriptionKey: 'import.pack.pteEssay',
+  },
+  {
+    id: 'toefl-reading-academic-core',
+    labelKey: 'import.pack.toeflReadingCoreLabel',
+    file: '/toefl-reading-academic-core.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflReadingCore',
+  },
+  {
+    id: 'toefl-connectors',
+    labelKey: 'import.pack.toeflConnectorsLabel',
+    file: '/toefl-connectors.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflConnectors',
+  },
+  {
+    id: 'toefl-writing-build-a-sentence',
+    labelKey: 'import.pack.toeflBuildSentenceLabel',
+    file: '/toefl-writing-build-a-sentence.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflBuildSentence',
+  },
+  {
+    id: 'toefl-writing-email',
+    labelKey: 'import.pack.toeflEmailLabel',
+    file: '/toefl-writing-email.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflEmail',
+  },
+  {
+    id: 'toefl-writing-academic-discussion',
+    labelKey: 'import.pack.toeflDiscussionLabel',
+    file: '/toefl-writing-academic-discussion.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflDiscussion',
+  },
+  {
+    id: 'toefl-reading-word-families',
+    labelKey: 'import.pack.toeflWordFamiliesLabel',
+    file: '/toefl-reading-word-families.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflWordFamilies',
+  },
+  {
+    id: 'toefl-listening-speaking',
+    labelKey: 'import.pack.toeflListeningSpeakingLabel',
+    file: '/toefl-listening-speaking.csv',
+    category: 'TOEFL iBT',
+    descriptionKey: 'import.pack.toeflListeningSpeaking',
   },
 ];
 
