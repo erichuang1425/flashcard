@@ -29,6 +29,16 @@ export const MAX_INTERVAL_DAYS = 365;
 export const LEARNING_STEP_MINUTES = 10;
 
 const MINUTE_MS = 60 * 1000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
+
+/**
+ * Extra interval credited per day a card was reviewed past its due date. A card
+ * recalled well after a long gap clearly deserves a longer interval than one
+ * recalled right on schedule, so we fold in half the lateness (Anki's overdue
+ * bonus, simplified). Only applied to already-graduated cards answered "Good"
+ * or better; the result is still capped by {@link MAX_INTERVAL_DAYS}.
+ */
+const OVERDUE_CREDIT_PER_DAY = 0.5;
 
 /** Ease adjustment applied per rating, Anki-style. */
 const EASE_DELTA: Record<Rating, number> = {
@@ -98,14 +108,18 @@ export const getSrsState = (
 /**
  * Compute the next schedule for a card given the user's rating.
  *
- * @param state current SRS state (use {@link getSrsState} to derive it from a card)
- * @param rating 1–5 recall quality
- * @param now    injectable clock for deterministic tests
+ * @param state   current SRS state (use {@link getSrsState} to derive it from a card)
+ * @param rating  1–5 recall quality
+ * @param now     injectable clock for deterministic tests
+ * @param dueDate when the card was scheduled to be reviewed; used to credit
+ *                overdue reviews. Omit (or pass a future date) for cards that
+ *                aren't late.
  */
 export const scheduleReview = (
   state: SrsState,
   rating: Rating,
-  now: Date = new Date()
+  now: Date = new Date(),
+  dueDate?: Date
 ): ReviewSchedule => {
   const easeFactor = clampEase(state.easeFactor + EASE_DELTA[rating]);
   let { interval, repetitions } = state;
@@ -132,6 +146,17 @@ export const scheduleReview = (
     } else {
       interval = Math.round(interval * easeFactor * INTERVAL_BONUS[rating]);
     }
+    // Overdue credit: a graduated card recalled well after its due date earns
+    // a bonus for the extra elapsed time it survived in memory.
+    if (rating >= 3 && state.interval >= 1 && dueDate) {
+      const daysLate = Math.floor((now.getTime() - dueDate.getTime()) / DAY_MS);
+      if (daysLate > 0) {
+        interval = Math.max(
+          interval,
+          Math.round(interval + daysLate * OVERDUE_CREDIT_PER_DAY)
+        );
+      }
+    }
     interval = Math.min(interval, MAX_INTERVAL_DAYS);
     nextReview = addDays(now, interval);
   }
@@ -150,10 +175,17 @@ export const scheduleReview = (
  * Convenience wrapper: schedule a review straight from a card.
  */
 export const scheduleCardReview = (
-  card: Partial<Pick<Flashcard, 'easeFactor' | 'interval' | 'repetitions' | 'difficulty'>>,
+  card: Partial<Pick<Flashcard, 'easeFactor' | 'interval' | 'repetitions' | 'difficulty' | 'nextReview'>>,
   rating: Rating,
   now: Date = new Date()
-): ReviewSchedule => scheduleReview(getSrsState(card), rating, now);
+): ReviewSchedule => {
+  const dueDate = card.nextReview
+    ? card.nextReview instanceof Date
+      ? card.nextReview
+      : new Date(card.nextReview)
+    : undefined;
+  return scheduleReview(getSrsState(card), rating, now, dueDate);
+};
 
 export const isDueForReview = (nextReview: Date | undefined): boolean => {
   if (!nextReview) return true;

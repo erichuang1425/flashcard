@@ -51,7 +51,6 @@ export const addFlashcard = async (flashcard: Omit<Flashcard, 'id'>) => {
       easeFactor: DEFAULT_EASE,
       interval: 0,
       repetitions: 0,
-      difficulty: flashcard.difficulty ?? 0,
       mastered: false,
     });
 
@@ -139,18 +138,19 @@ export const updateCardReview = async (
   cardId: string,
   schedule: {
     nextReview: Date;
-    difficulty: number;
     easeFactor: number;
     interval: number;
     repetitions: number;
     mastered: boolean;
   }
 ) => {
+  // `difficulty` is intentionally no longer persisted: it was derived from the
+  // ease factor on every write yet read almost nowhere. Existing values are
+  // left in place; where still shown it is derived on display from `easeFactor`.
   const cardRef = doc(db, 'users', userId, 'flashcards', cardId);
   await updateDoc(cardRef, {
     lastReviewed: new Date(),
     nextReview: schedule.nextReview,
-    difficulty: schedule.difficulty,
     easeFactor: schedule.easeFactor,
     interval: schedule.interval,
     repetitions: schedule.repetitions,
@@ -753,6 +753,65 @@ export const getMasteryCount = async (userId: string): Promise<number> => {
   );
   const snapshot = await getCountFromServer(q);
   return snapshot.data().count;
+};
+
+export const getDueCardsCount = async (
+  userId: string,
+  now: Date = new Date()
+): Promise<number> => {
+  // Cards whose nextReview has passed are due. A server-side count keeps this
+  // at one billable read regardless of deck size — unlike a stored counter,
+  // it can't drift as cards become due simply through the passage of time.
+  const q = query(
+    collection(db, 'users', userId, 'flashcards'),
+    where('nextReview', '<=', now)
+  );
+  const snapshot = await getCountFromServer(q);
+  return snapshot.data().count;
+};
+
+export interface DashboardStats {
+  totalCards: number;
+  studiedCards: number;
+  remainingCards: number;
+  dueToday: number;
+  mastered: number;
+  streak: number;
+  averageAccuracy: number;
+  studyMinutes: number;
+  weeklyProgress: number;
+  weeklyGoal: number;
+  totalStudySessions: number;
+}
+
+/**
+ * Everything the Home dashboard needs, assembled from the persisted study-stats
+ * document plus a handful of O(1) count aggregations. This replaces the old
+ * full-deck `getUserFlashcards` read on Home — the single biggest source of
+ * Firestore read amplification — with a constant number of reads independent of
+ * how large the user's library grows.
+ */
+export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
+  const [counts, mastered, dueToday, studyStats] = await Promise.all([
+    getTotalCardsCount(userId),
+    getMasteryCount(userId),
+    getDueCardsCount(userId),
+    getUserStudyStats(userId),
+  ]);
+
+  return {
+    totalCards: counts.totalCards,
+    studiedCards: counts.studiedCards,
+    remainingCards: counts.remainingCards,
+    dueToday,
+    mastered,
+    streak: studyStats.streak,
+    averageAccuracy: studyStats.averageAccuracy,
+    studyMinutes: studyStats.totalStudyMinutes || studyStats.studyMinutes || 0,
+    weeklyProgress: studyStats.weeklyProgress,
+    weeklyGoal: studyStats.weeklyStudyGoal,
+    totalStudySessions: studyStats.totalStudySessions,
+  };
 };
 
 export const getWordsByCategory = async (userId: string, category: string): Promise<VocabularyWord[]> => {
