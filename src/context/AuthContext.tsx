@@ -18,7 +18,6 @@ import {
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import type { User } from '../types';
-import { useMobile } from './MobileContext';
 import {
   isAccountExistsWithDifferentCredential,
   isPopupCancelledByUser,
@@ -101,7 +100,6 @@ const toAppUser = (firebaseUser: FirebaseUser): User => ({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isMobileDevice } = useMobile();
 
   const restoredLink = useRef<PendingGoogleLink | null | undefined>(undefined);
   if (restoredLink.current === undefined) {
@@ -217,16 +215,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     await applyPersistence(rememberMe);
 
-    // On mobile, popups are unreliable (often blocked or unsupported), so go
-    // straight to the redirect flow. The profile is stamped when the redirect
-    // result resolves on the next load (see the effect above).
-    if (isMobileDevice) {
-      await signInWithRedirect(auth, provider);
-      return;
-    }
-
-    // On desktop, prefer the popup but fall back to a redirect when the popup
-    // is blocked or unsupported. A user-initiated cancel is treated as a no-op.
+    // Prefer the popup on every device. `signInWithRedirect` looks attractive on
+    // mobile, but it bounces through `<authDomain>/__/auth/handler` — a different
+    // origin than the deployed app — and mobile browsers that partition
+    // third-party storage (iOS Safari/ITP, Chrome) block the storage the SDK
+    // needs to finish the round-trip. The user comes back signed *out* with no
+    // error, which is exactly the reported breakage. Popups keep the flow in the
+    // app's own first-party context, so they complete reliably. See Firebase's
+    // redirect best-practices guidance. Redirect is kept only as a last resort
+    // for the rare case a popup cannot open at all. A user-initiated cancel is
+    // treated as a no-op.
     try {
       const { user: firebaseUser } = await signInWithPopup(auth, provider);
       clearPendingGoogleLink();

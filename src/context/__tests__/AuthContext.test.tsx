@@ -224,7 +224,7 @@ describe('remember me persistence', () => {
 });
 
 describe('signInWithGoogle', () => {
-  it('goes straight to redirect on mobile', async () => {
+  it('uses the popup on mobile too, never the (storage-partitioned) redirect', async () => {
     mockIsMobileDevice = true;
     const { result } = renderAuth();
 
@@ -232,8 +232,8 @@ describe('signInWithGoogle', () => {
       await result.current.signInWithGoogle();
     });
 
-    expect(mockSignInWithRedirect).toHaveBeenCalledTimes(1);
-    expect(mockSignInWithPopup).not.toHaveBeenCalled();
+    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
   });
 
   it('uses the popup on desktop and ensures a profile', async () => {
