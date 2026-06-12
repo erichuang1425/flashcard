@@ -231,14 +231,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // `await` (even on a fast promise like `setPersistence`) unwinds that stack
     // and the popup gets blocked — which would then trip the redirect fallback,
     // the very flow this change exists to avoid. So persistence is applied in
-    // parallel (best-effort): it settles in milliseconds, far inside the seconds
-    // the user spends in the Google popup, so the session is still stored with
-    // the chosen persistence by the time sign-in resolves.
-    const persistence = applyPersistence(rememberMe).catch(() => {});
+    // parallel: it settles in milliseconds, far inside the seconds the user
+    // spends in the Google popup, so the session is still stored with the chosen
+    // persistence by the time sign-in resolves.
+    const persistence = applyPersistence(rememberMe);
+    // The popup may fail before we await `persistence`; pre-mark it handled so a
+    // rejection can't surface as an unhandled rejection. We still await it below
+    // to observe the outcome.
+    persistence.catch(() => {});
     const popup = signInWithPopup(auth, provider);
     try {
       const { user: firebaseUser } = await popup;
-      await persistence;
+      try {
+        await persistence;
+      } catch (persistenceErr) {
+        // The requested persistence couldn't be applied. Don't silently keep the
+        // user signed in under a different persistence than they chose (e.g. a
+        // "session only" pick falling back to local). Mirror the email/password
+        // flows, which abort when persistence fails: sign back out and surface it.
+        await firebaseSignOut(auth).catch(() => {});
+        throw persistenceErr;
+      }
       clearPendingGoogleLink();
       await ensureUserProfile(firebaseUser).catch(() => {});
     } catch (err) {
@@ -256,9 +269,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
-        // Make sure the chosen persistence is in place before the redirect
-        // hands control to Firebase (it has long since settled by here).
-        await persistence;
+        // Make sure the chosen persistence is in place before the redirect hands
+        // control to Firebase (it has long since settled by here). Best-effort on
+        // this already-degraded path — don't abort the redirect if it rejected.
+        await persistence.catch(() => {});
         await signInWithRedirect(auth, provider);
         return;
       }

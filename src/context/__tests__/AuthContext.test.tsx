@@ -267,6 +267,23 @@ describe('signInWithGoogle', () => {
     expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
+  it('signs back out and propagates when the chosen persistence cannot be applied', async () => {
+    // A "session only" choice must not silently fall back to local persistence:
+    // if setPersistence rejects, the Google sign-in is aborted like the
+    // email/password flows rather than completing under the wrong persistence.
+    const persistenceErr = new Error('storage access blocked');
+    mockSetPersistence.mockRejectedValueOnce(persistenceErr);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await expect(result.current.signInWithGoogle(false)).rejects.toBe(persistenceErr);
+    });
+
+    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockEnsureUserProfile).not.toHaveBeenCalled();
+  });
+
   it('uses the popup on desktop and ensures a profile', async () => {
     const { result } = renderAuth();
 
