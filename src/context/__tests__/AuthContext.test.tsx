@@ -319,6 +319,34 @@ describe('signInWithGoogle', () => {
     expect(mockSignInWithRedirect).toHaveBeenCalledTimes(1);
   });
 
+  it('treats a superseded popup request as a no-op, never a redirect', async () => {
+    // A double-tap cancels the first popup with auth/cancelled-popup-request; the
+    // second popup is still live, so the first call must stand down quietly
+    // rather than launch the storage-partitioned redirect over the top of it.
+    mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/cancelled-popup-request' });
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await result.current.signInWithGoogle();
+    });
+
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+    expect(mockEnsureUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('aborts the redirect fallback when the chosen persistence cannot be applied', async () => {
+    mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/popup-blocked' });
+    const persistenceErr = new Error('storage access blocked');
+    mockSetPersistence.mockRejectedValueOnce(persistenceErr);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await expect(result.current.signInWithGoogle(false)).rejects.toBe(persistenceErr);
+    });
+
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+  });
+
   it('rethrows popup errors that are neither a cancel nor a fallback case', async () => {
     mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/network-request-failed' });
     const { result } = renderAuth();
