@@ -17,10 +17,12 @@ describe('shouldFallbackToRedirect', () => {
     ).toBe(true);
   });
 
-  it('returns true when a popup request is cancelled by a newer request', () => {
+  it('returns false when a popup request is superseded by a newer one', () => {
+    // A superseded request is benign — the newer popup completes sign-in — so it
+    // must not start a (storage-partitioned) redirect that would clobber it.
     expect(
       shouldFallbackToRedirect({ code: 'auth/cancelled-popup-request' })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('returns false when the user closed the popup', () => {
@@ -52,6 +54,10 @@ describe('isPopupCancelledByUser', () => {
 
   it('returns true when the user cancelled sign-in', () => {
     expect(isPopupCancelledByUser({ code: 'auth/user-cancelled' })).toBe(true);
+  });
+
+  it('returns true when a newer request supersedes this popup', () => {
+    expect(isPopupCancelledByUser({ code: 'auth/cancelled-popup-request' })).toBe(true);
   });
 
   it('returns false when the popup was blocked', () => {

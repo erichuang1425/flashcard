@@ -269,10 +269,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
-        // Make sure the chosen persistence is in place before the redirect hands
-        // control to Firebase (it has long since settled by here). Best-effort on
-        // this already-degraded path — don't abort the redirect if it rejected.
-        await persistence.catch(() => {});
+        // Apply the chosen persistence before the redirect hands control to
+        // Firebase. If it can't be applied, abort rather than redirect under a
+        // different persistence than the user picked — same contract as the
+        // popup-success path above.
+        await persistence;
         await signInWithRedirect(auth, provider);
         return;
       }
