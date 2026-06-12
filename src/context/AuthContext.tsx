@@ -213,7 +213,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async (rememberMe = true) => {
     const provider = new GoogleAuthProvider();
-    await applyPersistence(rememberMe);
 
     // Prefer the popup on every device. `signInWithRedirect` looks attractive on
     // mobile, but it bounces through `<authDomain>/__/auth/handler` — a different
@@ -225,8 +224,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // redirect best-practices guidance. Redirect is kept only as a last resort
     // for the rare case a popup cannot open at all. A user-initiated cancel is
     // treated as a no-op.
+    //
+    // Open the popup *synchronously* from the click — before awaiting anything.
+    // Strict mobile browsers (notably iOS Safari) only allow `window.open` while
+    // the original user gesture is still on the call stack; an intervening
+    // `await` (even on a fast promise like `setPersistence`) unwinds that stack
+    // and the popup gets blocked — which would then trip the redirect fallback,
+    // the very flow this change exists to avoid. So persistence is applied in
+    // parallel (best-effort): it settles in milliseconds, far inside the seconds
+    // the user spends in the Google popup, so the session is still stored with
+    // the chosen persistence by the time sign-in resolves.
+    const persistence = applyPersistence(rememberMe).catch(() => {});
+    const popup = signInWithPopup(auth, provider);
     try {
-      const { user: firebaseUser } = await signInWithPopup(auth, provider);
+      const { user: firebaseUser } = await popup;
+      await persistence;
       clearPendingGoogleLink();
       await ensureUserProfile(firebaseUser).catch(() => {});
     } catch (err) {
@@ -244,6 +256,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
+        // Make sure the chosen persistence is in place before the redirect
+        // hands control to Firebase (it has long since settled by here).
+        await persistence;
         await signInWithRedirect(auth, provider);
         return;
       }
