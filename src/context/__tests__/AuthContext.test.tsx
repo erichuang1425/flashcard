@@ -236,6 +236,37 @@ describe('signInWithGoogle', () => {
     expect(mockSignInWithRedirect).not.toHaveBeenCalled();
   });
 
+  it('opens the popup synchronously, without first awaiting persistence', async () => {
+    // setPersistence stays pending: a strict mobile browser blocks a popup that
+    // is opened after the gesture's call stack unwinds, so the popup must be
+    // opened before we await persistence. Asserting the popup is requested while
+    // persistence is still unresolved guards that ordering.
+    let releasePersistence: () => void = () => {};
+    mockSetPersistence.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        releasePersistence = () => resolve();
+      })
+    );
+    const { result } = renderAuth();
+
+    let settled = false;
+    await act(async () => {
+      void result.current.signInWithGoogle().then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false); // still parked on the pending persistence
+
+    await act(async () => {
+      releasePersistence();
+      await Promise.resolve();
+    });
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the popup on desktop and ensures a profile', async () => {
     const { result } = renderAuth();
 
