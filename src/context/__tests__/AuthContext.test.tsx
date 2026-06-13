@@ -196,11 +196,44 @@ describe('email/password flows', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('recovers in memory when the real persisted-user write exceeds quota', async () => {
+  it('recovers durably to localStorage when remember-me is on and only the durable write fails', async () => {
+    // IndexedDB rejected the user-write but localStorage is still writable, so a
+    // "remember me" session is re-homed there (survives a restart) rather than
+    // collapsing all the way to in-memory.
     const persistedUser = credential().user;
     (auth as unknown as { currentUser: unknown }).currentUser = persistedUser;
     const quotaError = Object.assign(new Error('quota exceeded'), { code: 'auth/internal-error' });
     mockSignIn.mockRejectedValueOnce(quotaError);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw'); // remember-me defaults to true
+    });
+
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'LOCAL' }
+    );
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
+      expect.objectContaining({ __auth: true }),
+      persistedUser
+    );
+    expect(result.current.user?.uid).toBe('u1');
+  });
+
+  it('falls back to in-memory recovery when localStorage also rejects the write', async () => {
+    // Device-wide storage pressure: both durable stores reject the real write.
+    // The recovery walks down the tiers and still lands the user signed in.
+    const persistedUser = credential().user;
+    (auth as unknown as { currentUser: unknown }).currentUser = persistedUser;
+    mockSignIn.mockRejectedValueOnce(
+      Object.assign(new Error('quota exceeded'), { code: 'auth/internal-error' })
+    );
+    mockSetPersistence.mockImplementation((_auth: unknown, persistence: { __persistence?: string }) =>
+      persistence?.__persistence === 'LOCAL'
+        ? Promise.reject(new Error('local storage full'))
+        : Promise.resolve(undefined)
+    );
     const { result } = renderAuth();
 
     await act(async () => {
@@ -211,9 +244,28 @@ describe('email/password flows', () => {
       expect.objectContaining({ __auth: true }),
       { __persistence: 'MEMORY' }
     );
-    expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
+    expect(result.current.user?.uid).toBe('u1');
+  });
+
+  it('recovers session-only sign-ins straight to memory, never upgrading durability', async () => {
+    const persistedUser = credential().user;
+    (auth as unknown as { currentUser: unknown }).currentUser = persistedUser;
+    mockSignIn.mockRejectedValueOnce(
+      Object.assign(new Error('quota exceeded'), { code: 'auth/internal-error' })
+    );
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw', false);
+    });
+
+    expect(mockSetPersistence).not.toHaveBeenCalledWith(
       expect.objectContaining({ __auth: true }),
-      persistedUser
+      { __persistence: 'LOCAL' }
+    );
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'MEMORY' }
     );
     expect(result.current.user?.uid).toBe('u1');
   });
