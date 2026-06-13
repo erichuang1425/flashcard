@@ -14,6 +14,7 @@
  */
 export const NEEDS_PASSWORD_LINK_CODE = 'auth/needs-password-link';
 export const LINK_EMAIL_MISMATCH_CODE = 'auth/link-email-mismatch';
+export const REDIRECT_STORAGE_UNAVAILABLE_CODE = 'auth/redirect-storage-unavailable';
 
 const extractCode = (error: unknown): string | undefined => {
   if (typeof error === 'object' && error !== null && 'code' in error) {
@@ -41,6 +42,7 @@ const CODE_TO_KEY: Record<string, string> = {
   'auth/popup-blocked': 'authError.popupBlocked',
   [NEEDS_PASSWORD_LINK_CODE]: 'authError.needsPasswordLink',
   [LINK_EMAIL_MISMATCH_CODE]: 'authError.linkEmailMismatch',
+  [REDIRECT_STORAGE_UNAVAILABLE_CODE]: 'authError.redirectStorageUnavailable',
 };
 
 /**

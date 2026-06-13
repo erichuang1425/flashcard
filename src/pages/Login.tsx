@@ -57,8 +57,8 @@ export const Login: React.FC = () => {
     try {
       setError('');
       setLinkPrompt('');
-      await signInWithGoogle(rememberMe);
-      navigate('/');
+      const signedIn = await signInWithGoogle(rememberMe);
+      if (signedIn) navigate('/');
     } catch (err) {
       if ((err as { code?: string })?.code === NEEDS_PASSWORD_LINK_CODE) {
         // Existing password account: prefill the email and ask for the password.
