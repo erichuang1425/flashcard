@@ -45,12 +45,21 @@ happens, `onAuthStateChanged` may never fire.
 
 The sign-in calls are wrapped so that, if one rejects but `auth.currentUser` is
 set (the credential was accepted, only persistence failed), they recover by
-`setPersistence(auth, inMemoryPersistence)` and re-running
-`updateCurrentUser(auth, auth.currentUser)` so the listeners fire and the user
-lands signed in. This works because `directlySetCurrentUser` sets
-`auth.currentUser` *before* the failing persistence write. (Safe here because
-sign-in only runs while signed out, so a non-null `currentUser` in the catch
-unambiguously means "authenticated but not persisted.")
+re-homing that user via `setPersistence(...)` + `updateCurrentUser(auth,
+auth.currentUser)` so the listeners fire and the user lands signed in. This works
+because `directlySetCurrentUser` sets `auth.currentUser` *before* the failing
+persistence write. (Safe here because sign-in only runs while signed out, so a
+non-null `currentUser` in the catch unambiguously means "authenticated but not
+persisted.")
+
+Recovery walks a **durability ladder** rather than dropping straight to memory: a
+"remember me" sign-in whose IndexedDB write failed is re-homed in
+`browserLocalPersistence` when `localStorage` is still writable (so the session
+survives a restart), and only falls to `inMemoryPersistence` if that store
+rejects the write too. A session-only ("remember me" unchecked) sign-in skips the
+durable tier entirely, so the preference is never silently upgraded. Each tier is
+strictly more ephemeral than the last; the worst case is an in-memory session
+that lasts the current page but lets the user actually sign in.
 
 ### Google redirect fallback when `sessionStorage` is blocked
 
