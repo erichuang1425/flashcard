@@ -11,6 +11,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
   setPersistence,
+  browserLocalPersistence,
   browserSessionPersistence,
   indexedDBLocalPersistence,
   inMemoryPersistence,
@@ -96,14 +97,14 @@ const removePersistedGoogleLink = (): void => {
   }
 };
 
-// Probe the sessionStorage required by session-only auth and by Firebase's
-// redirect resolver. `setPersistence` itself skips this availability check while
-// signed out. Accessing `window.sessionStorage` can also throw, so the whole
-// probe is guarded.
-const sessionStorageWritable = (): boolean => {
+// Probe whether a Web Storage backend can actually be written. `setPersistence`
+// itself skips this availability check while signed out, so we mirror Firebase's
+// own init-time check here. Accessing `window.localStorage`/`sessionStorage` can
+// itself throw (e.g. cookies disabled), so the whole probe is guarded.
+const webStorageWritable = (kind: 'local' | 'session'): boolean => {
   if (typeof window === 'undefined') return false;
   try {
-    const storage = window.sessionStorage;
+    const storage = kind === 'local' ? window.localStorage : window.sessionStorage;
     if (!storage) return false;
     const probeKey = '__flashcards.persistence-probe__';
     storage.setItem(probeKey, '1');
@@ -112,6 +113,79 @@ const sessionStorageWritable = (): boolean => {
   } catch {
     return false;
   }
+};
+
+// sessionStorage backs session-only auth and Firebase's redirect resolver;
+// localStorage backs the durable recovery tier below.
+const sessionStorageWritable = (): boolean => webStorageWritable('session');
+const localStorageWritable = (): boolean => webStorageWritable('local');
+
+const IDB_PROBE_NAME = '__flashcards.idb-probe__';
+
+// Probe whether IndexedDB can actually be opened *and* written. The durable
+// "remember me" tier is IndexedDB-backed, but `setPersistence` never probes the
+// store it switches to while signed out — so selecting IndexedDB when the
+// backend is disabled or corrupted is worse than not selecting it: once a broken
+// IndexedDB is the *active* store, `setPersistence` reads and removes the current
+// user from that active store before switching backends (see
+// PersistenceUserManager.setPersistence), so even the in-memory recovery fallback
+// can no longer be reached and sign-in is wedged. Probing up front keeps the
+// active store on something that works. Opening can also hang in some privacy
+// modes, so the probe is bounded by a timeout, and a transaction write catches an
+// IndexedDB that opens but can't store anything.
+const indexedDBUsable = (): Promise<boolean> => {
+  if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(false);
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean, db?: IDBDatabase) => {
+      if (settled) return;
+      settled = true;
+      try {
+        db?.close();
+      } catch {
+        /* best-effort */
+      }
+      try {
+        window.indexedDB.deleteDatabase(IDB_PROBE_NAME);
+      } catch {
+        /* cleanup is best-effort */
+      }
+      resolve(ok);
+    };
+
+    let request: IDBOpenDBRequest;
+    try {
+      request = window.indexedDB.open(IDB_PROBE_NAME);
+    } catch {
+      finish(false);
+      return;
+    }
+    const timer = setTimeout(() => finish(false), 1000);
+    request.onupgradeneeded = () => {
+      try {
+        request.result.createObjectStore('probe');
+      } catch {
+        /* surfaced via onerror/timeout */
+      }
+    };
+    request.onerror = () => {
+      clearTimeout(timer);
+      finish(false);
+    };
+    request.onsuccess = () => {
+      clearTimeout(timer);
+      const db = request.result;
+      try {
+        const tx = db.transaction('probe', 'readwrite');
+        tx.objectStore('probe').put(1, 'k');
+        tx.oncomplete = () => finish(true, db);
+        tx.onerror = () => finish(false, db);
+        tx.onabort = () => finish(false, db);
+      } catch {
+        finish(false, db);
+      }
+    };
+  });
 };
 
 const extractAuthErrorCode = (error: unknown): string | undefined => {
@@ -179,37 +253,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return email;
   }, [clearPendingGoogleLink]);
 
-  // "Remember me" maps onto Firebase persistence: local survives a browser
-  // restart, session is cleared when the tab/window closes. Applied before each
-  // sign-in so the choice on the form always wins.
+  // "Remember me" maps onto Firebase persistence: a durable store survives a
+  // browser restart, session is cleared when the tab/window closes. Applied
+  // before each sign-in so the choice on the form always wins.
   //
-  // Applying persistence must never block sign-in. The chosen store needs Web
-  // Storage that some environments withhold — private browsing, in-app webviews
-  // (Instagram/Facebook/iOS), or disabled cookies. Crucially, `setPersistence`
-  // does NOT surface that while signed out: with no user to migrate it just
-  // switches the active store and resolves without testing it, so the failure
-  // would only land later when sign-in writes the user — rejecting the whole
-  // sign-in. (That regression locked users out: the email flow threw before
-  // sign-in; Google signed the user back out.) So probe the store up front and
-  // fall back to in-memory persistence when it is unavailable — it needs no
-  // storage and is strictly *more* ephemeral than either choice, so a "session
-  // only" pick is never silently upgraded to a persistent one. The session then
-  // lasts only for this page, but the user can actually sign in.
+  // Applying persistence must never block sign-in. The chosen store needs a
+  // backend that some environments withhold — private browsing, in-app webviews
+  // (Instagram/Facebook/iOS), or disabled cookies/IndexedDB. Crucially,
+  // `setPersistence` does NOT surface that while signed out: with no user to
+  // migrate it just switches the active store and resolves without testing it,
+  // so the failure would only land later when sign-in writes the user —
+  // rejecting the whole sign-in. (That regression locked users out: the email
+  // flow threw before sign-in; Google signed the user back out.)
+  //
+  // So pick the most durable store that is *actually usable*, probing each up
+  // front. For "remember me" that is IndexedDB (Firebase's preferred durable
+  // backend) → localStorage → in-memory; for session-only it is sessionStorage →
+  // in-memory. Probing IndexedDB before selecting it matters beyond this call:
+  // once a broken IndexedDB is the active store, `setPersistence` can no longer
+  // switch away from it (it reads/removes the user from the active store first),
+  // so the recovery fallbacks below would be unreachable too. Each tier is
+  // strictly more ephemeral than the last, so a "session only" pick is never
+  // silently upgraded. Worst case the session lasts only this page, but the user
+  // can actually sign in.
   const applyPersistence = async (
     rememberMe: boolean
   ): Promise<{ redirectStorageAvailable: boolean }> => {
-    const targetStorageAvailable = rememberMe || sessionStorageWritable();
-    const redirectStorageAvailable =
-      rememberMe ? sessionStorageWritable() : targetStorageAvailable;
-    const target = targetStorageAvailable
-      ? rememberMe
-        // Firebase's normal browser default prefers IndexedDB for durable
-        // sessions. Using localStorage explicitly caused the reported
-        // remember-me-only failure when that store was full or restricted,
-        // while session persistence continued to work.
+    const redirectStorageAvailable = sessionStorageWritable();
+    let target: typeof inMemoryPersistence;
+    if (rememberMe) {
+      target = (await indexedDBUsable())
         ? indexedDBLocalPersistence
-        : browserSessionPersistence
-      : inMemoryPersistence;
+        : localStorageWritable()
+          ? browserLocalPersistence
+          : inMemoryPersistence;
+    } else {
+      target = redirectStorageAvailable ? browserSessionPersistence : inMemoryPersistence;
+    }
     try {
       await setPersistence(auth, target);
     } catch {
@@ -222,21 +302,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Firebase assigns `auth.currentUser` before writing the serialized user to
   // persistence and notifying auth listeners. If that larger write fails after
-  // our small availability probe passed (for example because localStorage is
-  // nearly full), the credential promise rejects even though authentication
-  // succeeded. Move that already-authenticated user to memory and replay it
-  // through the public API so listeners fire instead of bouncing back to login.
-  const recoverAuthenticatedUser = async (originalError: unknown): Promise<FirebaseUser> => {
+  // our small availability probe passed (for example because the durable store
+  // is nearly full or restricted), the credential promise rejects even though
+  // authentication succeeded. Re-home that already-authenticated user in the
+  // most durable store that still accepts the write and replay it through the
+  // public API so listeners fire instead of bouncing back to login.
+  //
+  // A "remember me" session should survive a restart whenever *any* durable
+  // store works: when IndexedDB was the broken one, localStorage may still be
+  // writable, so try it before collapsing all the way to in-memory (which is
+  // lost on reload). Each tier is strictly more ephemeral than the last, so a
+  // "session only" pick is never silently upgraded.
+  const recoverAuthenticatedUser = async (
+    originalError: unknown,
+    rememberMe: boolean
+  ): Promise<FirebaseUser> => {
     const authenticatedUser = auth.currentUser;
     if (!authenticatedUser) throw originalError;
 
-    try {
-      await setPersistence(auth, inMemoryPersistence);
-      await updateCurrentUser(auth, authenticatedUser);
-      return authenticatedUser;
-    } catch {
-      throw originalError;
+    const tiers =
+      rememberMe && localStorageWritable()
+        ? [browserLocalPersistence, inMemoryPersistence]
+        : [inMemoryPersistence];
+
+    for (const persistence of tiers) {
+      try {
+        await setPersistence(auth, persistence);
+        await updateCurrentUser(auth, authenticatedUser);
+        return authenticatedUser;
+      } catch {
+        // The probe passed but this store rejected the real write too; fall
+        // through to the next, more ephemeral, tier.
+      }
     }
+    throw originalError;
   };
 
   const retryEmailSignInInMemory = async (
@@ -300,7 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ({ user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password));
     } catch (error) {
       firebaseUser = auth.currentUser
-        ? await recoverAuthenticatedUser(error)
+        ? await recoverAuthenticatedUser(error, rememberMe)
         : await retryEmailSignInInMemory(email, password, error);
     }
 
@@ -323,7 +422,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ({ user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password));
     } catch (error) {
       if (auth.currentUser) {
-        firebaseUser = await recoverAuthenticatedUser(error);
+        firebaseUser = await recoverAuthenticatedUser(error, rememberMe);
       } else if (isPersistenceWriteFailure(error)) {
         // Account creation may have succeeded server-side before the local
         // persistence write failed. Sign in to that account under memory rather
@@ -374,7 +473,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         ({ user: firebaseUser } = await popup);
       } catch (error) {
-        firebaseUser = await recoverAuthenticatedUser(error);
+        firebaseUser = await recoverAuthenticatedUser(error, rememberMe);
       }
       await persistence;
       clearPendingGoogleLink();
