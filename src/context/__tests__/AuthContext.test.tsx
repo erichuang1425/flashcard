@@ -38,6 +38,7 @@ jest.mock('firebase/auth', () => ({
   linkWithCredential: (...args: unknown[]) => mockLinkWithCredential(...args),
   browserLocalPersistence: { __persistence: 'LOCAL' },
   browserSessionPersistence: { __persistence: 'SESSION' },
+  inMemoryPersistence: { __persistence: 'MEMORY' },
   GoogleAuthProvider: class {
     static credentialFromError(...args: unknown[]): unknown {
       return mockCredentialFromError(...args);
@@ -267,21 +268,22 @@ describe('signInWithGoogle', () => {
     expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
-  it('signs back out and propagates when the chosen persistence cannot be applied', async () => {
-    // A "session only" choice must not silently fall back to local persistence:
-    // if setPersistence rejects, the Google sign-in is aborted like the
-    // email/password flows rather than completing under the wrong persistence.
-    const persistenceErr = new Error('storage access blocked');
-    mockSetPersistence.mockRejectedValueOnce(persistenceErr);
+  it('falls back to in-memory persistence and still signs in when the chosen persistence cannot be applied', async () => {
+    // A blocked web-storage environment (private mode, in-app webview) makes
+    // setPersistence reject. That must never lock the user out: fall back to
+    // in-memory persistence — strictly more ephemeral than the "session only"
+    // they chose — and complete the sign-in rather than signing them back out.
+    mockSetPersistence.mockRejectedValueOnce(new Error('storage access blocked'));
     const { result } = renderAuth();
 
     await act(async () => {
-      await expect(result.current.signInWithGoogle(false)).rejects.toBe(persistenceErr);
+      await result.current.signInWithGoogle(false);
     });
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
-    expect(mockSignOut).toHaveBeenCalledTimes(1);
-    expect(mockEnsureUserProfile).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'MEMORY' });
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
   it('uses the popup on desktop and ensures a profile', async () => {
@@ -334,17 +336,19 @@ describe('signInWithGoogle', () => {
     expect(mockEnsureUserProfile).not.toHaveBeenCalled();
   });
 
-  it('aborts the redirect fallback when the chosen persistence cannot be applied', async () => {
+  it('still redirects under in-memory persistence when the chosen persistence cannot be applied', async () => {
+    // The popup is blocked *and* storage is unavailable. Persistence degrades to
+    // in-memory rather than aborting, so the redirect fallback still proceeds.
     mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/popup-blocked' });
-    const persistenceErr = new Error('storage access blocked');
-    mockSetPersistence.mockRejectedValueOnce(persistenceErr);
+    mockSetPersistence.mockRejectedValueOnce(new Error('storage access blocked'));
     const { result } = renderAuth();
 
     await act(async () => {
-      await expect(result.current.signInWithGoogle(false)).rejects.toBe(persistenceErr);
+      await result.current.signInWithGoogle(false);
     });
 
-    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+    expect(mockSignInWithRedirect).toHaveBeenCalledTimes(1);
+    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'MEMORY' });
   });
 
   it('rethrows popup errors that are neither a cancel nor a fallback case', async () => {

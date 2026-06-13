@@ -13,6 +13,7 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  inMemoryPersistence,
   linkWithCredential,
   OAuthCredential,
 } from 'firebase/auth';
@@ -143,8 +144,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // "Remember me" maps onto Firebase persistence: local survives a browser
   // restart, session is cleared when the tab/window closes. Applied before each
   // sign-in so the choice on the form always wins.
-  const applyPersistence = (rememberMe: boolean) =>
-    setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+  //
+  // Applying persistence must never block sign-in. `setPersistence` rejects when
+  // the chosen store needs web storage this environment withholds — private
+  // browsing, in-app webviews (Instagram/Facebook/iOS), or disabled cookies /
+  // IndexedDB. Firebase's *default* persistence silently degrades there, but an
+  // explicit `setPersistence` call does not: it throws. Treating that throw as
+  // fatal (the email flow aborted before sign-in; Google signed the user back
+  // out) locked affected users out entirely. Fall back to in-memory persistence
+  // instead — it needs no storage and is strictly *more* ephemeral than either
+  // choice, so a "session only" pick is never silently upgraded to a persistent
+  // one. The session then lasts only for this page, but the user can sign in.
+  const applyPersistence = async (rememberMe: boolean): Promise<void> => {
+    try {
+      await setPersistence(
+        auth,
+        rememberMe ? browserLocalPersistence : browserSessionPersistence
+      );
+    } catch {
+      await setPersistence(auth, inMemoryPersistence).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     // Complete any pending redirect sign-in (mobile flow or popup-blocked
@@ -233,25 +253,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // the very flow this change exists to avoid. So persistence is applied in
     // parallel: it settles in milliseconds, far inside the seconds the user
     // spends in the Google popup, so the session is still stored with the chosen
-    // persistence by the time sign-in resolves.
+    // persistence by the time sign-in resolves. `applyPersistence` resolves on
+    // its own (falling back to in-memory if the store is unavailable), so it
+    // never aborts the sign-in.
     const persistence = applyPersistence(rememberMe);
-    // The popup may fail before we await `persistence`; pre-mark it handled so a
-    // rejection can't surface as an unhandled rejection. We still await it below
-    // to observe the outcome.
-    persistence.catch(() => {});
     const popup = signInWithPopup(auth, provider);
     try {
       const { user: firebaseUser } = await popup;
-      try {
-        await persistence;
-      } catch (persistenceErr) {
-        // The requested persistence couldn't be applied. Don't silently keep the
-        // user signed in under a different persistence than they chose (e.g. a
-        // "session only" pick falling back to local). Mirror the email/password
-        // flows, which abort when persistence fails: sign back out and surface it.
-        await firebaseSignOut(auth).catch(() => {});
-        throw persistenceErr;
-      }
+      await persistence;
       clearPendingGoogleLink();
       await ensureUserProfile(firebaseUser).catch(() => {});
     } catch (err) {
@@ -269,10 +278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
-        // Apply the chosen persistence before the redirect hands control to
-        // Firebase. If it can't be applied, abort rather than redirect under a
-        // different persistence than the user picked — same contract as the
-        // popup-success path above.
+        // Settle persistence (best-effort) before handing control to the
+        // redirect, then fall back to the full-page flow.
         await persistence;
         await signInWithRedirect(auth, provider);
         return;
