@@ -27,13 +27,27 @@ otherwise only land later, when sign-in writes the authenticated user (and that
 write rejecting also skips `notifyAuthListeners`, so `onAuthStateChanged` never
 fires).
 
-Durable remember-me sessions use IndexedDB, matching Firebase's preferred
-browser persistence instead of forcing localStorage. Session-only persistence is
-probed up front and falls back to `inMemoryPersistence` when sessionStorage is
-blocked. If the real authenticated-user write still rejects, email sign-in is
-retried once under memory persistence. In-memory needs no storage and is
-strictly more ephemeral than either choice. Worst case, the session lasts only
-for the current page, but the user can actually sign in.
+So every store is **probed up front** before it is selected, and the most
+durable *usable* one wins. For "remember me" that ladder is IndexedDB →
+`localStorage` → in-memory; for session-only it is `sessionStorage` → in-memory.
+Durable sessions prefer IndexedDB (Firebase's preferred browser backend) instead
+of forcing `localStorage`, which is what caused the original remember-me-only
+failure when that store was full or restricted.
+
+Probing IndexedDB before selecting it matters beyond a single sign-in: once a
+broken IndexedDB is the **active** store, `setPersistence` can no longer switch
+away from it — `PersistenceUserManager.setPersistence` reads and removes the user
+from the active store *before* swapping backends, so a disabled/corrupted
+IndexedDB would also wedge every in-memory/localStorage fallback. The probe opens
+a throwaway database and runs a trivial write (bounded by a timeout, since some
+privacy modes hang); only a backend that both opens and writes is selected.
+
+If the real authenticated-user write still rejects *after* a usable store was
+selected (e.g. transient quota during the larger write), email sign-in is retried
+once under memory persistence, or the already-authenticated user is re-homed (see
+the durability ladder below). In-memory needs no storage and is strictly more
+ephemeral than either choice. Worst case, the session lasts only for the current
+page, but the user can actually sign in.
 
 ## Full hardening
 
