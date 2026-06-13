@@ -13,7 +13,7 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 
-jest.mock('../../services/firebase', () => ({ auth: { __auth: true } }));
+jest.mock('../../services/firebase', () => ({ auth: { __auth: true, currentUser: null } }));
 
 const mockOnAuthStateChanged = jest.fn();
 const mockSignIn = jest.fn();
@@ -23,6 +23,7 @@ const mockSignInWithPopup = jest.fn();
 const mockSignInWithRedirect = jest.fn();
 const mockGetRedirectResult = jest.fn();
 const mockSetPersistence = jest.fn();
+const mockUpdateCurrentUser = jest.fn();
 const mockLinkWithCredential = jest.fn();
 const mockCredentialFromError = jest.fn();
 const mockOAuthCredentialFromJSON = jest.fn();
@@ -35,9 +36,11 @@ jest.mock('firebase/auth', () => ({
   signInWithRedirect: (...args: unknown[]) => mockSignInWithRedirect(...args),
   getRedirectResult: (...args: unknown[]) => mockGetRedirectResult(...args),
   setPersistence: (...args: unknown[]) => mockSetPersistence(...args),
+  updateCurrentUser: (...args: unknown[]) => mockUpdateCurrentUser(...args),
   linkWithCredential: (...args: unknown[]) => mockLinkWithCredential(...args),
   browserLocalPersistence: { __persistence: 'LOCAL' },
   browserSessionPersistence: { __persistence: 'SESSION' },
+  indexedDBLocalPersistence: { __persistence: 'INDEXED_DB' },
   inMemoryPersistence: { __persistence: 'MEMORY' },
   GoogleAuthProvider: class {
     static credentialFromError(...args: unknown[]): unknown {
@@ -62,6 +65,7 @@ jest.mock('../MobileContext', () => ({
 }));
 
 import { AuthProvider, useAuth } from '../AuthContext';
+import { auth } from '../../services/firebase';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
@@ -87,6 +91,8 @@ beforeEach(() => {
   mockGetRedirectResult.mockResolvedValue(null);
   mockOnAuthStateChanged.mockReturnValue(() => {}); // unsubscribe fn
   mockSetPersistence.mockResolvedValue(undefined);
+  mockUpdateCurrentUser.mockResolvedValue(undefined);
+  (auth as unknown as { currentUser: unknown }).currentUser = null;
   mockSignOut.mockResolvedValue(undefined);
   mockSignInWithRedirect.mockResolvedValue(undefined);
   mockLinkWithCredential.mockResolvedValue(undefined);
@@ -165,7 +171,7 @@ describe('email/password flows', () => {
     await act(async () => {
       await result.current.signIn('a@b.com', 'pw');
     });
-    expect(mockSignIn).toHaveBeenCalledWith({ __auth: true }, 'a@b.com', 'pw');
+    expect(mockSignIn).toHaveBeenCalledWith(expect.objectContaining({ __auth: true }), 'a@b.com', 'pw');
   });
 
   it('ensures a profile after an email sign-in', async () => {
@@ -176,12 +182,48 @@ describe('email/password flows', () => {
     expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
+  it('publishes the signed-in user before the auth observer fires', async () => {
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(result.current.user).toEqual({
+      uid: 'u1',
+      email: 'a@b.com',
+      displayName: 'Mina',
+      photoURL: undefined,
+    });
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('recovers in memory when the real persisted-user write exceeds quota', async () => {
+    const persistedUser = credential().user;
+    (auth as unknown as { currentUser: unknown }).currentUser = persistedUser;
+    const quotaError = Object.assign(new Error('quota exceeded'), { code: 'auth/internal-error' });
+    mockSignIn.mockRejectedValueOnce(quotaError);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'MEMORY' }
+    );
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
+      expect.objectContaining({ __auth: true }),
+      persistedUser
+    );
+    expect(result.current.user?.uid).toBe('u1');
+  });
+
   it('signUp delegates to createUserWithEmailAndPassword and ensures a profile', async () => {
     const { result } = renderAuth();
     await act(async () => {
       await result.current.signUp('a@b.com', 'pw');
     });
-    expect(mockSignUp).toHaveBeenCalledWith({ __auth: true }, 'a@b.com', 'pw');
+    expect(mockSignUp).toHaveBeenCalledWith(expect.objectContaining({ __auth: true }), 'a@b.com', 'pw');
     expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
@@ -199,12 +241,15 @@ describe('email/password flows', () => {
 });
 
 describe('remember me persistence', () => {
-  it('uses local persistence when remember-me is on (the default)', async () => {
+  it('uses IndexedDB persistence when remember-me is on (the default)', async () => {
     const { result } = renderAuth();
     await act(async () => {
       await result.current.signIn('a@b.com', 'pw');
     });
-    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'LOCAL' });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'INDEXED_DB' }
+    );
   });
 
   it('uses session persistence when remember-me is off', async () => {
@@ -212,7 +257,7 @@ describe('remember me persistence', () => {
     await act(async () => {
       await result.current.signIn('a@b.com', 'pw', false);
     });
-    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'SESSION' });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(expect.objectContaining({ __auth: true }), { __persistence: 'SESSION' });
   });
 
   it('applies persistence before a Google sign-in too', async () => {
@@ -220,17 +265,17 @@ describe('remember me persistence', () => {
     await act(async () => {
       await result.current.signInWithGoogle(false);
     });
-    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'SESSION' });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(expect.objectContaining({ __auth: true }), { __persistence: 'SESSION' });
   });
 
-  it('selects in-memory persistence up front when web storage is unavailable', async () => {
+  it('selects in-memory persistence up front when session storage is unavailable', async () => {
     // Firebase's setPersistence resolves without probing the store while signed
     // out, so a blocked store would only fail later on the user-write and reject
     // sign-in. We probe up front: a failing probe must route straight to memory
     // and never hand the blocked store to setPersistence at all. Simulate the
-    // "cookies disabled" case, where touching window.localStorage throws.
-    const original = Object.getOwnPropertyDescriptor(window, 'localStorage');
-    Object.defineProperty(window, 'localStorage', {
+    // "cookies disabled" case, where touching window.sessionStorage throws.
+    const original = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
+    Object.defineProperty(window, 'sessionStorage', {
       configurable: true,
       get() {
         throw new Error('storage blocked');
@@ -240,19 +285,51 @@ describe('remember me persistence', () => {
       const { result } = renderAuth();
 
       await act(async () => {
-        await result.current.signIn('a@b.com', 'pw'); // remember-me defaults to local
+        await result.current.signIn('a@b.com', 'pw', false);
       });
 
       expect(mockSetPersistence).toHaveBeenCalledTimes(1);
-      expect(mockSetPersistence).toHaveBeenCalledWith({ __auth: true }, { __persistence: 'MEMORY' });
+      expect(mockSetPersistence).toHaveBeenCalledWith(expect.objectContaining({ __auth: true }), { __persistence: 'MEMORY' });
       expect(mockSignIn).toHaveBeenCalledTimes(1); // sign-in still proceeds
     } finally {
       if (original) {
-        Object.defineProperty(window, 'localStorage', original);
+        Object.defineProperty(window, 'sessionStorage', original);
       } else {
-        delete (window as unknown as { localStorage?: Storage }).localStorage;
+        delete (window as unknown as { sessionStorage?: Storage }).sessionStorage;
       }
     }
+  });
+
+  it('retries email sign-in in memory when durable persistence rejects before currentUser is available', async () => {
+    mockSignIn
+      .mockRejectedValueOnce(Object.assign(new Error('IndexedDB write failed'), {
+        code: 'auth/internal-error',
+      }))
+      .mockResolvedValueOnce(credential());
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw', true);
+    });
+
+    expect(mockSignIn).toHaveBeenCalledTimes(2);
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'MEMORY' }
+    );
+    expect(result.current.user?.uid).toBe('u1');
+  });
+
+  it('does not retry invalid credentials as a persistence failure', async () => {
+    const invalidCredential = { code: 'auth/invalid-credential' };
+    mockSignIn.mockRejectedValueOnce(invalidCredential);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await expect(result.current.signIn('a@b.com', 'bad', true)).rejects.toBe(invalidCredential);
+    });
+
+    expect(mockSignIn).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -314,7 +391,7 @@ describe('signInWithGoogle', () => {
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
     expect(mockSignOut).not.toHaveBeenCalled();
-    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'MEMORY' });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(expect.objectContaining({ __auth: true }), { __persistence: 'MEMORY' });
     expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
@@ -334,10 +411,12 @@ describe('signInWithGoogle', () => {
     mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/popup-closed-by-user' });
     const { result } = renderAuth();
 
+    let signedIn = true;
     await act(async () => {
-      await result.current.signInWithGoogle();
+      signedIn = await result.current.signInWithGoogle();
     });
 
+    expect(signedIn).toBe(false);
     expect(mockSignInWithRedirect).not.toHaveBeenCalled();
     expect(mockEnsureUserProfile).not.toHaveBeenCalled();
   });
@@ -368,19 +447,51 @@ describe('signInWithGoogle', () => {
     expect(mockEnsureUserProfile).not.toHaveBeenCalled();
   });
 
-  it('still redirects under in-memory persistence when the chosen persistence cannot be applied', async () => {
-    // The popup is blocked *and* storage is unavailable. Persistence degrades to
-    // in-memory rather than aborting, so the redirect fallback still proceeds.
+  it('does not attempt a doomed redirect when session storage is blocked', async () => {
     mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/popup-blocked' });
-    mockSetPersistence.mockRejectedValueOnce(new Error('storage access blocked'));
+    const original = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      get() {
+        throw new Error('storage blocked');
+      },
+    });
     const { result } = renderAuth();
 
+    try {
+      await act(async () => {
+        await expect(result.current.signInWithGoogle(false)).rejects.toMatchObject({
+          code: 'auth/redirect-storage-unavailable',
+        });
+      });
+
+      expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+      expect(mockSetPersistence).toHaveBeenLastCalledWith(
+        expect.objectContaining({ __auth: true }),
+        { __persistence: 'MEMORY' }
+      );
+    } finally {
+      if (original) Object.defineProperty(window, 'sessionStorage', original);
+    }
+  });
+
+  it('recovers a Google user when its persisted-user write exceeds quota', async () => {
+    const persistedUser = credential().user;
+    (auth as unknown as { currentUser: unknown }).currentUser = persistedUser;
+    mockSignInWithPopup.mockRejectedValueOnce(new Error('quota exceeded'));
+    const { result } = renderAuth();
+
+    let signedIn = false;
     await act(async () => {
-      await result.current.signInWithGoogle(false);
+      signedIn = await result.current.signInWithGoogle();
     });
 
-    expect(mockSignInWithRedirect).toHaveBeenCalledTimes(1);
-    expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'MEMORY' });
+    expect(signedIn).toBe(true);
+    expect(mockUpdateCurrentUser).toHaveBeenCalledWith(
+      expect.objectContaining({ __auth: true }),
+      persistedUser
+    );
+    expect(result.current.user?.uid).toBe('u1');
   });
 
   it('rethrows popup errors that are neither a cancel nor a fallback case', async () => {

@@ -176,6 +176,7 @@ const en: Dict = {
   'authError.emailInUse': 'This email is already registered. Try signing in instead.',
   'authError.weakPassword': 'Password must be at least 6 characters.',
   'authError.popupBlocked': 'The sign-in popup was blocked. Please allow popups and try again.',
+  'authError.redirectStorageUnavailable': 'Google sign-in cannot continue because this browser is blocking session storage. Enable cookies/storage, or sign in with email and password.',
   'authError.needsPasswordLink': 'You already have an account with this email. Sign in with your password to connect Google.',
   'authError.linkEmailMismatch': 'Use the same email from the Google sign-in to connect this account.',
 
@@ -741,6 +742,7 @@ const zh: Dict = {
   'authError.emailInUse': '此電子郵件已經註冊過，請改用登入。',
   'authError.weakPassword': '密碼長度至少需要 6 個字元。',
   'authError.popupBlocked': '登入彈出視窗被封鎖，請允許彈出視窗後再試。',
+  'authError.redirectStorageUnavailable': '瀏覽器封鎖了工作階段儲存空間，因此無法繼續使用 Google 登入。請允許 Cookie／儲存空間，或改用電子郵件和密碼登入。',
   'authError.needsPasswordLink': '此電子郵件已有帳號。請使用密碼登入以連結 Google。',
   'authError.linkEmailMismatch': '請使用 Google 登入時相同的電子郵件來連結此帳號。',
 
