@@ -84,9 +84,57 @@ const credential = () => ({
   user: { uid: 'u1', email: 'a@b.com', displayName: 'Mina', photoURL: null, providerData: [] },
 });
 
+// jsdom ships no IndexedDB, but applyPersistence probes it before selecting the
+// durable "remember me" tier. Install a minimal fake whose open/transaction
+// succeed by default so remember-me keeps choosing IndexedDB; pass a behaviour to
+// simulate a disabled/corrupted backend.
+type IdbBehavior = 'ok' | 'openThrows' | 'openFails' | 'txFails';
+const installFakeIndexedDB = (behavior: IdbBehavior = 'ok') => {
+  const fake = {
+    open: () => {
+      if (behavior === 'openThrows') throw new Error('indexedDB blocked');
+      const request: Record<string, unknown> = {
+        onupgradeneeded: null,
+        onerror: null,
+        onsuccess: null,
+        result: null,
+      };
+      setTimeout(() => {
+        if (behavior === 'openFails') {
+          (request.onerror as (() => void) | null)?.();
+          return;
+        }
+        const db = {
+          close() {},
+          createObjectStore: () => ({}),
+          transaction: () => {
+            const tx: Record<string, unknown> = {
+              oncomplete: null,
+              onerror: null,
+              onabort: null,
+              objectStore: () => ({ put: () => {} }),
+            };
+            setTimeout(() => {
+              if (behavior === 'txFails') (tx.onerror as (() => void) | null)?.();
+              else (tx.oncomplete as (() => void) | null)?.();
+            }, 0);
+            return tx;
+          },
+        };
+        request.result = db;
+        (request.onsuccess as (() => void) | null)?.();
+      }, 0);
+      return request;
+    },
+    deleteDatabase: () => ({}),
+  };
+  (window as unknown as { indexedDB: unknown }).indexedDB = fake;
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   window.sessionStorage.clear();
+  installFakeIndexedDB('ok');
   mockIsMobileDevice = false;
   mockGetRedirectResult.mockResolvedValue(null);
   mockOnAuthStateChanged.mockReturnValue(() => {}); // unsubscribe fn
@@ -102,6 +150,10 @@ beforeEach(() => {
   mockSignIn.mockResolvedValue(credential());
   mockSignUp.mockResolvedValue(credential());
   mockSignInWithPopup.mockResolvedValue(credential());
+});
+
+afterEach(() => {
+  delete (window as unknown as { indexedDB?: unknown }).indexedDB;
 });
 
 describe('auth state', () => {
@@ -304,6 +356,59 @@ describe('remember me persistence', () => {
     );
   });
 
+  it('falls to durable localStorage for remember-me when IndexedDB is unusable', async () => {
+    // Disabled/corrupted IndexedDB: never select it (the active store could not
+    // then be switched away from), so a remember-me session uses localStorage,
+    // which still survives a restart.
+    installFakeIndexedDB('openFails');
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'LOCAL' }
+    );
+    expect(mockSignIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats an IndexedDB that opens but cannot write as unusable', async () => {
+    installFakeIndexedDB('txFails');
+    const { result } = renderAuth();
+    await act(async () => {
+      await result.current.signIn('a@b.com', 'pw');
+    });
+    expect(mockSetPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({ __auth: true }),
+      { __persistence: 'LOCAL' }
+    );
+  });
+
+  it('falls to in-memory for remember-me when neither IndexedDB nor localStorage works', async () => {
+    delete (window as unknown as { indexedDB?: unknown }).indexedDB; // no IndexedDB at all
+    const original = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('storage blocked');
+      },
+    });
+    try {
+      const { result } = renderAuth();
+      await act(async () => {
+        await result.current.signIn('a@b.com', 'pw'); // remember-me on
+      });
+      expect(mockSetPersistence).toHaveBeenLastCalledWith(
+        expect.objectContaining({ __auth: true }),
+        { __persistence: 'MEMORY' }
+      );
+      expect(mockSignIn).toHaveBeenCalledTimes(1);
+    } finally {
+      if (original) Object.defineProperty(window, 'localStorage', original);
+      else delete (window as unknown as { localStorage?: Storage }).localStorage;
+    }
+  });
+
   it('uses session persistence when remember-me is off', async () => {
     const { result } = renderAuth();
     await act(async () => {
@@ -399,33 +504,19 @@ describe('signInWithGoogle', () => {
   });
 
   it('opens the popup synchronously, without first awaiting persistence', async () => {
-    // setPersistence stays pending: a strict mobile browser blocks a popup that
-    // is opened after the gesture's call stack unwinds, so the popup must be
-    // opened before we await persistence. Asserting the popup is requested while
-    // persistence is still unresolved guards that ordering.
-    let releasePersistence: () => void = () => {};
-    mockSetPersistence.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        releasePersistence = () => resolve();
-      })
-    );
+    // A strict mobile browser blocks a popup opened after the gesture's call
+    // stack unwinds, so the popup must be requested before we await anything
+    // (the IndexedDB probe and setPersistence). Asserting the popup is requested
+    // within the same synchronous tick as the call guards that ordering.
     const { result } = renderAuth();
 
-    let settled = false;
     await act(async () => {
-      void result.current.signInWithGoogle().then(() => {
-        settled = true;
-      });
-      await Promise.resolve();
+      const pending = result.current.signInWithGoogle();
+      // Requested synchronously — before the persistence promise has settled.
+      expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+      await pending;
     });
 
-    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
-    expect(settled).toBe(false); // still parked on the pending persistence
-
-    await act(async () => {
-      releasePersistence();
-      await Promise.resolve();
-    });
     expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
   });
 
