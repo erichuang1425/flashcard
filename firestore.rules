@@ -10,6 +10,28 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Admins are identified by a custom auth claim (`admin: true`) that is set
+    // server-side with the Firebase Admin SDK — never by a client-writable
+    // document — so a user can't escalate their own privileges. Grant it with
+    // scripts/set-admin-claim.mjs. The claim only takes effect after the user's
+    // ID token refreshes (re-login or ~1h).
+    // `.get('admin', false)` rather than `.token.admin`: reading a claim that
+    // isn't present on the token raises a rule error ("Property admin is
+    // undefined") instead of evaluating false, which would make this override
+    // error for every ordinary (non-admin) user.
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.get('admin', false) == true;
+    }
+
+    // Admin override: a verified admin may read and write anything. This is
+    // purely additive — every rule below still grants normal users their own
+    // access (rules combine with OR), so non-admin behaviour is unchanged. It
+    // is also what lets an admin curate the otherwise client-locked base
+    // vocabulary below.
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 
@@ -36,7 +58,8 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Base vocabulary is curated outside the client application.
+    // Base vocabulary is curated outside the client application (by an admin via
+    // the override above); ordinary clients may read it but never write it.
     match /vocabulary/{wordId} {
       allow read: if isAuthenticated();
       allow write: if false;

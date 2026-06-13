@@ -13,6 +13,7 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  inMemoryPersistence,
   linkWithCredential,
   OAuthCredential,
 } from 'firebase/auth';
@@ -90,6 +91,27 @@ const removePersistedGoogleLink = (): void => {
   }
 };
 
+// Probe whether the Web Storage that backs a persistence choice can actually be
+// written. `browserLocalPersistence` is `localStorage`; `browserSessionPersistence`
+// is `sessionStorage`. This mirrors the availability check Firebase runs when it
+// *initialises* auth — but which `setPersistence` itself skips while signed out
+// (with no user to migrate it just switches the active store and resolves
+// without testing it). Accessing `window.localStorage` can itself throw (e.g.
+// cookies disabled), so the whole probe is guarded.
+const webStorageWritable = (kind: 'local' | 'session'): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const storage = kind === 'local' ? window.localStorage : window.sessionStorage;
+    if (!storage) return false;
+    const probeKey = '__flashcards.persistence-probe__';
+    storage.setItem(probeKey, '1');
+    storage.removeItem(probeKey);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const toAppUser = (firebaseUser: FirebaseUser): User => ({
   uid: firebaseUser.uid,
   email: firebaseUser.email ?? '',
@@ -143,8 +165,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // "Remember me" maps onto Firebase persistence: local survives a browser
   // restart, session is cleared when the tab/window closes. Applied before each
   // sign-in so the choice on the form always wins.
-  const applyPersistence = (rememberMe: boolean) =>
-    setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+  //
+  // Applying persistence must never block sign-in. The chosen store needs Web
+  // Storage that some environments withhold — private browsing, in-app webviews
+  // (Instagram/Facebook/iOS), or disabled cookies. Crucially, `setPersistence`
+  // does NOT surface that while signed out: with no user to migrate it just
+  // switches the active store and resolves without testing it, so the failure
+  // would only land later when sign-in writes the user — rejecting the whole
+  // sign-in. (That regression locked users out: the email flow threw before
+  // sign-in; Google signed the user back out.) So probe the store up front and
+  // fall back to in-memory persistence when it is unavailable — it needs no
+  // storage and is strictly *more* ephemeral than either choice, so a "session
+  // only" pick is never silently upgraded to a persistent one. The session then
+  // lasts only for this page, but the user can actually sign in.
+  const applyPersistence = async (rememberMe: boolean): Promise<void> => {
+    const target = webStorageWritable(rememberMe ? 'local' : 'session')
+      ? rememberMe
+        ? browserLocalPersistence
+        : browserSessionPersistence
+      : inMemoryPersistence;
+    try {
+      await setPersistence(auth, target);
+    } catch {
+      // Defensive: the store could change underfoot between probe and write.
+      // Never let it block sign-in.
+      await setPersistence(auth, inMemoryPersistence).catch(() => {});
+    }
+    // Two narrow cases remain (a near-full-quota store that passes the probe but
+    // rejects the larger user-write; and the Google redirect fallback needing a
+    // blocked sessionStorage). They are documented for full hardening later in
+    // docs/AUTH_PERSISTENCE.md.
+  };
 
   useEffect(() => {
     // Complete any pending redirect sign-in (mobile flow or popup-blocked
@@ -233,25 +284,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // the very flow this change exists to avoid. So persistence is applied in
     // parallel: it settles in milliseconds, far inside the seconds the user
     // spends in the Google popup, so the session is still stored with the chosen
-    // persistence by the time sign-in resolves.
+    // persistence by the time sign-in resolves. `applyPersistence` resolves on
+    // its own (falling back to in-memory if the store is unavailable), so it
+    // never aborts the sign-in.
     const persistence = applyPersistence(rememberMe);
-    // The popup may fail before we await `persistence`; pre-mark it handled so a
-    // rejection can't surface as an unhandled rejection. We still await it below
-    // to observe the outcome.
-    persistence.catch(() => {});
     const popup = signInWithPopup(auth, provider);
     try {
       const { user: firebaseUser } = await popup;
-      try {
-        await persistence;
-      } catch (persistenceErr) {
-        // The requested persistence couldn't be applied. Don't silently keep the
-        // user signed in under a different persistence than they chose (e.g. a
-        // "session only" pick falling back to local). Mirror the email/password
-        // flows, which abort when persistence fails: sign back out and surface it.
-        await firebaseSignOut(auth).catch(() => {});
-        throw persistenceErr;
-      }
+      await persistence;
       clearPendingGoogleLink();
       await ensureUserProfile(firebaseUser).catch(() => {});
     } catch (err) {
@@ -269,10 +309,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
-        // Apply the chosen persistence before the redirect hands control to
-        // Firebase. If it can't be applied, abort rather than redirect under a
-        // different persistence than the user picked — same contract as the
-        // popup-success path above.
+        // Settle persistence (best-effort) before handing control to the
+        // redirect, then fall back to the full-page flow.
         await persistence;
         await signInWithRedirect(auth, provider);
         return;
