@@ -224,7 +224,7 @@ describe('remember me persistence', () => {
 });
 
 describe('signInWithGoogle', () => {
-  it('goes straight to redirect on mobile', async () => {
+  it('uses the popup on mobile too, never the (storage-partitioned) redirect', async () => {
     mockIsMobileDevice = true;
     const { result } = renderAuth();
 
@@ -232,8 +232,56 @@ describe('signInWithGoogle', () => {
       await result.current.signInWithGoogle();
     });
 
-    expect(mockSignInWithRedirect).toHaveBeenCalledTimes(1);
-    expect(mockSignInWithPopup).not.toHaveBeenCalled();
+    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+  });
+
+  it('opens the popup synchronously, without first awaiting persistence', async () => {
+    // setPersistence stays pending: a strict mobile browser blocks a popup that
+    // is opened after the gesture's call stack unwinds, so the popup must be
+    // opened before we await persistence. Asserting the popup is requested while
+    // persistence is still unresolved guards that ordering.
+    let releasePersistence: () => void = () => {};
+    mockSetPersistence.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        releasePersistence = () => resolve();
+      })
+    );
+    const { result } = renderAuth();
+
+    let settled = false;
+    await act(async () => {
+      void result.current.signInWithGoogle().then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false); // still parked on the pending persistence
+
+    await act(async () => {
+      releasePersistence();
+      await Promise.resolve();
+    });
+    expect(mockEnsureUserProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('signs back out and propagates when the chosen persistence cannot be applied', async () => {
+    // A "session only" choice must not silently fall back to local persistence:
+    // if setPersistence rejects, the Google sign-in is aborted like the
+    // email/password flows rather than completing under the wrong persistence.
+    const persistenceErr = new Error('storage access blocked');
+    mockSetPersistence.mockRejectedValueOnce(persistenceErr);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await expect(result.current.signInWithGoogle(false)).rejects.toBe(persistenceErr);
+    });
+
+    expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockEnsureUserProfile).not.toHaveBeenCalled();
   });
 
   it('uses the popup on desktop and ensures a profile', async () => {
@@ -269,6 +317,34 @@ describe('signInWithGoogle', () => {
     });
 
     expect(mockSignInWithRedirect).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a superseded popup request as a no-op, never a redirect', async () => {
+    // A double-tap cancels the first popup with auth/cancelled-popup-request; the
+    // second popup is still live, so the first call must stand down quietly
+    // rather than launch the storage-partitioned redirect over the top of it.
+    mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/cancelled-popup-request' });
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await result.current.signInWithGoogle();
+    });
+
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
+    expect(mockEnsureUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('aborts the redirect fallback when the chosen persistence cannot be applied', async () => {
+    mockSignInWithPopup.mockRejectedValueOnce({ code: 'auth/popup-blocked' });
+    const persistenceErr = new Error('storage access blocked');
+    mockSetPersistence.mockRejectedValueOnce(persistenceErr);
+    const { result } = renderAuth();
+
+    await act(async () => {
+      await expect(result.current.signInWithGoogle(false)).rejects.toBe(persistenceErr);
+    });
+
+    expect(mockSignInWithRedirect).not.toHaveBeenCalled();
   });
 
   it('rethrows popup errors that are neither a cancel nor a fallback case', async () => {

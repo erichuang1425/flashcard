@@ -11,13 +11,21 @@
 export const POPUP_FALLBACK_ERROR_CODES = [
   'auth/popup-blocked',
   'auth/operation-not-supported-in-this-environment',
-  'auth/cancelled-popup-request',
 ] as const;
 
-/** Error codes that mean the user intentionally dismissed the popup. */
+/**
+ * Error codes that mean this popup attempt should quietly stand down with no
+ * error surfaced. `popup-closed-by-user` / `user-cancelled` are deliberate
+ * dismissals. `cancelled-popup-request` is raised on the *earlier* of two
+ * overlapping sign-in attempts (e.g. a double-tap): the newer request is still
+ * in flight and will resolve sign-in, so the superseded one must be a no-op —
+ * never a redirect, or it would clobber the live popup with the
+ * storage-partitioned redirect flow we avoid.
+ */
 export const POPUP_CANCELLED_ERROR_CODES = [
   'auth/popup-closed-by-user',
   'auth/user-cancelled',
+  'auth/cancelled-popup-request',
 ] as const;
 
 /**
@@ -43,7 +51,11 @@ export const shouldFallbackToRedirect = (error: unknown): boolean => {
   return code !== undefined && (POPUP_FALLBACK_ERROR_CODES as readonly string[]).includes(code);
 };
 
-/** True when the user closed/cancelled the popup themselves (benign). */
+/**
+ * True when this popup attempt was cancelled benignly — the user dismissed it,
+ * or a newer overlapping request superseded it. Either way it resolves to a
+ * no-op rather than a redirect fallback.
+ */
 export const isPopupCancelledByUser = (error: unknown): boolean => {
   const code = extractCode(error);
   return code !== undefined && (POPUP_CANCELLED_ERROR_CODES as readonly string[]).includes(code);

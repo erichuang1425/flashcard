@@ -18,7 +18,6 @@ import {
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import type { User } from '../types';
-import { useMobile } from './MobileContext';
 import {
   isAccountExistsWithDifferentCredential,
   isPopupCancelledByUser,
@@ -101,7 +100,6 @@ const toAppUser = (firebaseUser: FirebaseUser): User => ({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isMobileDevice } = useMobile();
 
   const restoredLink = useRef<PendingGoogleLink | null | undefined>(undefined);
   if (restoredLink.current === undefined) {
@@ -215,20 +213,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async (rememberMe = true) => {
     const provider = new GoogleAuthProvider();
-    await applyPersistence(rememberMe);
 
-    // On mobile, popups are unreliable (often blocked or unsupported), so go
-    // straight to the redirect flow. The profile is stamped when the redirect
-    // result resolves on the next load (see the effect above).
-    if (isMobileDevice) {
-      await signInWithRedirect(auth, provider);
-      return;
-    }
-
-    // On desktop, prefer the popup but fall back to a redirect when the popup
-    // is blocked or unsupported. A user-initiated cancel is treated as a no-op.
+    // Prefer the popup on every device. `signInWithRedirect` looks attractive on
+    // mobile, but it bounces through `<authDomain>/__/auth/handler` — a different
+    // origin than the deployed app — and mobile browsers that partition
+    // third-party storage (iOS Safari/ITP, Chrome) block the storage the SDK
+    // needs to finish the round-trip. The user comes back signed *out* with no
+    // error, which is exactly the reported breakage. Popups keep the flow in the
+    // app's own first-party context, so they complete reliably. See Firebase's
+    // redirect best-practices guidance. Redirect is kept only as a last resort
+    // for the rare case a popup cannot open at all. A user-initiated cancel is
+    // treated as a no-op.
+    //
+    // Open the popup *synchronously* from the click — before awaiting anything.
+    // Strict mobile browsers (notably iOS Safari) only allow `window.open` while
+    // the original user gesture is still on the call stack; an intervening
+    // `await` (even on a fast promise like `setPersistence`) unwinds that stack
+    // and the popup gets blocked — which would then trip the redirect fallback,
+    // the very flow this change exists to avoid. So persistence is applied in
+    // parallel: it settles in milliseconds, far inside the seconds the user
+    // spends in the Google popup, so the session is still stored with the chosen
+    // persistence by the time sign-in resolves.
+    const persistence = applyPersistence(rememberMe);
+    // The popup may fail before we await `persistence`; pre-mark it handled so a
+    // rejection can't surface as an unhandled rejection. We still await it below
+    // to observe the outcome.
+    persistence.catch(() => {});
+    const popup = signInWithPopup(auth, provider);
     try {
-      const { user: firebaseUser } = await signInWithPopup(auth, provider);
+      const { user: firebaseUser } = await popup;
+      try {
+        await persistence;
+      } catch (persistenceErr) {
+        // The requested persistence couldn't be applied. Don't silently keep the
+        // user signed in under a different persistence than they chose (e.g. a
+        // "session only" pick falling back to local). Mirror the email/password
+        // flows, which abort when persistence fails: sign back out and surface it.
+        await firebaseSignOut(auth).catch(() => {});
+        throw persistenceErr;
+      }
       clearPendingGoogleLink();
       await ensureUserProfile(firebaseUser).catch(() => {});
     } catch (err) {
@@ -246,6 +269,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
+        // Apply the chosen persistence before the redirect hands control to
+        // Firebase. If it can't be applied, abort rather than redirect under a
+        // different persistence than the user picked — same contract as the
+        // popup-success path above.
+        await persistence;
         await signInWithRedirect(auth, provider);
         return;
       }
