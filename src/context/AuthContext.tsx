@@ -191,6 +191,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Never let it block sign-in.
       await setPersistence(auth, inMemoryPersistence).catch(() => {});
     }
+    // Two narrow cases remain (a near-full-quota store that passes the probe but
+    // rejects the larger user-write; and the Google redirect fallback needing a
+    // blocked sessionStorage). They are documented for full hardening later in
+    // docs/AUTH_PERSISTENCE.md.
   };
 
   useEffect(() => {

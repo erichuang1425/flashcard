@@ -203,3 +203,42 @@ describe('user-scoped categories', () => {
     }));
   });
 });
+
+describe('admin access (custom claim)', () => {
+  // An admin is just a signed-in user carrying the custom `admin: true` claim.
+  const adminDb = () =>
+    testEnv.authenticatedContext('carol', { admin: true }).firestore();
+
+  it("lets an admin read and write another user's private subtree", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', ALICE, 'flashcards', 'c1'), {
+        word: 'cat',
+        isPublic: false,
+      });
+    });
+
+    const ref = doc(adminDb(), 'users', ALICE, 'flashcards', 'c1');
+    await assertSucceeds(getDoc(ref));
+    await assertSucceeds(setDoc(ref, { word: 'curated', isPublic: false }));
+  });
+
+  it('lets an admin curate the otherwise client-locked base vocabulary', async () => {
+    const ref = doc(adminDb(), 'vocabulary', 'word');
+    await assertSucceeds(setDoc(ref, { word: 'cat' }));
+    await assertSucceeds(updateDoc(ref, { word: 'cattle' }));
+    await assertSucceeds(deleteDoc(ref));
+  });
+
+  it('does not grant admin powers to a signed-in user without the claim', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'users', ALICE, 'flashcards', 'c1'), {
+        word: 'cat',
+        isPublic: false,
+      });
+    });
+
+    // Bob is authenticated but carries no admin claim, so the override is inert.
+    await assertFails(getDoc(doc(bobDb(), 'users', ALICE, 'flashcards', 'c1')));
+    await assertFails(setDoc(doc(bobDb(), 'vocabulary', 'word'), { word: 'x' }));
+  });
+});
