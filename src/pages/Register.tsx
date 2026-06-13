@@ -67,8 +67,8 @@ export const Register: React.FC = () => {
       setLinkPrompt('');
       // First Google sign-in registers the account; a returning user simply
       // signs in. Either way they land in the app.
-      await signInWithGoogle(rememberMe);
-      navigate('/');
+      const signedIn = await signInWithGoogle(rememberMe);
+      if (signedIn) navigate('/');
     } catch (err) {
       if ((err as { code?: string })?.code === NEEDS_PASSWORD_LINK_CODE) {
         setLinkPrompt(t('register.linkPrompt'));

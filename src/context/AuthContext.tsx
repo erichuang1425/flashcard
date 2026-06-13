@@ -11,9 +11,10 @@ import {
   signInWithRedirect,
   getRedirectResult,
   setPersistence,
-  browserLocalPersistence,
   browserSessionPersistence,
+  indexedDBLocalPersistence,
   inMemoryPersistence,
+  updateCurrentUser,
   linkWithCredential,
   OAuthCredential,
 } from 'firebase/auth';
@@ -24,7 +25,11 @@ import {
   isPopupCancelledByUser,
   shouldFallbackToRedirect,
 } from '../utils/authFallback';
-import { LINK_EMAIL_MISMATCH_CODE, NEEDS_PASSWORD_LINK_CODE } from '../utils/authErrors';
+import {
+  LINK_EMAIL_MISMATCH_CODE,
+  NEEDS_PASSWORD_LINK_CODE,
+  REDIRECT_STORAGE_UNAVAILABLE_CODE,
+} from '../utils/authErrors';
 import { ensureUserProfile } from '../services/user';
 
 interface AuthContextType {
@@ -45,7 +50,7 @@ interface AuthContextType {
    * a password account, throws an error tagged `auth/needs-password-link` and
    * remembers the Google credential so the next `signIn` can link it.
    */
-  signInWithGoogle: (rememberMe?: boolean) => Promise<void>;
+  signInWithGoogle: (rememberMe?: boolean) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -91,17 +96,14 @@ const removePersistedGoogleLink = (): void => {
   }
 };
 
-// Probe whether the Web Storage that backs a persistence choice can actually be
-// written. `browserLocalPersistence` is `localStorage`; `browserSessionPersistence`
-// is `sessionStorage`. This mirrors the availability check Firebase runs when it
-// *initialises* auth — but which `setPersistence` itself skips while signed out
-// (with no user to migrate it just switches the active store and resolves
-// without testing it). Accessing `window.localStorage` can itself throw (e.g.
-// cookies disabled), so the whole probe is guarded.
-const webStorageWritable = (kind: 'local' | 'session'): boolean => {
+// Probe the sessionStorage required by session-only auth and by Firebase's
+// redirect resolver. `setPersistence` itself skips this availability check while
+// signed out. Accessing `window.sessionStorage` can also throw, so the whole
+// probe is guarded.
+const sessionStorageWritable = (): boolean => {
   if (typeof window === 'undefined') return false;
   try {
-    const storage = kind === 'local' ? window.localStorage : window.sessionStorage;
+    const storage = window.sessionStorage;
     if (!storage) return false;
     const probeKey = '__flashcards.persistence-probe__';
     storage.setItem(probeKey, '1');
@@ -110,6 +112,21 @@ const webStorageWritable = (kind: 'local' | 'session'): boolean => {
   } catch {
     return false;
   }
+};
+
+const extractAuthErrorCode = (error: unknown): string | undefined => {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+};
+
+// Authentication errors have stable auth/* codes. Persistence failures from
+// IndexedDB/Web Storage generally surface as a DOMException, a plain Error, or
+// auth/internal-error. Only those failures are safe to retry after switching to
+// memory; retrying a wrong password would waste another network attempt.
+const isPersistenceWriteFailure = (error: unknown): boolean => {
+  const code = extractAuthErrorCode(error);
+  return code === undefined || code === 'auth/internal-error' || code === 'auth/web-storage-unsupported';
 };
 
 const toAppUser = (firebaseUser: FirebaseUser): User => ({
@@ -178,10 +195,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // storage and is strictly *more* ephemeral than either choice, so a "session
   // only" pick is never silently upgraded to a persistent one. The session then
   // lasts only for this page, but the user can actually sign in.
-  const applyPersistence = async (rememberMe: boolean): Promise<void> => {
-    const target = webStorageWritable(rememberMe ? 'local' : 'session')
+  const applyPersistence = async (
+    rememberMe: boolean
+  ): Promise<{ redirectStorageAvailable: boolean }> => {
+    const targetStorageAvailable = rememberMe || sessionStorageWritable();
+    const redirectStorageAvailable =
+      rememberMe ? sessionStorageWritable() : targetStorageAvailable;
+    const target = targetStorageAvailable
       ? rememberMe
-        ? browserLocalPersistence
+        // Firebase's normal browser default prefers IndexedDB for durable
+        // sessions. Using localStorage explicitly caused the reported
+        // remember-me-only failure when that store was full or restricted,
+        // while session persistence continued to work.
+        ? indexedDBLocalPersistence
         : browserSessionPersistence
       : inMemoryPersistence;
     try {
@@ -191,10 +217,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Never let it block sign-in.
       await setPersistence(auth, inMemoryPersistence).catch(() => {});
     }
-    // Two narrow cases remain (a near-full-quota store that passes the probe but
-    // rejects the larger user-write; and the Google redirect fallback needing a
-    // blocked sessionStorage). They are documented for full hardening later in
-    // docs/AUTH_PERSISTENCE.md.
+    return { redirectStorageAvailable };
+  };
+
+  // Firebase assigns `auth.currentUser` before writing the serialized user to
+  // persistence and notifying auth listeners. If that larger write fails after
+  // our small availability probe passed (for example because localStorage is
+  // nearly full), the credential promise rejects even though authentication
+  // succeeded. Move that already-authenticated user to memory and replay it
+  // through the public API so listeners fire instead of bouncing back to login.
+  const recoverAuthenticatedUser = async (originalError: unknown): Promise<FirebaseUser> => {
+    const authenticatedUser = auth.currentUser;
+    if (!authenticatedUser) throw originalError;
+
+    try {
+      await setPersistence(auth, inMemoryPersistence);
+      await updateCurrentUser(auth, authenticatedUser);
+      return authenticatedUser;
+    } catch {
+      throw originalError;
+    }
+  };
+
+  const retryEmailSignInInMemory = async (
+    email: string,
+    password: string,
+    originalError: unknown
+  ): Promise<FirebaseUser> => {
+    if (!isPersistenceWriteFailure(originalError)) throw originalError;
+    await setPersistence(auth, inMemoryPersistence);
+    const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
+    return firebaseUser;
+  };
+
+  const finishSignIn = async (firebaseUser: FirebaseUser): Promise<void> => {
+    setUser(toAppUser(firebaseUser));
+    setLoading(false);
+    await ensureUserProfile(firebaseUser).catch(() => {});
   };
 
   useEffect(() => {
@@ -236,7 +295,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     await applyPersistence(rememberMe);
-    const { user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password);
+    let firebaseUser: FirebaseUser;
+    try {
+      ({ user: firebaseUser } = await signInWithEmailAndPassword(auth, email, password));
+    } catch (error) {
+      firebaseUser = auth.currentUser
+        ? await recoverAuthenticatedUser(error)
+        : await retryEmailSignInInMemory(email, password, error);
+    }
 
     // If a Google sign-in was parked awaiting a password, link it now so the
     // account carries both providers. Do not report success or discard the
@@ -247,13 +313,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearPendingGoogleLink();
     }
 
-    await ensureUserProfile(firebaseUser).catch(() => {});
+    await finishSignIn(firebaseUser);
   };
 
   const signUp = async (email: string, password: string, rememberMe = true) => {
     await applyPersistence(rememberMe);
-    const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
-    await ensureUserProfile(firebaseUser).catch(() => {});
+    let firebaseUser: FirebaseUser;
+    try {
+      ({ user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password));
+    } catch (error) {
+      if (auth.currentUser) {
+        firebaseUser = await recoverAuthenticatedUser(error);
+      } else if (isPersistenceWriteFailure(error)) {
+        // Account creation may have succeeded server-side before the local
+        // persistence write failed. Sign in to that account under memory rather
+        // than calling createUser again and receiving email-already-in-use.
+        firebaseUser = await retryEmailSignInInMemory(email, password, error);
+      } else {
+        throw error;
+      }
+    }
+    await finishSignIn(firebaseUser);
   };
 
   const signOut = async () => {
@@ -290,13 +370,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const persistence = applyPersistence(rememberMe);
     const popup = signInWithPopup(auth, provider);
     try {
-      const { user: firebaseUser } = await popup;
+      let firebaseUser: FirebaseUser;
+      try {
+        ({ user: firebaseUser } = await popup);
+      } catch (error) {
+        firebaseUser = await recoverAuthenticatedUser(error);
+      }
       await persistence;
       clearPendingGoogleLink();
-      await ensureUserProfile(firebaseUser).catch(() => {});
+      await finishSignIn(firebaseUser);
+      return true;
     } catch (err) {
       if (isPopupCancelledByUser(err)) {
-        return;
+        return false;
       }
       // The email already has a password account. Stash the Google credential
       // and ask the caller to collect the password; the next `signIn` links it.
@@ -309,11 +395,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       if (shouldFallbackToRedirect(err)) {
-        // Settle persistence (best-effort) before handing control to the
-        // redirect, then fall back to the full-page flow.
-        await persistence;
+        const { redirectStorageAvailable } = await persistence;
+        // Firebase's redirect resolver always stores a pending marker in
+        // sessionStorage, independently of the selected auth persistence. When
+        // that store is blocked, redirect cannot complete; fail visibly instead
+        // of sending the user through a guaranteed silent return to /login.
+        if (!redirectStorageAvailable) {
+          throw Object.assign(
+            new Error('Google redirect sign-in requires session storage'),
+            { code: REDIRECT_STORAGE_UNAVAILABLE_CODE }
+          );
+        }
         await signInWithRedirect(auth, provider);
-        return;
+        return true;
       }
       throw err;
     }
