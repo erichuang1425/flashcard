@@ -222,6 +222,38 @@ describe('remember me persistence', () => {
     });
     expect(mockSetPersistence).toHaveBeenLastCalledWith({ __auth: true }, { __persistence: 'SESSION' });
   });
+
+  it('selects in-memory persistence up front when web storage is unavailable', async () => {
+    // Firebase's setPersistence resolves without probing the store while signed
+    // out, so a blocked store would only fail later on the user-write and reject
+    // sign-in. We probe up front: a failing probe must route straight to memory
+    // and never hand the blocked store to setPersistence at all. Simulate the
+    // "cookies disabled" case, where touching window.localStorage throws.
+    const original = Object.getOwnPropertyDescriptor(window, 'localStorage');
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() {
+        throw new Error('storage blocked');
+      },
+    });
+    try {
+      const { result } = renderAuth();
+
+      await act(async () => {
+        await result.current.signIn('a@b.com', 'pw'); // remember-me defaults to local
+      });
+
+      expect(mockSetPersistence).toHaveBeenCalledTimes(1);
+      expect(mockSetPersistence).toHaveBeenCalledWith({ __auth: true }, { __persistence: 'MEMORY' });
+      expect(mockSignIn).toHaveBeenCalledTimes(1); // sign-in still proceeds
+    } finally {
+      if (original) {
+        Object.defineProperty(window, 'localStorage', original);
+      } else {
+        delete (window as unknown as { localStorage?: Storage }).localStorage;
+      }
+    }
+  });
 });
 
 describe('signInWithGoogle', () => {

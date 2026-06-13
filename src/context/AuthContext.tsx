@@ -91,6 +91,27 @@ const removePersistedGoogleLink = (): void => {
   }
 };
 
+// Probe whether the Web Storage that backs a persistence choice can actually be
+// written. `browserLocalPersistence` is `localStorage`; `browserSessionPersistence`
+// is `sessionStorage`. This mirrors the availability check Firebase runs when it
+// *initialises* auth — but which `setPersistence` itself skips while signed out
+// (with no user to migrate it just switches the active store and resolves
+// without testing it). Accessing `window.localStorage` can itself throw (e.g.
+// cookies disabled), so the whole probe is guarded.
+const webStorageWritable = (kind: 'local' | 'session'): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const storage = kind === 'local' ? window.localStorage : window.sessionStorage;
+    if (!storage) return false;
+    const probeKey = '__flashcards.persistence-probe__';
+    storage.setItem(probeKey, '1');
+    storage.removeItem(probeKey);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const toAppUser = (firebaseUser: FirebaseUser): User => ({
   uid: firebaseUser.uid,
   email: firebaseUser.email ?? '',
@@ -145,23 +166,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // restart, session is cleared when the tab/window closes. Applied before each
   // sign-in so the choice on the form always wins.
   //
-  // Applying persistence must never block sign-in. `setPersistence` rejects when
-  // the chosen store needs web storage this environment withholds — private
-  // browsing, in-app webviews (Instagram/Facebook/iOS), or disabled cookies /
-  // IndexedDB. Firebase's *default* persistence silently degrades there, but an
-  // explicit `setPersistence` call does not: it throws. Treating that throw as
-  // fatal (the email flow aborted before sign-in; Google signed the user back
-  // out) locked affected users out entirely. Fall back to in-memory persistence
-  // instead — it needs no storage and is strictly *more* ephemeral than either
-  // choice, so a "session only" pick is never silently upgraded to a persistent
-  // one. The session then lasts only for this page, but the user can sign in.
+  // Applying persistence must never block sign-in. The chosen store needs Web
+  // Storage that some environments withhold — private browsing, in-app webviews
+  // (Instagram/Facebook/iOS), or disabled cookies. Crucially, `setPersistence`
+  // does NOT surface that while signed out: with no user to migrate it just
+  // switches the active store and resolves without testing it, so the failure
+  // would only land later when sign-in writes the user — rejecting the whole
+  // sign-in. (That regression locked users out: the email flow threw before
+  // sign-in; Google signed the user back out.) So probe the store up front and
+  // fall back to in-memory persistence when it is unavailable — it needs no
+  // storage and is strictly *more* ephemeral than either choice, so a "session
+  // only" pick is never silently upgraded to a persistent one. The session then
+  // lasts only for this page, but the user can actually sign in.
   const applyPersistence = async (rememberMe: boolean): Promise<void> => {
+    const target = webStorageWritable(rememberMe ? 'local' : 'session')
+      ? rememberMe
+        ? browserLocalPersistence
+        : browserSessionPersistence
+      : inMemoryPersistence;
     try {
-      await setPersistence(
-        auth,
-        rememberMe ? browserLocalPersistence : browserSessionPersistence
-      );
+      await setPersistence(auth, target);
     } catch {
+      // Defensive: the store could change underfoot between probe and write.
+      // Never let it block sign-in.
       await setPersistence(auth, inMemoryPersistence).catch(() => {});
     }
   };
