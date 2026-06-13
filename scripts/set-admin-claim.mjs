@@ -8,8 +8,8 @@
  * client-writable document, so a user can't escalate their own privileges.
  *
  * Usage:
- *   # one-off install of the Admin SDK (it is intentionally NOT a project dep)
- *   npm i -g firebase-admin            # or: npm i --no-save firebase-admin
+ *   # one-off local install of the Admin SDK (it is intentionally not saved)
+ *   npm i --no-save firebase-admin
  *
  *   # point at a service-account key for the project (Project settings →
  *   # Service accounts → Generate new private key)
