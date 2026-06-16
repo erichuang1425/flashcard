@@ -1,0 +1,15 @@
+{
+  "name": "Flashcard Studio",
+  "short_name": "Flashcards",
+  "description": "Study flashcards, worksheets, reading notes, and vocabulary while offline.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#2196f3",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }
+  ]
+}
