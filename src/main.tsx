@@ -12,6 +12,8 @@ import { PronunciationProvider } from './context/PronunciationContext';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { OnboardingProvider } from './context/OnboardingContext';
 import { GuideProvider } from './context/GuideContext';
+import { registerServiceWorker } from './serviceWorkerRegistration';
+import { prefetchOfflineBundles } from './offlinePrefetch';
 
 const ThemedApp: React.FC = () => {
   const { theme } = useSettings();
@@ -45,3 +47,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+registerServiceWorker();
+prefetchOfflineBundles();
