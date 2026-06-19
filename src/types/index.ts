@@ -206,3 +206,30 @@ export interface DiaryEntry {
   /** Suggested vocabulary words the writer chose to practice in this entry. */
   usedWords?: string[];
 }
+
+/**
+ * The single source of truth for the `users/{uid}/preferences/study` document.
+ * Previously declared independently in `useUserPreferences` and `Settings.tsx`,
+ * which had drifted apart (different `pomodoroSettings` shapes). This is the
+ * superset both readers/writers use; the divergent Pomodoro fields are optional
+ * so each writer can persist the subset it manages until they are reconciled in
+ * the Phase 4 settings/provider pass.
+ */
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'system';
+  studySessionLength: number;
+  dailyGoal: number;
+  notifications: boolean;
+  audioEnabled: boolean;
+  autoPlayAudio: boolean;
+  language: 'en' | 'zh';
+  /** Set once the user finishes (or skips) the first-run beginner guide. */
+  onboardingCompleted?: boolean;
+  pomodoroSettings: {
+    workDuration: number;
+    breakDuration: number;
+    longBreakDuration?: number;
+    sessionsUntilLongBreak?: number;
+    autoStartBreak?: boolean;
+  };
+}

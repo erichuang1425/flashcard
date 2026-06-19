@@ -2,24 +2,11 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../context/AuthContext';
+import { UserPreferences } from '../types';
 
-export interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  studySessionLength: number;
-  dailyGoal: number;
-  notifications: boolean;
-  audioEnabled: boolean;
-  autoPlayAudio: boolean;
-  language: 'en' | 'zh';
-  /** Set once the user finishes (or skips) the first-run beginner guide. */
-  onboardingCompleted?: boolean;
-  pomodoroSettings: {
-    workDuration: number;
-    breakDuration: number;
-    longBreakDuration: number;
-    sessionsUntilLongBreak: number;
-  };
-}
+// Re-exported so existing importers (e.g. `useUserSettings`) keep their import
+// path while the canonical definition lives in `../types`.
+export type { UserPreferences };
 
 export const useUserPreferences = () => {
   const { user } = useAuth();
