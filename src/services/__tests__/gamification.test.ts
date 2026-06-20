@@ -41,6 +41,7 @@ import {
   challengeDateKey,
   generateDailyChallenges,
   applyChallengeEvent,
+  ensureDailyChallenges,
   recordChallengeProgress,
 } from '../gamification';
 import type { LevelSystem } from '../../types/gamification';
@@ -247,6 +248,72 @@ describe('applyChallengeEvent', () => {
   });
 });
 
+describe('ensureDailyChallenges', () => {
+  beforeEach(() => {
+    mockGetDoc.mockReset();
+    mockSetDoc.mockReset();
+    mockSetDoc.mockResolvedValue(undefined);
+  });
+
+  it('generates and persists a fresh set, seeding the level system, on a new doc', async () => {
+    mockGetDoc.mockResolvedValue({ exists: () => false });
+
+    const result = await ensureDailyChallenges('u1', new Date('2026-06-20T12:00:00Z'), 'UTC');
+
+    expect(result).toEqual(generateDailyChallenges('2026-06-20'));
+    // The single write carries both the challenges and an initial level system,
+    // so the snapshot listener never sees a level-less doc.
+    expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    expect(mockSetDoc.mock.calls[0][1]).toMatchObject({
+      challengesDate: '2026-06-20',
+      dailyChallenges: result,
+      ...initialLevelSystem(),
+    });
+    expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+  });
+
+  it('returns the stored set without overwriting it when today is already initialized', async () => {
+    const dateKey = challengeDateKey(new Date('2026-06-20T12:00:00Z'), 'UTC');
+    const stored = applyChallengeEvent(generateDailyChallenges(dateKey), {
+      cardsReviewed: 5,
+      accuracy: 0,
+      studyMinutes: 0,
+    });
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ challengesDate: dateKey, dailyChallenges: stored, ...initialLevelSystem() }),
+    });
+
+    const result = await ensureDailyChallenges('u1', new Date('2026-06-20T12:00:00Z'), 'UTC');
+
+    expect(result).toEqual(stored);
+    expect(mockSetDoc).not.toHaveBeenCalled(); // progress preserved, no clobber
+  });
+
+  it('does not overwrite existing level fields when seeding a new day', async () => {
+    // Yesterday's doc carries a real level system but stale challenges.
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({
+        challengesDate: '2026-06-19',
+        dailyChallenges: [],
+        currentLevel: 3,
+        currentXP: 10,
+        requiredXP: 225,
+        totalXP: 400,
+      }),
+    });
+
+    await ensureDailyChallenges('u1', new Date('2026-06-20T12:00:00Z'), 'UTC');
+
+    // A new set is written, but no level fields are included (so the real ones
+    // survive the merge).
+    const written = mockSetDoc.mock.calls[0][1] as Record<string, unknown>;
+    expect(written.challengesDate).toBe('2026-06-20');
+    expect(written).not.toHaveProperty('currentLevel');
+  });
+});
+
 describe('recordChallengeProgress', () => {
   beforeEach(() => {
     mockGetDoc.mockReset();
@@ -254,10 +321,8 @@ describe('recordChallengeProgress', () => {
     mockSetDoc.mockResolvedValue(undefined);
   });
 
-  it('generates a set when none is stored, persists progress, and awards reward XP', async () => {
-    mockGetDoc
-      .mockResolvedValueOnce({ exists: () => false }) // loadDailyChallenges → none yet
-      .mockResolvedValueOnce({ exists: () => false }); // updateUserXP transaction read
+  it('generates a set when none is stored, persists progress, and pays the reward atomically', async () => {
+    mockGetDoc.mockResolvedValue({ exists: () => false });
 
     const result = await recordChallengeProgress('u1', {
       cardsReviewed: 100,
@@ -268,27 +333,37 @@ describe('recordChallengeProgress', () => {
     // A big session clears every challenge in the generated trio.
     expect(result.every((c) => c.completed)).toBe(true);
 
-    // Challenges saved with the day's key, merged so the level system survives.
-    const saveCall = mockSetDoc.mock.calls.find((c) => c[1] && 'dailyChallenges' in (c[1] as object));
-    expect(saveCall?.[1]).toMatchObject({ dailyChallenges: result });
-    expect(saveCall?.[2]).toEqual({ merge: true });
-
-    // Reward XP awarded → the transaction wrote a LevelSystem.
-    const xpCall = mockSetDoc.mock.calls.find((c) => c[1] && 'currentLevel' in (c[1] as object));
-    expect(xpCall).toBeDefined();
+    // One single write carries the progressed challenges AND the rewarded level
+    // system — completion and payout commit together.
+    expect(mockSetDoc).toHaveBeenCalledTimes(1);
+    const written = mockSetDoc.mock.calls[0][1] as Record<string, unknown>;
+    expect(written).toMatchObject({ dailyChallenges: result });
+    expect(mockSetDoc.mock.calls[0][2]).toEqual({ merge: true });
+    // Reward XP equals the sum of the completed challenges' rewards, applied to
+    // a fresh level system (totalXP started at 0).
+    const expectedReward = result.reduce((sum, c) => sum + c.reward, 0);
+    expect(written.totalXP).toBe(expectedReward);
   });
 
   it('does not award XP when no challenge is newly completed', async () => {
     const dateKey = challengeDateKey();
     const stored = generateDailyChallenges(dateKey);
-    mockGetDoc.mockResolvedValueOnce({
+    mockGetDoc.mockResolvedValue({
       exists: () => true,
-      data: () => ({ challengesDate: dateKey, dailyChallenges: stored }),
+      data: () => ({
+        challengesDate: dateKey,
+        dailyChallenges: stored,
+        currentLevel: 2,
+        currentXP: 40,
+        requiredXP: 150,
+        totalXP: 190,
+      }),
     });
 
     await recordChallengeProgress('u1', { cardsReviewed: 1, accuracy: 50, studyMinutes: 0 });
 
-    const xpCall = mockSetDoc.mock.calls.find((c) => c[1] && 'currentLevel' in (c[1] as object));
-    expect(xpCall).toBeUndefined();
+    // The level system is written back unchanged — no reward applied.
+    const written = mockSetDoc.mock.calls[0][1] as Record<string, unknown>;
+    expect(written).toMatchObject({ currentLevel: 2, currentXP: 40, totalXP: 190 });
   });
 });

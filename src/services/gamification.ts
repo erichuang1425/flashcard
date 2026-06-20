@@ -294,7 +294,7 @@ export const applyChallengeEvent = (
     return { ...challenge, progress, completed: progress >= challenge.target };
   });
 
-interface StoredChallenges {
+interface StoredGamification extends Partial<LevelSystem> {
   challengesDate?: string;
   dailyChallenges?: DailyChallenge[];
 }
@@ -303,37 +303,28 @@ const gamificationDocRef = (userId: string) =>
   doc(db, 'users', userId, 'stats', 'gamification');
 
 /**
- * Read the persisted challenges for `dateKey`, or null if none are stored for
- * that day yet (a new day, or a never-initialized account). Challenges live on
- * the gamification stats doc alongside the level system.
+ * The level system stored on the doc, or a fresh one if the doc has never held
+ * level fields (e.g. it was first created with challenge data alone). Keeps the
+ * snapshot listener and XP math from ever seeing undefined/NaN level fields.
  */
-export const loadDailyChallenges = async (
-  userId: string,
-  dateKey: string
-): Promise<DailyChallenge[] | null> => {
-  const snapshot = await getDoc(gamificationDocRef(userId));
-  if (!snapshot.exists()) return null;
-  const data = snapshot.data() as StoredChallenges;
-  if (data.challengesDate !== dateKey || !data.dailyChallenges) return null;
-  return data.dailyChallenges;
-};
-
-/** Persist the day's challenges, merging so the level system is untouched. */
-export const saveDailyChallenges = async (
-  userId: string,
-  dateKey: string,
-  challenges: DailyChallenge[]
-): Promise<void> => {
-  await setDoc(
-    gamificationDocRef(userId),
-    { challengesDate: dateKey, dailyChallenges: challenges },
-    { merge: true }
-  );
-};
+const levelSystemFrom = (data: StoredGamification | null): LevelSystem =>
+  data && typeof data.currentLevel === 'number'
+    ? {
+        currentLevel: data.currentLevel,
+        currentXP: data.currentXP ?? 0,
+        requiredXP: data.requiredXP ?? getRequiredXP(data.currentLevel),
+        totalXP: data.totalXP ?? 0,
+      }
+    : initialLevelSystem();
 
 /**
  * Return today's challenges, generating and persisting a fresh set the first
- * time it's asked on a new local day. Idempotent within a day.
+ * time it's asked on a new local day. Runs in a transaction so a concurrent
+ * `recordChallengeProgress` (another tab, a fast session) that has already
+ * written today's progressed challenges is observed here and returned as-is,
+ * rather than being clobbered back to a zero-progress set. When the doc has no
+ * level fields yet, `initialLevelSystem()` is seeded alongside so the
+ * `GamificationContext` snapshot listener never renders an invalid level.
  */
 export const ensureDailyChallenges = async (
   userId: string,
@@ -341,18 +332,40 @@ export const ensureDailyChallenges = async (
   timeZone?: string
 ): Promise<DailyChallenge[]> => {
   const dateKey = challengeDateKey(now, timeZone);
-  const existing = await loadDailyChallenges(userId, dateKey);
-  if (existing) return existing;
+  const ref = gamificationDocRef(userId);
 
-  const fresh = generateDailyChallenges(dateKey);
-  await saveDailyChallenges(userId, dateKey, fresh);
-  return fresh;
+  return await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const data = snapshot.exists() ? (snapshot.data() as StoredGamification) : null;
+
+    // Already initialized for today — don't overwrite (possibly progressed) data.
+    if (data?.challengesDate === dateKey && data.dailyChallenges) {
+      return data.dailyChallenges;
+    }
+
+    const fresh = generateDailyChallenges(dateKey);
+    // Seed level fields only when the doc lacks them; never overwrite real ones.
+    const levelSeed = data && typeof data.currentLevel === 'number' ? {} : initialLevelSystem();
+    transaction.set(
+      ref,
+      { challengesDate: dateKey, dailyChallenges: fresh, ...levelSeed },
+      { merge: true }
+    );
+    return fresh;
+  });
 };
 
 /**
- * Record a finished session against today's challenges: generate the set if it
- * doesn't exist, apply the event, award the reward XP for any newly completed
- * challenge, persist, and return the updated set.
+ * Record a finished session against today's challenges. The whole sequence —
+ * read, apply the event, decide the reward, apply that reward to the level
+ * system, and write — happens in a single transaction, so:
+ *  - concurrent session completions can't clobber each other's progress or each
+ *    pay out the same challenge's reward (a retry re-reads the committed,
+ *    already-completed state and its reward resolves to 0);
+ *  - the reward XP is committed atomically with the completion, so a failure
+ *    can never leave a challenge stored as completed-but-unpaid; and
+ *  - level fields are always written, seeding a fresh system on a doc that only
+ *    held challenge data.
  */
 export const recordChallengeProgress = async (
   userId: string,
@@ -363,32 +376,28 @@ export const recordChallengeProgress = async (
   const dateKey = challengeDateKey(now, timeZone);
   const ref = gamificationDocRef(userId);
 
-  // Read-modify-write the challenge set inside a transaction so two sessions
-  // finishing close together (e.g. two tabs, or a duplicate final submit) can't
-  // both read the same incomplete `before`, clobber each other's progress, and
-  // each pay out the reward for the same challenge. A concurrent attempt that
-  // retries re-reads the committed (already-completed) state, so its reward
-  // resolves to 0. The reward is decided inside the transaction and paid out
-  // after it commits via the (also transactional) XP writer.
-  const { after, reward } = await runTransaction(db, async (transaction) => {
+  return await runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(ref);
-    const data = snapshot.exists() ? (snapshot.data() as StoredChallenges) : null;
+    const data = snapshot.exists() ? (snapshot.data() as StoredGamification) : null;
     const before =
       data?.challengesDate === dateKey && data.dailyChallenges
         ? data.dailyChallenges
         : generateDailyChallenges(dateKey);
 
-    const next = applyChallengeEvent(before, event);
-    const earned = next.reduce((sum, challenge, i) => {
+    const after = applyChallengeEvent(before, event);
+    const reward = after.reduce((sum, challenge, i) => {
       const justCompleted = challenge.completed && !before[i].completed;
       return sum + (justCompleted ? challenge.reward : 0);
     }, 0);
 
-    transaction.set(ref, { challengesDate: dateKey, dailyChallenges: next }, { merge: true });
-    return { after: next, reward: earned };
+    const level = levelSystemFrom(data);
+    const newLevel = reward > 0 ? applyXPGain(level, reward) : level;
+
+    transaction.set(
+      ref,
+      { challengesDate: dateKey, dailyChallenges: after, ...newLevel },
+      { merge: true }
+    );
+    return after;
   });
-
-  if (reward > 0) await updateUserXP(userId, reward);
-
-  return after;
 };
