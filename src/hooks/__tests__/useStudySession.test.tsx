@@ -205,6 +205,31 @@ it('records stats, streak and achievements when the last card is rated', async (
   );
   expect(mockUpdateDailyStreak).toHaveBeenCalledWith('u1');
   expect(mockCheckAchievements).toHaveBeenCalled();
+  expect(mockRecordSession).toHaveBeenCalledWith(
+    expect.objectContaining({ cardsReviewed: 2, accuracy: 50 })
+  );
+});
+
+it('still records challenge progress when the achievement check fails', async () => {
+  // Achievements and challenges are independent best-effort follow-ups; an
+  // achievement outage must not drop the session's challenge progress/reward.
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  mockCheckAchievements.mockRejectedValue(new Error('achievements offline'));
+
+  const { result } = await renderSession();
+
+  await act(async () => {
+    await result.current.submitRating('a', 4);
+  });
+  await act(async () => {
+    await result.current.submitRating('b', 1);
+  });
+
+  expect(mockRecordSession).toHaveBeenCalledWith(
+    expect.objectContaining({ cardsReviewed: 2, accuracy: 50 })
+  );
+
+  consoleError.mockRestore();
 });
 
 it('surfaces a load failure as the translated error state', async () => {

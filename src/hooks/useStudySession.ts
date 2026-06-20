@@ -179,6 +179,12 @@ export const useStudySession = (batchSize: number): StudySession => {
       await flushPendingReviews();
       const durationSeconds = Math.max(0, Math.round((Date.now() - sessionStart.current) / 1000));
       const accuracy = Math.round((sessionCorrect / sessionReviewed) * 100);
+
+      // Stats + streak, achievements, and daily challenges are three independent
+      // best-effort follow-ups, each only triggered by this session-complete
+      // event. They get their own try/catch so a failure in one (e.g. a transient
+      // achievements read) can't skip the others — in particular it must not drop
+      // this session's challenge progress and reward.
       try {
         await updateUserStudyStats(user.uid, {
           duration: durationSeconds,
@@ -187,15 +193,23 @@ export const useStudySession = (batchSize: number): StudySession => {
           masteredCards: masteredCount.current,
         });
         await updateDailyStreak(user.uid);
+      } catch (err) {
+        // The session itself succeeded; stats are best-effort.
+        console.error('Error recording study session:', err);
+      }
+      try {
         await checkAchievements();
+      } catch (err) {
+        console.error('Error checking achievements:', err);
+      }
+      try {
         await recordSession({
           cardsReviewed: sessionReviewed,
           accuracy,
           studyMinutes: Math.round(durationSeconds / 60),
         });
       } catch (err) {
-        // The session itself succeeded; stats are best-effort.
-        console.error('Error recording study session:', err);
+        console.error('Error recording challenge progress:', err);
       }
     },
     [user, flushPendingReviews, checkAchievements, recordSession]
