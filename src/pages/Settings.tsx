@@ -88,6 +88,16 @@ export const Settings: React.FC = () => {
   }, [storedPreferences]);
 
   const handleSave = async () => {
+    // Until the shared preferences have loaded, the form holds defaults and
+    // `updatePreferences` would no-op (its internal copy is still null), so a
+    // save here would silently drop the edit. Report it as a failure instead of
+    // a false success. (The Save button is also disabled in this state.)
+    if (!storedPreferences) {
+      setSaveStatus({type: 'error', message: t('settings.saveFail')});
+      setTimeout(() => setSaveStatus(null), 3000);
+      return;
+    }
+
     // Persist only the fields the user changed in this form, diffed against the
     // values it was seeded with. An untouched field is never written, so a save
     // here can't overwrite a newer value set elsewhere while the page was open
@@ -434,6 +444,7 @@ export const Settings: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleSave}
+            disabled={!storedPreferences}
           >
             {t('settings.save')}
           </Button>
