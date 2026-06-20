@@ -10,6 +10,7 @@ import '@fontsource/roboto/500.css';
 import '@fontsource/roboto/700.css';
 import { GamificationProvider } from './context/GamificationContext';
 import { FocusModeProvider } from './context/FocusModeContext';
+import { PomodoroProvider } from './context/PomodoroContext';
 import { useOnboarding } from './context/OnboardingContext';
 import { Onboarding } from './components/onboarding/Onboarding';
 import { dvhMinHeight } from './utils/viewport';
@@ -76,6 +77,10 @@ const App: React.FC = () => {
     // subscription.
     <GamificationProvider>
       <FocusModeProvider>
+        {/* PomodoroProvider wraps the authenticated shell because the Pomodoro
+            timer is rendered from Layout (and Profile); it reads its durations
+            from SettingsContext, mounted once in main.tsx above this tree. */}
+        <PomodoroProvider>
         <Layout>
             <Suspense fallback={<RouteFallback />}>
               <Routes>
@@ -139,6 +144,7 @@ const App: React.FC = () => {
               </Routes>
             </Suspense>
         </Layout>
+        </PomodoroProvider>
       </FocusModeProvider>
     </GamificationProvider>
   );

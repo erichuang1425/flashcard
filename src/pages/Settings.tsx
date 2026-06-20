@@ -22,9 +22,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import { useAuth } from '../context/AuthContext';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { useSettings } from '../context/SettingsContext';
 import { usePronunciation } from '../context/PronunciationContext';
 import { accentLabel } from '../utils/speech';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -34,7 +32,9 @@ import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../i18n/translati
 import { UserPreferences } from '../types';
 
 export const Settings: React.FC = () => {
-  const { user } = useAuth();
+  // Read and write preferences through the single SettingsContext owner so this
+  // screen can't clobber a theme toggled elsewhere with a stale snapshot.
+  const { preferences: storedPreferences, updatePreferences } = useSettings();
   const [preferences, setPreferences] = useState<UserPreferences>({
     theme: 'system',
     studySessionLength: 20,
@@ -65,29 +65,17 @@ export const Settings: React.FC = () => {
     updateSettings: updatePronunciation,
   } = usePronunciation();
 
+  // Seed the editable form from the shared preferences once they load (or
+  // change from another screen).
   useEffect(() => {
-    const loadPreferences = async () => {
-      if (!user) return;
-      try {
-        const prefsDoc = await getDoc(doc(db, 'users', user.uid, 'preferences', 'study'));
-        if (prefsDoc.exists()) {
-          setPreferences(prefsDoc.data() as UserPreferences);
-        }
-      } catch (error) {
-        console.error('Error loading preferences:', error);
-      }
-    };
-    loadPreferences();
-  }, [user]);
+    if (storedPreferences) {
+      setPreferences(storedPreferences);
+    }
+  }, [storedPreferences]);
 
   const handleSave = async () => {
-    if (!user) return;
     try {
-      // Merge so unrelated fields written elsewhere (e.g. onboardingCompleted)
-      // are preserved rather than overwritten by this screen's snapshot.
-      await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), preferences, {
-        merge: true,
-      });
+      await updatePreferences(preferences);
       setSaveStatus({type: 'success', message: t('settings.saved')});
     } catch (error) {
       setSaveStatus({type: 'error', message: t('settings.saveFail')});
@@ -362,7 +350,7 @@ export const Settings: React.FC = () => {
                 <TextField
                   label={t('settings.workDuration')}
                   type="number"
-                  value={preferences.pomodoroSettings.workDuration}
+                  value={preferences.pomodoroSettings.workDuration ?? 25}
                   onChange={(e) => setPreferences(prev => ({
                     ...prev,
                     pomodoroSettings: {
@@ -379,7 +367,7 @@ export const Settings: React.FC = () => {
                 <TextField
                   label={t('settings.breakDuration')}
                   type="number"
-                  value={preferences.pomodoroSettings.breakDuration}
+                  value={preferences.pomodoroSettings.breakDuration ?? 5}
                   onChange={(e) => setPreferences(prev => ({
                     ...prev,
                     pomodoroSettings: {
@@ -395,7 +383,7 @@ export const Settings: React.FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={preferences.pomodoroSettings.autoStartBreak}
+                    checked={preferences.pomodoroSettings.autoStartBreak ?? false}
                     onChange={(e) => setPreferences(prev => ({
                       ...prev,
                       pomodoroSettings: {
