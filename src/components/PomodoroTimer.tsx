@@ -4,7 +4,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import TimerIcon from '@mui/icons-material/Timer';
-import { useSettings } from '../context/SettingsContext';
+import { usePomodoro } from '../context/PomodoroContext';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface PomodoroTimerProps {
@@ -12,7 +12,7 @@ interface PomodoroTimerProps {
 }
 
 export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false }) => {
-  const { pomodoro } = useSettings();
+  const pomodoro = usePomodoro();
   const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

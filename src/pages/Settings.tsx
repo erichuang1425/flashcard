@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -22,9 +22,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import { useAuth } from '../context/AuthContext';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { useSettings } from '../context/SettingsContext';
 import { usePronunciation } from '../context/PronunciationContext';
 import { accentLabel } from '../utils/speech';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -34,7 +32,9 @@ import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../i18n/translati
 import { UserPreferences } from '../types';
 
 export const Settings: React.FC = () => {
-  const { user } = useAuth();
+  // Read and write preferences through the single SettingsContext owner so this
+  // screen can't clobber a theme toggled elsewhere with a stale snapshot.
+  const { preferences: storedPreferences, updatePreferences } = useSettings();
   const [preferences, setPreferences] = useState<UserPreferences>({
     theme: 'system',
     studySessionLength: 20,
@@ -65,29 +65,58 @@ export const Settings: React.FC = () => {
     updateSettings: updatePronunciation,
   } = usePronunciation();
 
+  // Keep the editable form in step with the shared preferences without ever
+  // discarding unsaved edits. While the form is pristine (still matches the
+  // values it was seeded with) it adopts the latest shared copy — so a later,
+  // accurate read (a different signed-in user, or preferences that finished
+  // loading after this page mounted) replaces a stale seed rather than being
+  // locked out. Once the user edits, the draft is held until they Save.
+  // `baseline` records the seeded values so Save can diff against them.
+  const baseline = useRef<UserPreferences | null>(null);
   useEffect(() => {
-    const loadPreferences = async () => {
-      if (!user) return;
-      try {
-        const prefsDoc = await getDoc(doc(db, 'users', user.uid, 'preferences', 'study'));
-        if (prefsDoc.exists()) {
-          setPreferences(prefsDoc.data() as UserPreferences);
-        }
-      } catch (error) {
-        console.error('Error loading preferences:', error);
-      }
-    };
-    loadPreferences();
-  }, [user]);
+    if (!storedPreferences) return;
+    const dirty =
+      baseline.current !== null &&
+      JSON.stringify(preferences) !== JSON.stringify(baseline.current);
+    if (!dirty) {
+      setPreferences(storedPreferences);
+      baseline.current = storedPreferences;
+    }
+    // Re-evaluate only when the shared preferences change; `preferences` is read
+    // to detect an in-progress draft, not to drive the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storedPreferences]);
 
   const handleSave = async () => {
-    if (!user) return;
+    // Until the shared preferences have loaded, the form holds defaults and
+    // `updatePreferences` would no-op (its internal copy is still null), so a
+    // save here would silently drop the edit. Report it as a failure instead of
+    // a false success. (The Save button is also disabled in this state.)
+    if (!storedPreferences) {
+      setSaveStatus({type: 'error', message: t('settings.saveFail')});
+      setTimeout(() => setSaveStatus(null), 3000);
+      return;
+    }
+
+    // Persist only the fields the user changed in this form, diffed against the
+    // values it was seeded with. An untouched field is never written, so a save
+    // here can't overwrite a newer value set elsewhere while the page was open
+    // (e.g. the nav-bar theme toggle). `onboardingCompleted` is owned by
+    // OnboardingProvider and never round-tripped.
+    const base = baseline.current;
+    const changed: Record<string, unknown> = {};
+    (Object.keys(preferences) as (keyof UserPreferences)[]).forEach((key) => {
+      if (key === 'onboardingCompleted') return;
+      if (!base || JSON.stringify(preferences[key]) !== JSON.stringify(base[key])) {
+        changed[key] = preferences[key];
+      }
+    });
+
     try {
-      // Merge so unrelated fields written elsewhere (e.g. onboardingCompleted)
-      // are preserved rather than overwritten by this screen's snapshot.
-      await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), preferences, {
-        merge: true,
-      });
+      if (Object.keys(changed).length > 0) {
+        await updatePreferences(changed as Partial<UserPreferences>);
+        baseline.current = preferences;
+      }
       setSaveStatus({type: 'success', message: t('settings.saved')});
     } catch (error) {
       setSaveStatus({type: 'error', message: t('settings.saveFail')});
@@ -362,7 +391,7 @@ export const Settings: React.FC = () => {
                 <TextField
                   label={t('settings.workDuration')}
                   type="number"
-                  value={preferences.pomodoroSettings.workDuration}
+                  value={preferences.pomodoroSettings.workDuration ?? 25}
                   onChange={(e) => setPreferences(prev => ({
                     ...prev,
                     pomodoroSettings: {
@@ -379,7 +408,7 @@ export const Settings: React.FC = () => {
                 <TextField
                   label={t('settings.breakDuration')}
                   type="number"
-                  value={preferences.pomodoroSettings.breakDuration}
+                  value={preferences.pomodoroSettings.breakDuration ?? 5}
                   onChange={(e) => setPreferences(prev => ({
                     ...prev,
                     pomodoroSettings: {
@@ -395,7 +424,7 @@ export const Settings: React.FC = () => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={preferences.pomodoroSettings.autoStartBreak}
+                    checked={preferences.pomodoroSettings.autoStartBreak ?? false}
                     onChange={(e) => setPreferences(prev => ({
                       ...prev,
                       pomodoroSettings: {
@@ -415,6 +444,7 @@ export const Settings: React.FC = () => {
           <Button
             variant="contained"
             onClick={handleSave}
+            disabled={!storedPreferences}
           >
             {t('settings.save')}
           </Button>
