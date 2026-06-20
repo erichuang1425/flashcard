@@ -34,7 +34,31 @@
   through the mere passage of time, with no write to hang an `increment` on — so
   a one-read aggregation is both cheaper to reason about and drift-free, while
   still removing the full-deck read (the actual read-amplification win).
-- **Phases 3–6 — not started.**
+- **Phase 3 — partially implemented** (June 2026): the 1100-line
+  `src/services/firestore.ts` was split into focused domain modules —
+  `src/services/cards.ts` (flashcard CRUD, review writes, due/count queries,
+  search), `src/services/stats.ts` (study stats, streaks, dashboard
+  aggregation), `src/services/categories.ts` (user-scoped categories + the
+  legacy global `/categories` merge-read), `src/services/worksheets.ts`, and
+  `src/services/diary.ts`. `firestore.ts` is now a thin re-export barrel so
+  existing call sites migrate incrementally (no flag-day rename). The duplicate
+  `UserPreferences` declarations in `useUserPreferences` and `Settings.tsx`
+  were collapsed into one definition in `src/types/index.ts`; because the two
+  had drifted apart (`Settings` used `autoStartBreak`, the hook used
+  `longBreakDuration`/`sessionsUntilLongBreak`/`onboardingCompleted`), the
+  unified type is their superset with the divergent Pomodoro fields optional —
+  each writer still persists the subset it manages until they are reconciled in
+  Phase 4.
+  Two Phase 3 sub-items are **deferred** to keep this PR a low-risk structural
+  move: (a) folding `VocabularyWord` into a `Pick<Flashcard, …>` — the two
+  shapes differ enough (`chineseTranslation`/`categories` required vs optional,
+  `createdAt` vs `created`, `nextReview` required vs optional) that a clean
+  derivation would ripple type changes through `Library`, `WordGrid`,
+  `CategoryBrowser`, and `WorksheetGenerator`; and (b) adding an
+  `articleCache`-style read cache to `cards.ts` — collection reads carry real
+  staleness risk that warrants its own focused change. Both remain open Phase 3
+  work.
+- **Phases 4–6 — not started.**
 
 ## Context
 

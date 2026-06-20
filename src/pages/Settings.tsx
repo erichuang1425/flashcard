@@ -31,21 +31,7 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { useOnboarding } from '../context/OnboardingContext';
 import { useGuide } from '../context/GuideContext';
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, Language } from '../i18n/translations';
-
-interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  studySessionLength: number;
-  dailyGoal: number;
-  notifications: boolean;
-  audioEnabled: boolean;
-  autoPlayAudio: boolean;
-  language: 'en' | 'zh';
-  pomodoroSettings: {
-    workDuration: number;
-    breakDuration: number;
-    autoStartBreak: boolean;
-  };
-}
+import { UserPreferences } from '../types';
 
 export const Settings: React.FC = () => {
   const { user } = useAuth();
