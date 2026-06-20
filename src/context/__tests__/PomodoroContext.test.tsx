@@ -98,6 +98,36 @@ it('rolls over into a break and chimes when the work block elapses', () => {
   expect(mockPlayCue).toHaveBeenCalled();
 });
 
+it('keeps a running timer intact when an unrelated preference is saved', () => {
+  const { result, rerender } = renderPomodoro();
+  act(() => result.current.start());
+  act(() => jest.advanceTimersByTime(5000));
+  expect(result.current.timeLeft).toBe(55);
+
+  // Saving an unrelated setting replaces the shared preferences object but
+  // leaves the durations unchanged; the running countdown must survive it.
+  prefsValue = { ...prefsValue, dailyGoal: 99 };
+  rerender();
+
+  expect(result.current.isActive).toBe(true);
+  expect(result.current.timeLeft).toBe(55);
+});
+
+it('does not reset an active timer when the work duration changes', () => {
+  const { result, rerender } = renderPomodoro();
+  act(() => result.current.start());
+  act(() => jest.advanceTimersByTime(5000));
+  expect(result.current.timeLeft).toBe(55);
+
+  // A new work duration applies on the next reset/rollover, not by yanking the
+  // current block back to full.
+  prefsValue = { ...prefsValue, pomodoroSettings: { workDuration: 2, breakDuration: 1 } };
+  rerender();
+
+  expect(result.current.timeLeft).toBe(55);
+  expect(result.current.workDuration).toBe(120);
+});
+
 it('throws when usePomodoro is used outside its provider', () => {
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   expect(() => renderHook(() => usePomodoro())).toThrow(/within a PomodoroProvider/);
