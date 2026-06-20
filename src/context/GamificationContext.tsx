@@ -1,7 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Snackbar, Alert } from '@mui/material';
 import { useAuth } from './AuthContext';
-import { updateUserXP, loadUserAchievements, checkAndUpdateAchievements } from '../services/gamification';
+import {
+  updateUserXP,
+  loadUserAchievements,
+  checkAndUpdateAchievements,
+  ensureDailyChallenges,
+  recordChallengeProgress,
+} from '../services/gamification';
+import type { ChallengeEvent } from '../services/gamification';
 import { getUserStudyStats } from '../services/firestore';
 import type { LevelSystem, Achievement, DailyChallenge } from '../types/gamification';
 import { db } from '../services/firebase';
@@ -15,7 +22,10 @@ interface GamificationContextType {
   addXP: (amount: number) => Promise<void>;
   /** Re-evaluate achievement progress against the latest study stats. */
   checkAchievements: () => Promise<void>;
+  /** Ensure today's challenges exist and load them into state. */
   refreshChallenges: () => Promise<void>;
+  /** Apply a finished session to today's challenges (progress + reward XP). */
+  recordSession: (event: ChallengeEvent) => Promise<void>;
   showLevelUpNotification: (level: number) => void;
   focusMode: boolean;
   setFocusMode: (active: boolean) => void;
@@ -36,7 +46,7 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const { t } = useLanguage();
   const [levelSystem, setLevelSystem] = useState<LevelSystem | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [dailyChallenges] = useState<DailyChallenge[]>([]);
+  const [dailyChallenges, setDailyChallenges] = useState<DailyChallenge[]>([]);
   const [levelUpNotification, setLevelUpNotification] = useState<{ level: number; visible: boolean }>({ level: 0, visible: false });
   const [focusMode, setFocusMode] = useState(false);
 
@@ -65,6 +75,12 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (active) setAchievements(userAchievements);
       })
       .catch((error) => console.error('Error loading achievements:', error));
+
+    ensureDailyChallenges(user.uid)
+      .then((challenges) => {
+        if (active) setDailyChallenges(challenges);
+      })
+      .catch((error) => console.error('Error loading daily challenges:', error));
 
     return () => {
       active = false;
@@ -130,7 +146,21 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const refreshChallenges = useCallback(async () => {
     if (!user) return;
-    // Implement daily challenges refresh logic
+    try {
+      setDailyChallenges(await ensureDailyChallenges(user.uid));
+    } catch (error) {
+      console.error('Error refreshing daily challenges:', error);
+    }
+  }, [user]);
+
+  const recordSession = useCallback(async (event: ChallengeEvent) => {
+    if (!user) return;
+    try {
+      setDailyChallenges(await recordChallengeProgress(user.uid, event));
+    } catch (error) {
+      // Challenge progress is best-effort; never block the session on it.
+      console.error('Error recording session for challenges:', error);
+    }
   }, [user]);
 
   const value = useMemo(() => ({
@@ -140,10 +170,11 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     addXP,
     checkAchievements,
     refreshChallenges,
+    recordSession,
     showLevelUpNotification,
     focusMode,
     setFocusMode,
-  }), [levelSystem, achievements, dailyChallenges, addXP, checkAchievements, refreshChallenges, showLevelUpNotification, focusMode]);
+  }), [levelSystem, achievements, dailyChallenges, addXP, checkAchievements, refreshChallenges, recordSession, showLevelUpNotification, focusMode]);
 
   return (
     <GamificationContext.Provider value={value}>

@@ -59,7 +59,7 @@ const EMPTY_PROGRESS: StudyProgress = {
 
 export const useStudySession = (batchSize: number): StudySession => {
   const { user } = useAuth();
-  const { checkAchievements } = useGamification();
+  const { checkAchievements, recordSession } = useGamification();
 
   const [cards, setCards] = useState<Flashcard[]>([]);
   // Full deck kept around so study modes that need distractors (e.g. Multiple
@@ -177,21 +177,28 @@ export const useStudySession = (batchSize: number): StudySession => {
       if (!user || sessionReviewed === 0) return;
 
       await flushPendingReviews();
+      const durationSeconds = Math.max(0, Math.round((Date.now() - sessionStart.current) / 1000));
+      const accuracy = Math.round((sessionCorrect / sessionReviewed) * 100);
       try {
         await updateUserStudyStats(user.uid, {
-          duration: Math.max(0, Math.round((Date.now() - sessionStart.current) / 1000)),
+          duration: durationSeconds,
           cardsStudied: sessionReviewed,
-          accuracy: Math.round((sessionCorrect / sessionReviewed) * 100),
+          accuracy,
           masteredCards: masteredCount.current,
         });
         await updateDailyStreak(user.uid);
         await checkAchievements();
+        await recordSession({
+          cardsReviewed: sessionReviewed,
+          accuracy,
+          studyMinutes: Math.round(durationSeconds / 60),
+        });
       } catch (err) {
         // The session itself succeeded; stats are best-effort.
         console.error('Error recording study session:', err);
       }
     },
-    [user, flushPendingReviews, checkAchievements]
+    [user, flushPendingReviews, checkAchievements, recordSession]
   );
 
   const submitRating = useCallback(

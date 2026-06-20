@@ -74,7 +74,23 @@
   left alone — they cover distinct concerns (first-run gating that reads the
   prefs doc *before* `SettingsProvider` mounts vs. tooltip-tips state), so
   collapsing them buys little and risks the onboarding gate.
-- **Phases 5–6 — not started.**
+- **Phase 5 — partially implemented** (June 2026): daily challenges are no longer
+  a stub. `refreshChallenges` now generates three challenges per local day (review
+  N cards, study N minutes, hit N% accuracy in a session) via a deterministic,
+  date-seeded picker (`generateDailyChallenges`), persisted on the
+  `users/{uid}/stats/gamification` doc (`challengesDate` + `dailyChallenges`,
+  merge-written so the level system is untouched). The Phase 1 session engine
+  reports each finished session through `GamificationContext.recordSession`, which
+  applies the event with the pure `applyChallengeEvent` (count/time accumulate and
+  cap at target; accuracy banks the day's best non-empty session) and awards each
+  challenge's reward XP the moment it completes. Home renders a "Daily Challenges"
+  card with per-challenge progress bars. The dead `LeaderboardEntry` type was
+  deleted (multi-user features are out of scope for the single-user data model).
+  **Deferred:** fully event-driven achievement checks (achievements are still
+  re-evaluated on the session-complete event rather than on every counter change)
+  and real `perfect_sessions` tracking (still hard-coded to 0, so the "Perfect
+  Streak" achievement can't yet complete).
+- **Phase 6 — not started.**
 
 ## Context
 

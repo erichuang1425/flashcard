@@ -17,6 +17,7 @@ const mockUpdateUserStudyStats = jest.fn();
 const mockUpdateDailyStreak = jest.fn();
 const mockUpdateUserXP = jest.fn();
 const mockCheckAchievements = jest.fn();
+const mockRecordSession = jest.fn();
 
 jest.mock('../../services/firestore', () => ({
   getUserFlashcards: (...args: unknown[]) => mockGetUserFlashcards(...args),
@@ -38,7 +39,10 @@ jest.mock('../../context/AuthContext', () => ({
 }));
 
 jest.mock('../../context/GamificationContext', () => ({
-  useGamification: () => ({ checkAchievements: mockCheckAchievements }),
+  useGamification: () => ({
+    checkAchievements: mockCheckAchievements,
+    recordSession: mockRecordSession,
+  }),
 }));
 
 import { useStudySession } from '../useStudySession';
@@ -80,6 +84,7 @@ beforeEach(() => {
   mockUpdateDailyStreak.mockResolvedValue(undefined);
   mockUpdateUserXP.mockResolvedValue(undefined);
   mockCheckAchievements.mockResolvedValue(undefined);
+  mockRecordSession.mockResolvedValue(undefined);
 });
 
 it('loads the deck and queues only the due cards', async () => {
