@@ -35,13 +35,19 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const workSeconds = (preferences?.pomodoroSettings?.workDuration ?? 25) * 60;
   const breakSeconds = (preferences?.pomodoroSettings?.breakDuration ?? 5) * 60;
 
-  // Seed the countdown from stored preferences once they load (or change).
+  // Keep the idle countdown in sync with the configured durations. This depends
+  // narrowly on the derived second-counts — not the whole preferences object —
+  // so saving unrelated settings (dailyGoal, notifications, …) doesn't re-run
+  // it, and it never touches a running timer, so a save can't discard Pomodoro
+  // progress. A changed duration takes effect on the next idle tick / reset.
   useEffect(() => {
-    if (preferences) {
-      const workDuration = preferences.pomodoroSettings?.workDuration ?? 25;
-      setTimeLeft(workDuration * 60);
+    if (!isActive) {
+      setTimeLeft(isBreak ? breakSeconds : workSeconds);
     }
-  }, [preferences]);
+    // isActive/isBreak are read for the guard but intentionally not deps: this
+    // should fire only when the configured durations change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workSeconds, breakSeconds]);
 
   const start = React.useCallback(() => {
     // Runs inside the Start button's click handler — a real user gesture — so
