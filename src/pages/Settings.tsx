@@ -65,19 +65,26 @@ export const Settings: React.FC = () => {
     updateSettings: updatePronunciation,
   } = usePronunciation();
 
-  // Seed the editable form from the shared preferences exactly once, when they
-  // first load. Re-seeding on every change would discard in-progress edits if a
-  // preference is written elsewhere (e.g. the nav-bar theme toggle) before Save.
-  // `baseline` records that seed so Save can persist only the fields the user
-  // actually changed here.
-  const seeded = useRef(false);
+  // Keep the editable form in step with the shared preferences without ever
+  // discarding unsaved edits. While the form is pristine (still matches the
+  // values it was seeded with) it adopts the latest shared copy — so a later,
+  // accurate read (a different signed-in user, or preferences that finished
+  // loading after this page mounted) replaces a stale seed rather than being
+  // locked out. Once the user edits, the draft is held until they Save.
+  // `baseline` records the seeded values so Save can diff against them.
   const baseline = useRef<UserPreferences | null>(null);
   useEffect(() => {
-    if (storedPreferences && !seeded.current) {
+    if (!storedPreferences) return;
+    const dirty =
+      baseline.current !== null &&
+      JSON.stringify(preferences) !== JSON.stringify(baseline.current);
+    if (!dirty) {
       setPreferences(storedPreferences);
       baseline.current = storedPreferences;
-      seeded.current = true;
     }
+    // Re-evaluate only when the shared preferences change; `preferences` is read
+    // to detect an in-progress draft, not to drive the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storedPreferences]);
 
   const handleSave = async () => {
