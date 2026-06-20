@@ -101,11 +101,13 @@ describe('updatePreferences', () => {
     });
 
     expect(result.current.preferences).toEqual({ theme: 'dark', dailyGoal: 30 });
-    // Last write carries the merged object.
-    expect(mockSetDoc).toHaveBeenLastCalledWith(expect.anything(), {
-      theme: 'dark',
-      dailyGoal: 30,
-    });
+    // Only the changed field is persisted, merged into the existing document so
+    // fields this copy doesn't track (e.g. onboardingCompleted) survive.
+    expect(mockSetDoc).toHaveBeenLastCalledWith(
+      expect.anything(),
+      { theme: 'dark' },
+      { merge: true },
+    );
   });
 
   it('does nothing before preferences have loaded', async () => {

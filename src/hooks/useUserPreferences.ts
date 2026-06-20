@@ -60,9 +60,14 @@ export const useUserPreferences = () => {
     if (!user || !preferences) return;
 
     try {
-      const updatedPrefs = { ...preferences, ...newPrefs };
-      await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), updatedPrefs);
-      setPreferences(updatedPrefs);
+      // Persist only the changed fields with `merge: true`. Writing the whole
+      // document would clobber preference fields this in-memory copy doesn't
+      // track — e.g. `onboardingCompleted`, written directly by
+      // `OnboardingProvider` — reverting them whenever any screen saves.
+      await setDoc(doc(db, 'users', user.uid, 'preferences', 'study'), newPrefs, {
+        merge: true,
+      });
+      setPreferences({ ...preferences, ...newPrefs });
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to update preferences'));
       throw err;
