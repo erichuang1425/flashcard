@@ -170,6 +170,20 @@ describe('updateUserXP', () => {
     expect(result.totalXP).toBe(250);
   });
 
+  it('treats a stats doc that holds only challenge data as a fresh level system', async () => {
+    // A new account whose first write to this doc was the daily-challenge data:
+    // it exists but has no level fields. Casting it straight to LevelSystem
+    // would feed applyXPGain undefined fields and produce NaN.
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ challengesDate: '2026-06-20', dailyChallenges: [] }),
+    });
+
+    const result = await updateUserXP('user-1', 50);
+
+    expect(result).toEqual({ currentLevel: 1, currentXP: 50, requiredXP: 100, totalXP: 50 });
+  });
+
   it('propagates errors from the Firestore read', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockGetDoc.mockRejectedValue(new Error('offline'));

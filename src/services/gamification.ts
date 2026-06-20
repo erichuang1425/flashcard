@@ -65,10 +65,16 @@ export const updateUserXP = async (userId: string, xpGained: number): Promise<Le
     return await runTransaction(db, async (transaction) => {
       const statsDoc = await transaction.get(userStatsRef);
 
-      // Initialize default stats if none exist
-      const currentStats: LevelSystem = statsDoc.exists()
-        ? statsDoc.data() as LevelSystem
-        : initialLevelSystem();
+      // Initialize default stats if the doc is missing OR exists without level
+      // fields. The latter happens for a new account whose first write to this
+      // doc was the daily-challenge data (`challengesDate`/`dailyChallenges`);
+      // casting that straight to LevelSystem would feed `applyXPGain` undefined
+      // level fields and produce NaN, failing the first XP award.
+      const data = statsDoc.exists() ? (statsDoc.data() as Partial<LevelSystem>) : null;
+      const currentStats: LevelSystem =
+        data && typeof data.currentLevel === 'number'
+          ? (data as LevelSystem)
+          : initialLevelSystem();
 
       const newStats = applyXPGain(currentStats, xpGained);
 
@@ -355,15 +361,33 @@ export const recordChallengeProgress = async (
   timeZone?: string
 ): Promise<DailyChallenge[]> => {
   const dateKey = challengeDateKey(now, timeZone);
-  const before = (await loadDailyChallenges(userId, dateKey)) ?? generateDailyChallenges(dateKey);
-  const after = applyChallengeEvent(before, event);
+  const ref = gamificationDocRef(userId);
 
-  const reward = after.reduce((sum, challenge, i) => {
-    const justCompleted = challenge.completed && !before[i].completed;
-    return sum + (justCompleted ? challenge.reward : 0);
-  }, 0);
+  // Read-modify-write the challenge set inside a transaction so two sessions
+  // finishing close together (e.g. two tabs, or a duplicate final submit) can't
+  // both read the same incomplete `before`, clobber each other's progress, and
+  // each pay out the reward for the same challenge. A concurrent attempt that
+  // retries re-reads the committed (already-completed) state, so its reward
+  // resolves to 0. The reward is decided inside the transaction and paid out
+  // after it commits via the (also transactional) XP writer.
+  const { after, reward } = await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const data = snapshot.exists() ? (snapshot.data() as StoredChallenges) : null;
+    const before =
+      data?.challengesDate === dateKey && data.dailyChallenges
+        ? data.dailyChallenges
+        : generateDailyChallenges(dateKey);
 
-  await saveDailyChallenges(userId, dateKey, after);
+    const next = applyChallengeEvent(before, event);
+    const earned = next.reduce((sum, challenge, i) => {
+      const justCompleted = challenge.completed && !before[i].completed;
+      return sum + (justCompleted ? challenge.reward : 0);
+    }, 0);
+
+    transaction.set(ref, { challengesDate: dateKey, dailyChallenges: next }, { merge: true });
+    return { after: next, reward: earned };
+  });
+
   if (reward > 0) await updateUserXP(userId, reward);
 
   return after;
