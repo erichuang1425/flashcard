@@ -68,23 +68,38 @@ export const Settings: React.FC = () => {
   // Seed the editable form from the shared preferences exactly once, when they
   // first load. Re-seeding on every change would discard in-progress edits if a
   // preference is written elsewhere (e.g. the nav-bar theme toggle) before Save.
+  // `baseline` records that seed so Save can persist only the fields the user
+  // actually changed here.
   const seeded = useRef(false);
+  const baseline = useRef<UserPreferences | null>(null);
   useEffect(() => {
     if (storedPreferences && !seeded.current) {
       setPreferences(storedPreferences);
+      baseline.current = storedPreferences;
       seeded.current = true;
     }
   }, [storedPreferences]);
 
   const handleSave = async () => {
+    // Persist only the fields the user changed in this form, diffed against the
+    // values it was seeded with. An untouched field is never written, so a save
+    // here can't overwrite a newer value set elsewhere while the page was open
+    // (e.g. the nav-bar theme toggle). `onboardingCompleted` is owned by
+    // OnboardingProvider and never round-tripped.
+    const base = baseline.current;
+    const changed: Record<string, unknown> = {};
+    (Object.keys(preferences) as (keyof UserPreferences)[]).forEach((key) => {
+      if (key === 'onboardingCompleted') return;
+      if (!base || JSON.stringify(preferences[key]) !== JSON.stringify(base[key])) {
+        changed[key] = preferences[key];
+      }
+    });
+
     try {
-      // Persist only the fields this screen owns. `onboardingCompleted` is
-      // written out-of-band by OnboardingProvider and may be newer than this
-      // copy, so never round-trip it — a settings save must not revert a
-      // completed first-run guide.
-      const editable: Partial<UserPreferences> = { ...preferences };
-      delete editable.onboardingCompleted;
-      await updatePreferences(editable);
+      if (Object.keys(changed).length > 0) {
+        await updatePreferences(changed as Partial<UserPreferences>);
+        baseline.current = preferences;
+      }
       setSaveStatus({type: 'success', message: t('settings.saved')});
     } catch (error) {
       setSaveStatus({type: 'error', message: t('settings.saveFail')});
