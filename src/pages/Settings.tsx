@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -65,17 +65,26 @@ export const Settings: React.FC = () => {
     updateSettings: updatePronunciation,
   } = usePronunciation();
 
-  // Seed the editable form from the shared preferences once they load (or
-  // change from another screen).
+  // Seed the editable form from the shared preferences exactly once, when they
+  // first load. Re-seeding on every change would discard in-progress edits if a
+  // preference is written elsewhere (e.g. the nav-bar theme toggle) before Save.
+  const seeded = useRef(false);
   useEffect(() => {
-    if (storedPreferences) {
+    if (storedPreferences && !seeded.current) {
       setPreferences(storedPreferences);
+      seeded.current = true;
     }
   }, [storedPreferences]);
 
   const handleSave = async () => {
     try {
-      await updatePreferences(preferences);
+      // Persist only the fields this screen owns. `onboardingCompleted` is
+      // written out-of-band by OnboardingProvider and may be newer than this
+      // copy, so never round-trip it — a settings save must not revert a
+      // completed first-run guide.
+      const editable: Partial<UserPreferences> = { ...preferences };
+      delete editable.onboardingCompleted;
+      await updatePreferences(editable);
       setSaveStatus({type: 'success', message: t('settings.saved')});
     } catch (error) {
       setSaveStatus({type: 'error', message: t('settings.saveFail')});
