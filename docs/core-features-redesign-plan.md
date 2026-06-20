@@ -58,7 +58,23 @@
   `articleCache`-style read cache to `cards.ts` — collection reads carry real
   staleness risk that warrants its own focused change. Both remain open Phase 3
   work.
-- **Phases 4–6 — not started.**
+- **Phase 4 — partially implemented** (June 2026): `SettingsContext` is now the
+  single preferences reader/writer for the authenticated app — it wraps
+  `useUserPreferences` once and re-exposes `preferences`/`updatePreferences`, and
+  `Settings.tsx` was switched off its own `getDoc`/`setDoc` pair onto that path,
+  so a theme toggled from the nav bar can no longer be reverted by a stale Save
+  from the settings screen. The Pomodoro timer was extracted from
+  `SettingsContext` into a focused `src/context/PomodoroContext.tsx`
+  (`usePomodoro`), mounted around the authenticated shell in `App.tsx` where
+  `Layout`/`Profile` render it, still reading its durations from
+  `SettingsContext`. The timer tests moved to a co-located `PomodoroContext`
+  suite.
+  Two sub-items are **deferred**: `ReadingModeProvider` is already route-scoped
+  (done in an earlier PR), and merging `OnboardingProvider`/`GuideProvider` was
+  left alone — they cover distinct concerns (first-run gating that reads the
+  prefs doc *before* `SettingsProvider` mounts vs. tooltip-tips state), so
+  collapsing them buys little and risks the onboarding gate.
+- **Phases 5–6 — not started.**
 
 ## Context
 
