@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useGamification } from '../context/GamificationContext';
 import { getDashboardStats } from '../services/firestore';
 import SchoolIcon from '@mui/icons-material/School';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -36,6 +37,7 @@ interface StudyStats {
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { dailyChallenges } = useGamification();
   const { t } = useLanguage();
   const [stats, setStats] = useState<StudyStats>({
     total: 0,
@@ -329,6 +331,45 @@ export const Home: React.FC = () => {
             {t('home.readArticles')}
           </Button>
         </Box>
+
+        {/* Daily Challenges */}
+        {dailyChallenges.length > 0 && (
+          <Card>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <EmojiEventsIcon color="warning" />
+                <Typography variant="h6">{t('home.dailyChallenges')}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {dailyChallenges.map((challenge) => (
+                  <Box key={challenge.id}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {t(`challenge.${challenge.type}`, { target: challenge.target })}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color={challenge.completed ? 'success.main' : 'text.primary'}
+                      >
+                        {challenge.completed
+                          ? `✓ ${t('home.challengeDone')}`
+                          : `${challenge.progress}/${challenge.target}`}
+                        {' · '}
+                        {t('home.challengeReward', { reward: challenge.reward })}
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={calculatePercentage(challenge.progress, challenge.target)}
+                      color={challenge.completed ? 'success' : 'primary'}
+                      sx={{ height: 8, borderRadius: 4 }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Detailed Stats - Optimize layout */}
         <Grid container spacing={{ xs: 2, sm: 3 }}>
