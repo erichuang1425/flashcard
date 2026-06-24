@@ -19,11 +19,15 @@ jest.mock('../AuthContext', () => ({
 const mockUpdateUserXP = jest.fn();
 const mockLoadAchievements = jest.fn();
 const mockCheckAchievements = jest.fn();
+const mockEnsureChallenges = jest.fn();
+const mockRecordChallengeProgress = jest.fn();
 jest.mock('../../services/gamification', () => ({
   getRequiredXP: jest.fn(() => 100),
   updateUserXP: (...args: unknown[]) => mockUpdateUserXP(...args),
   loadUserAchievements: (...args: unknown[]) => mockLoadAchievements(...args),
   checkAndUpdateAchievements: (...args: unknown[]) => mockCheckAchievements(...args),
+  ensureDailyChallenges: (...args: unknown[]) => mockEnsureChallenges(...args),
+  recordChallengeProgress: (...args: unknown[]) => mockRecordChallengeProgress(...args),
 }));
 
 const mockGetUserStudyStats = jest.fn();
@@ -76,6 +80,8 @@ beforeEach(() => {
   mockOnSnapshot.mockReturnValue(() => {}); // unsubscribe fn
   mockLoadAchievements.mockResolvedValue([]);
   mockCheckAchievements.mockResolvedValue(undefined);
+  mockEnsureChallenges.mockResolvedValue([]);
+  mockRecordChallengeProgress.mockResolvedValue([]);
   mockGetUserStudyStats.mockResolvedValue({
     totalStudySessions: 4,
     masteredCards: 7,
@@ -146,6 +152,43 @@ describe('addXP', () => {
     });
 
     expect(mockUpdateUserXP).not.toHaveBeenCalled();
+  });
+});
+
+describe('daily challenges', () => {
+  const aChallenge = (id: string, progress = 0, completed = false) => ({
+    id,
+    type: 'cards_reviewed' as const,
+    target: 20,
+    progress,
+    reward: 30,
+    completed,
+  });
+
+  it('loads today\'s challenges on mount', async () => {
+    mockEnsureChallenges.mockResolvedValue([aChallenge('review-20')]);
+    const { result } = renderGamification();
+
+    await waitFor(() => expect(result.current.dailyChallenges).toHaveLength(1));
+    expect(mockEnsureChallenges).toHaveBeenCalledWith('alice');
+  });
+
+  it('records a finished session and updates challenge state', async () => {
+    mockEnsureChallenges.mockResolvedValue([aChallenge('review-20')]);
+    mockRecordChallengeProgress.mockResolvedValue([aChallenge('review-20', 20, true)]);
+    const { result } = renderGamification();
+    await waitFor(() => expect(result.current.dailyChallenges).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.recordSession({ cardsReviewed: 20, accuracy: 90, studyMinutes: 6 });
+    });
+
+    expect(mockRecordChallengeProgress).toHaveBeenCalledWith('alice', {
+      cardsReviewed: 20,
+      accuracy: 90,
+      studyMinutes: 6,
+    });
+    expect(result.current.dailyChallenges[0].completed).toBe(true);
   });
 });
 

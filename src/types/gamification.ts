@@ -22,23 +22,18 @@ export interface Achievement {
     totalXP: number;
   }
   
+  /**
+   * One generated challenge for a single local day. The human-readable label is
+   * derived in the UI from `type` + `target` (so it stays translatable); only
+   * the machine fields are persisted. `progress` is in the same unit as
+   * `target` — cards for `cards_reviewed`, minutes for `study_time`, percent for
+   * `accuracy`.
+   */
   export interface DailyChallenge {
     id: string;
-    title: string;
-    description: string;
-    type: 'study_time' | 'cards_reviewed' | 'accuracy' | 'specific_category';
+    type: 'cards_reviewed' | 'study_time' | 'accuracy';
     target: number;
     progress: number;
     reward: number;
-    expiresAt: Date;
     completed: boolean;
-  }
-  
-  export interface LeaderboardEntry {
-    userId: string;
-    displayName: string;
-    avatarUrl?: string;
-    score: number;
-    rank?: number;
-    weekNumber: number;
   }
