@@ -1,95 +1,86 @@
-# Auth persistence & the "never block sign-in" contract
+# Auth Persistence and the "Never Block Sign-In" Contract
 
 "Remember me" maps onto Firebase Auth persistence:
 
-- **checked** → `indexedDBLocalPersistence` (survives a browser restart)
-- **unchecked** → `browserSessionPersistence` (cleared with the tab), backed by `sessionStorage`
+- **checked** -> `indexedDBLocalPersistence` (survives a browser restart)
+- **unchecked** -> `browserSessionPersistence` (cleared with the tab), backed by `sessionStorage`
 
-The persistence choice is a *convenience preference*. It must **never** be able to
-block authentication itself. See `src/context/AuthContext.tsx` (`applyPersistence`).
+The persistence choice is a convenience preference. It must never be able to
+block authentication itself. See `src/context/AuthContext.tsx`
+(`applyPersistence`).
 
-## The regression this guards against
+## Regression Guarded By This Design
 
-The original "remember me" work called `setPersistence(...)` before every sign-in
-and treated a failure as fatal — the email flow threw before signing in, and the
-Google flow signed the user back out. In storage-restricted environments
-(private/incognito, in-app webviews like Instagram/Facebook/iOS, disabled
-cookies) the chosen store can't be written, so users could authenticate but were
-immediately bounced back to `/login` with a null session. Both methods, every
-time, exactly as reported.
+The original remember-me work called `setPersistence(...)` before every sign-in
+and treated a failure as fatal: the email flow threw before signing in, and the
+Google flow signed the user back out. In storage-restricted environments such as
+private windows, in-app webviews, disabled cookies, or full/blocked browser
+storage, the chosen store can be unavailable even though the credentials are
+valid.
 
-## Current fix (shipped)
+The product rule is simple: storage durability can degrade, but sign-in should
+still proceed whenever Firebase accepts the credential.
 
-`setPersistence` does **not** surface a blocked store while signed out: with no
-current user to migrate, `PersistenceUserManager.setPersistence` just switches
-the active store and resolves *without* probing it or writing. The failure would
-otherwise only land later, when sign-in writes the authenticated user (and that
-write rejecting also skips `notifyAuthListeners`, so `onAuthStateChanged` never
-fires).
+## Current Fix
 
-So every store is **probed up front** before it is selected, and the most
-durable *usable* one wins. For "remember me" that ladder is IndexedDB →
-`localStorage` → in-memory; for session-only it is `sessionStorage` → in-memory.
-Durable sessions prefer IndexedDB (Firebase's preferred browser backend) instead
-of forcing `localStorage`, which is what caused the original remember-me-only
-failure when that store was full or restricted.
+`setPersistence` does not reliably surface a blocked store while signed out.
+With no current user to migrate, Firebase may switch the active store and resolve
+without probing or writing. The failure can land later, when sign-in writes the
+authenticated user. If that write rejects, `onAuthStateChanged` may never fire.
 
-Probing IndexedDB before selecting it matters beyond a single sign-in: once a
-broken IndexedDB is the **active** store, `setPersistence` can no longer switch
-away from it — `PersistenceUserManager.setPersistence` reads and removes the user
-from the active store *before* swapping backends, so a disabled/corrupted
-IndexedDB would also wedge every in-memory/localStorage fallback. The probe opens
-a throwaway database and runs a trivial write (bounded by a timeout, since some
-privacy modes hang); only a backend that both opens and writes is selected.
+To avoid that trap, every candidate store is probed before selection. For
+"remember me", the ladder is:
 
-If the real authenticated-user write still rejects *after* a usable store was
-selected (e.g. transient quota during the larger write), email sign-in is retried
-once under memory persistence, or the already-authenticated user is re-homed (see
-the durability ladder below). In-memory needs no storage and is strictly more
-ephemeral than either choice. Worst case, the session lasts only for the current
-page, but the user can actually sign in.
+```text
+IndexedDB -> localStorage -> in-memory
+```
 
-## Full hardening
+For session-only sign-in, the ladder is:
 
-### Quota: probe passes but the real user-write doesn't
+```text
+sessionStorage -> in-memory
+```
+
+Durable sessions prefer IndexedDB, Firebase's preferred browser backend, instead
+of forcing localStorage. The fallback only gets less durable; it never silently
+upgrades a session-only request into a durable browser session.
+
+Probing IndexedDB before selecting it also prevents a deeper wedge. Once a
+broken IndexedDB is the active store, `setPersistence` can fail while trying to
+read and remove the user from that active store before swapping backends. The
+probe opens a throwaway database and runs a trivial write, bounded by a timeout
+for privacy modes that hang.
+
+## Full Hardening
+
+### Quota: probe passes but the real user write fails
 
 Even an available persistence backend can reject Firebase's larger serialized
-user write because of an origin quota or a browser/storage failure. When that
-happens, `onAuthStateChanged` may never fire.
+user write because of quota or a browser storage failure. When that happens, the
+sign-in wrappers recover by re-homing the authenticated user through
+`setPersistence(...)` and `updateCurrentUser(auth, auth.currentUser)`.
 
-The sign-in calls are wrapped so that, if one rejects but `auth.currentUser` is
-set (the credential was accepted, only persistence failed), they recover by
-re-homing that user via `setPersistence(...)` + `updateCurrentUser(auth,
-auth.currentUser)` so the listeners fire and the user lands signed in. This works
-because `directlySetCurrentUser` sets `auth.currentUser` *before* the failing
-persistence write. (Safe here because sign-in only runs while signed out, so a
-non-null `currentUser` in the catch unambiguously means "authenticated but not
-persisted.")
+This is safe here because sign-in only runs while signed out. A non-null
+`auth.currentUser` in the catch means the credential was accepted, but the
+session was not persisted or announced to listeners.
 
-Recovery walks a **durability ladder** rather than dropping straight to memory: a
-"remember me" sign-in whose IndexedDB write failed is re-homed in
-`browserLocalPersistence` when `localStorage` is still writable (so the session
-survives a restart), and only falls to `inMemoryPersistence` if that store
-rejects the write too. A session-only ("remember me" unchecked) sign-in skips the
-durable tier entirely, so the preference is never silently upgraded. Each tier is
-strictly more ephemeral than the last; the worst case is an in-memory session
-that lasts the current page but lets the user actually sign in.
+Recovery walks the durability ladder rather than dropping straight to memory. A
+"remember me" sign-in whose IndexedDB write failed tries `browserLocalPersistence`
+when localStorage is still writable, then falls to `inMemoryPersistence`. A
+session-only sign-in skips the durable tier entirely.
 
-### Google redirect fallback when `sessionStorage` is blocked
+### Google redirect fallback when sessionStorage is blocked
 
-When the popup is blocked **and** `sessionStorage` is unavailable, the redirect
-fallback still fails: Firebase's redirect resolver independently writes a
-`pendingRedirect` marker to `browserSessionPersistence`, which our main
-in-memory fallback does not affect. OAuth redirect fundamentally cannot complete
-without that store.
+When the popup is blocked and `sessionStorage` is unavailable, Firebase's OAuth
+redirect resolver cannot complete because it independently writes a
+`pendingRedirect` marker to `browserSessionPersistence`. The app therefore does
+not attempt a doomed redirect when the probe shows session storage is blocked.
+It surfaces a clear error instead. Email/password sign-in under in-memory
+persistence remains available.
 
-When the probe shows storage is blocked, the app does not attempt the doomed
-redirect. It surfaces a clear, actionable error instead of a silent failure.
-Email/password (under in-memory persistence) remains available.
+## Testing Notes
 
-## Testing notes
-
-`src/context/__tests__/AuthContext.test.tsx` covers the probe path (blocked
-storage → in-memory, sign-in still proceeds), recovery after the real user write
-fails, synchronous local auth state updates, cancellation, and the blocked
+`src/context/__tests__/AuthContext.test.tsx` covers blocked-storage fallback,
+successful sign-in under in-memory persistence, recovery after real user-write
+failure, synchronous local auth state updates, cancellation, and the blocked
 `sessionStorage` redirect guard.

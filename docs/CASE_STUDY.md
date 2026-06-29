@@ -1,64 +1,111 @@
 # Flashcard Studio Case Study
 
-## 1) Problem and product direction
+## 1. Problem and Product Direction
 
-Most vocabulary tools are either too lightweight (simple lists with no review structure) or too rigid (heavy LMS-style systems). I wanted a middle path: a personal learning workspace where learners can import real study material, practice in multiple modes, and track momentum over time.
+Many vocabulary tools sit at one of two extremes: quick lists with little review
+structure, or heavy classroom systems that are more process than practice.
+Flashcard Studio aims for the middle path: a personal learning workspace where a
+learner can import real material, review it in several active-recall formats,
+and keep enough progress feedback to return tomorrow.
 
-**Goal:** build a study app that feels practical for daily use, not just a demo.
+**Goal:** build a study app that feels useful in daily life, not just presentable
+in a demo.
 
-## 2) Target user persona
+## 2. Target User
 
-### Persona: Working learner “Mina”
-- **Profile:** 27-year-old early-career professional improving English for client communication.
-- **Context:** studies in short sessions before work and at night.
-- **Pain points:** inconsistent study rhythm, hard to convert notes into reusable cards, low motivation when progress is unclear.
-- **Needs:** quick import, short guided sessions, visible progress, and low-friction review.
+### Persona: working learner, Mina
 
-## 3) Product decisions and rationale
+- **Profile:** 27-year-old early-career professional improving English for
+  client communication.
+- **Context:** studies in short sessions before work, during commutes, and at
+  night.
+- **Pain points:** scattered vocabulary notes, inconsistent review rhythm, and
+  low motivation when progress is invisible.
+- **Needs:** quick import, short guided sessions, visible progress, and
+  low-friction review.
 
-### Decision A: Firebase-first architecture
-- **Why:** fast iteration with authentication, Firestore, and storage under one platform.
-- **Tradeoff:** tight coupling to Firebase data patterns and security rules.
+## 3. Product Decisions
 
-### Decision B: Multiple study modes (not flashcards only)
-- **Why:** recall quality improves when learners switch between recognition and production tasks.
-- **Tradeoff:** more UI/logic complexity and larger test surface area.
+### Firebase-first architecture
 
-### Decision C: Import and worksheet workflows
-- **Why:** users already have vocabulary in spreadsheets or notes; import removes blank-page friction.
-- **Tradeoff:** CSV parsing and validation edge cases require stronger UX/error handling.
+- **Why:** Firebase made authentication, Firestore, hosting, storage, offline
+  persistence, and security rules available without building a custom backend.
+- **Tradeoff:** the app is coupled to Firebase's data model, SDK behavior, and
+  deployment workflow.
 
-### Decision D: Gamification as support, not core loop
-- **Why:** streaks/XP can reinforce consistency, but should not distract from learning quality.
-- **Tradeoff:** balancing motivational signals without turning study into pure point-chasing.
+### Multiple study modes
 
-## 4) Success criteria
+- **Why:** recall improves when learners move between recognition, production,
+  and matching tasks instead of repeating one card interaction.
+- **Tradeoff:** each mode adds UI state, scoring rules, edge cases, and tests.
 
-Current quality signals used during development:
-- App can ingest a realistic sample dataset in one pass.
-- Learner can complete a first study session in under 10 minutes.
-- Progress and completion feedback are visible after each session.
-- Build and tests remain stable after feature additions.
+### Import and worksheet workflows
 
-## 5) Roadmap
+- **Why:** most learners already have vocabulary in spreadsheets, notes, or exam
+  prep lists. Import removes the blank-page problem; worksheets support offline
+  or paper-based practice.
+- **Tradeoff:** CSV parsing, duplicate handling, validation, and generated
+  document output all require careful boundary tests.
 
-### Near-term (next 1–2 releases)
-- Split large bundles with route-level code-splitting.
-- Add import validation report with row-level error export.
-- Improve accessibility: keyboard flow and screen-reader labels.
+### Gamification as a support layer
 
-### Mid-term
-- Add review scheduling dashboard with calendar view.
-- Add smarter distractor generation for multiple-choice mode.
-- Add optional collaborative shared decks.
+- **Why:** streaks, XP, achievements, challenges, and focus timers can help
+  learners return without making points the whole product.
+- **Tradeoff:** motivational signals need limits so they reinforce learning
+  instead of distracting from it.
 
-### Long-term
-- Adaptive review policy tuned by learner performance trends.
-- Mobile-first offline workflow for commute-friendly sessions.
+### Reading practice as vocabulary discovery
 
-## 6) Portfolio talking points
+- **Why:** learners often discover words in articles, not isolated lists. The
+  reading workspace lets notes and dictionary lookups feed back into flashcards.
+- **Tradeoff:** article import, progress tracking, and note storage broaden the
+  product beyond a pure card app.
 
-If you present this project in interviews, emphasize:
-1. How you translated a real user problem into concrete product decisions.
-2. How architecture choices accelerated delivery while preserving maintainability.
-3. What tradeoffs you accepted and what you plan to improve next.
+## 4. Success Criteria
+
+- A reviewer can import a realistic sample deck in one pass.
+- A new user can complete a first study session in under 10 minutes.
+- Progress and completion feedback are visible after a session.
+- Core study behavior remains covered by tests as features are added.
+- Firebase rules preserve user-owned data boundaries.
+
+## 5. Current Strengths
+
+- Clear route-level product areas: Home, Import, Library, Study, Reading,
+  Diary, Worksheets, Profile, and Settings.
+- Typed service boundaries for Firebase-backed domains.
+- Tests around study-mode logic, spaced repetition, i18n, auth persistence,
+  settings, gamification, imports, reading services, and Firestore rules.
+- Built-in SAT, PTE Academic, and TOEFL iBT packs for fast evaluation.
+- Offline and mobile considerations, including PWA metadata and viewport
+  helpers.
+
+## 6. Roadmap
+
+### Near term
+
+- Split large route bundles with code splitting.
+- Add an import validation report with row-level error export.
+- Capture and publish screenshots after the next UI polish pass.
+- Expand route-level tests for the highest-traffic workflows.
+
+### Mid term
+
+- Add a review scheduling dashboard with calendar visibility.
+- Improve distractor generation for multiple-choice sessions.
+- Add more robust generated worksheet previews.
+
+### Long term
+
+- Tune review scheduling with learner performance trends.
+- Offer optional shared decks after personal-deck flows are fully hardened.
+- Improve commute-friendly offline behavior.
+
+## 7. Interview Talking Points
+
+1. Translating a real study consistency problem into concrete product workflows.
+2. Choosing Firebase to accelerate delivery while accepting platform coupling.
+3. Keeping study-mode scoring and data writes testable despite a broad feature
+   surface.
+4. Treating progress and gamification as motivation, not as a replacement for
+   learning quality.
