@@ -33,7 +33,7 @@ Academic, and TOEFL iBT vocabulary packs, export tools, and tests around the
 learning logic and data boundaries.
 
 <p align="center">
-  <img src="public/screenshots/login-desktop.png" alt="Flashcard Studio login screen" width="760">
+  <img src="public/screenshots/dashboard-polished.png" alt="Flashcard Studio signed-in dashboard" width="900">
 </p>
 
 ## What you can do
@@ -61,13 +61,12 @@ flowchart LR
 
 ## Screenshots
 
-These captures come from the production preview build. The signed-in study,
-library, reading, and worksheet flows are Firebase-gated, so the public README
-shows the entry points without creating a throwaway account.
+These signed-in captures show the main study dashboard and the active review
+loop after a vocabulary deck is loaded.
 
-| Login | Register | Mobile login |
-| --- | --- | --- |
-| <img src="public/screenshots/login-desktop.png" alt="Desktop login screen" width="280"> | <img src="public/screenshots/register-desktop.png" alt="Desktop registration screen" width="280"> | <img src="public/screenshots/login-mobile.png" alt="Mobile login screen" width="160"> |
+| Dashboard | Study session |
+| --- | --- |
+| <img src="public/screenshots/dashboard-polished.png" alt="Signed-in dashboard with review stats and focus timer" width="430"> | <img src="public/screenshots/study-session-polished.png" alt="Study session showing a vocabulary flashcard" width="430"> |
 
 ## Tech stack
 
