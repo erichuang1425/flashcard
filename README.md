@@ -16,17 +16,25 @@
   <img alt="PWA" src="https://img.shields.io/badge/PWA-offline%20ready-0f766e">
 </p>
 
-Flashcard Studio helps learners turn vocabulary lists, exam packs, and reading
-material into repeatable practice. Import a deck, organize it by category,
-review it in several active-recall modes, save notes from articles, and print
-worksheets when paper is easier than another tab.
+<p align="center">
+  <a href="https://vocabmaster1425.web.app">Live app</a> ·
+  <a href="docs/CASE_STUDY.md">Case study</a> ·
+  <a href="docs/RELEASE_NOTES.md">Release notes</a> ·
+  <a href="#setup">Run locally</a>
+</p>
+
+Learn from your own material. Flashcard Studio takes vocabulary lists, exam
+packs, and reading notes and gives them a daily review loop: import, organize,
+practice, export, repeat.
 
 The project is a working React + Firebase app, not a static mockup. It includes
 authentication, Firestore-backed user data, offline caching, built-in SAT, PTE
 Academic, and TOEFL iBT vocabulary packs, export tools, and tests around the
 learning logic and data boundaries.
 
-**Live app:** [vocabmaster1425.web.app](https://vocabmaster1425.web.app)
+<p align="center">
+  <img src="public/screenshots/login-desktop.png" alt="Flashcard Studio login screen" width="760">
+</p>
 
 ## What you can do
 
@@ -53,12 +61,13 @@ flowchart LR
 
 ## Screenshots
 
-Screenshots are not committed yet because the UI is still moving. These are the
-views worth capturing once the next visual pass lands:
+These captures come from the production preview build. The signed-in study,
+library, reading, and worksheet flows are Firebase-gated, so the public README
+shows the entry points without creating a throwaway account.
 
-| Library | Study session | Reading workspace |
+| Login | Register | Mobile login |
 | --- | --- | --- |
-| Searchable cards, categories, and bulk actions | Flashcard review plus active-recall modes | Article notes, dictionary lookup, and save-to-card flow |
+| <img src="public/screenshots/login-desktop.png" alt="Desktop login screen" width="280"> | <img src="public/screenshots/register-desktop.png" alt="Desktop registration screen" width="280"> | <img src="public/screenshots/login-mobile.png" alt="Mobile login screen" width="160"> |
 
 ## Tech stack
 
@@ -214,7 +223,6 @@ project before publishing changes to the live site.
 
 - Add route-level code splitting for faster first load.
 - Add an import validation report with row-level error export.
-- Capture polished screenshots after the next UI pass.
 - Expand route-level tests for Login, Register, Study, Import, Library, and Reading workflows.
 - Add a review scheduling dashboard with calendar-style visibility.
 - Explore optional shared decks after personal-deck flows are fully hardened.
