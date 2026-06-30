@@ -1,5 +1,7 @@
 # Changelog
 
+See `docs/RELEASE_NOTES.md` for the public-facing release summary.
+
 ## v1.0.0 - 2026-06-29
 
 Flashcard Studio is ready for public portfolio review as a React + Firebase

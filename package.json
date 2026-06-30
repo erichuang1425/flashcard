@@ -34,14 +34,22 @@
   },
   "keywords": [
     "flashcards",
+    "spaced-repetition",
+    "language-learning",
     "education",
     "react",
     "typescript",
-    "firebase"
+    "firebase",
+    "firestore",
+    "pwa",
+    "material-ui",
+    "jest",
+    "toefl",
+    "sat"
   ],
-  "author": "Flashcard Studio Contributors",
+  "author": "I-Kai Huang",
   "license": "ISC",
-  "description": "A modern React + Firebase flashcard and study workflow application.",
+  "description": "A React + Firebase study workspace for flashcards, reading notes, worksheets, and spaced-repetition review.",
   "overrides": {
     "test-exclude": "^7.0.2"
   },
